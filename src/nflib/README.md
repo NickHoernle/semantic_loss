@@ -1,0 +1,1 @@
+Code adapted from https://github.com/karpathy/pytorch-normalizing-flows look at A Karpathy's repo for a more succinct and better description of what is happening.
