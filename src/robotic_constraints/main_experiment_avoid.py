@@ -43,7 +43,7 @@ best_loss = 0
 global_step = 0
 
 def build_model(device, dim=10, num_layers=10, conditioning=True, num_conditioning=4):
-    base_dist = MultivariateNormal(torch.zeros(dim), torch.eye(dim)).to(device)
+    base_dist = MultivariateNormal(torch.zeros(dim).to(device), torch.eye(dim).to(device))
     flows = [SlowMAF(dim=dim, parity=i % 2,
                           conditioning=conditioning,
                           num_conditioning=num_conditioning,
