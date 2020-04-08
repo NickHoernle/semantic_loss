@@ -158,7 +158,7 @@ class SlowMAF(nn.Module):
     """ 
     Masked Autoregressive Flow, slow version with explicit networks per dim
     """
-    def __init__(self, dim, parity, net_class=MLP, nh=24, **kwargs):
+    def __init__(self, dim, parity, device, net_class=MLP, nh=24, **kwargs):
         super().__init__()
         self.dim = dim
         self.layers = nn.ModuleDict()
@@ -166,6 +166,7 @@ class SlowMAF(nn.Module):
 
         self.condition = kwargs.get('conditioning', False)
         self.num_condition = kwargs.get('num_conditioning', 0)
+        self.device = device
 
         for i in range(1, dim):
             self.layers[str(i)] = net_class(i+self.num_condition*self.condition, 2, nh)
@@ -174,7 +175,7 @@ class SlowMAF(nn.Module):
         
     def forward(self, x, **kwargs):
         z = torch.zeros_like(x)
-        log_det = torch.zeros(x.size(0))
+        log_det = torch.zeros(x.size(0)).to(self.device)
         for i in range(self.dim):
             if self.condition:
                 st = self.layers[str(i)](torch.cat((x[:, :i], kwargs['condition_variable']), -1))
