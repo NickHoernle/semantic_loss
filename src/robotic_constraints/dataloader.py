@@ -14,7 +14,7 @@ class NavigateFromTo(data.Dataset):
 
         self.list_IDs = self.ids_all[type]
         # TODO implement a subsampler to limit data
-        # self.trajectory = trajectory
+        self.trajectory = trajectory
 
   @property
   def n_dims(self):
@@ -34,10 +34,13 @@ class NavigateFromTo(data.Dataset):
 
         # Load data and get label
         weight_path = os.path.join(self.data_path, f"weights_{ID}.pt")
-        trajectory_path = os.path.join(self.data_path, f"trajectory_{ID}.pt")
+        trajectory_dat = torch.tensor([0])
+
+        if self.trajectory:
+            trajectory_path = os.path.join(self.data_path, f"trajectory_{ID}.pt")
+            trajectory_dat = torch.load(trajectory_path)
 
         weights = torch.load(weight_path)
-        trajectory_dat = torch.load(trajectory_path)
-        condition_params = torch.tensor([trajectory_dat[0,0], trajectory_dat[0,1], trajectory_dat[-1,0], trajectory_dat[-1,1]])
+        condition_params = torch.tensor(self.ids_all['params'][f"{ID}"])
 
         return weights.view(-1,), condition_params, trajectory_dat.view(-1,)
