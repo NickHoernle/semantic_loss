@@ -116,7 +116,7 @@ def main(args):
     #                    drop_prob=args.drop_prob)
     print("number of params: ", sum(p.numel() for p in net.parameters()))
 
-    # net = net.to(device)
+    net = net.to(device)
 
     # if device == 'cuda':
         # net = torch.nn.DataParallel(net, args.gpu_ids)
