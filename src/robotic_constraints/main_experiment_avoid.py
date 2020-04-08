@@ -145,6 +145,8 @@ def main(args):
         loss = train(epoch, net, trainloader, device, optimizer, scheduler, args.max_grad_norm, args, log_fh)
         vld_loss = test(epoch, net, testloader, device, args.num_samples, save_dir, args, model_name, log_fh)
 
+        scheduler.step()
+
         print(f'{epoch},{loss},{vld_loss}', file=log_fh)
 
         # early stopping
@@ -217,7 +219,7 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
             if args.backward:
                 num_samples = len(x)
                 z = net.prior.sample((num_samples,))
-                condition_params = start = torch.tensor([
+                condition_params = torch.tensor([
                                                     np.random.uniform(0, .1, size=num_samples),
                                                     np.random.uniform(0, 1., size=num_samples),
                                                     np.random.uniform(.9, 1., size=num_samples),
@@ -248,11 +250,11 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
             if max_grad_norm > 0:
                 clip_grad_norm(optimizer, max_grad_norm)
             optimizer.step()
-            scheduler.step(global_step)
 
-            progress_bar.set_postfix(nll=loss_meter.avg,
-                                     lr=optimizer.param_groups[0]['lr'])
-            progress_bar.update(x.size(0))
+            # scheduler.step(global_step
+            # progress_bar.set_postfix(nll=loss_meter.avg,
+            #                          lr=optimizer.param_groups[0]['lr'])
+            # progress_bar.update(x.size(0))
             global_step += x.size(0)
 
     return loss_meter.avg
