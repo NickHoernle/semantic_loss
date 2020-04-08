@@ -369,6 +369,9 @@ def construct_parser():
     parser.add_argument('--warm_up', type=int, default=200, help='Number of batches for LR warmup')
     parser.add_argument('--weight_decay', default=5e-5, type=float,
                         help='L2 regularization (only applied to the weight norm scale factors)')
+    parser.add_argument('--early-stopping-lim', type=int, default=250, metavar='N',
+                        help='Early stopping implemented after N epochs with no improvement '
+                             '(default: 10)')
     return parser
 
 
