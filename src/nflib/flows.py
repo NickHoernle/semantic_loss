@@ -55,6 +55,7 @@ class BaseDistribution(nn.Module):
         self = super().to(*args, **kwargs)
         self.zeros = self.zeros.to(*args, **kwargs)
         self.ones = self.ones.to(*args, **kwargs)
+        self.base_dist = MultivariateNormal(self.zeros, self.ones)
         return self
 
 
