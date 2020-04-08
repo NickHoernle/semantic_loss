@@ -264,10 +264,11 @@ class Invertible1x1Conv(nn.Module):
         self.L = nn.Parameter(L) # lower triangular portion
         self.S = nn.Parameter(U.diag()) # "crop out" the diagonal to its own parameter
         self.U = nn.Parameter(torch.triu(U, diagonal=1)) # "crop out" diagonal, stored in S
+        self.static_ones = torch.ones(self.dim)
 
     def _assemble_W(self):
         """ assemble W from its pieces (P, L, U, S) """
-        L = torch.tril(self.L, diagonal=-1) + torch.diag(torch.ones(self.dim))
+        L = torch.tril(self.L, diagonal=-1) + torch.diag(self.static_ones)
         U = torch.triu(self.U, diagonal=1)
         W = self.P @ L @ (U + torch.diag(self.S))
         return W
