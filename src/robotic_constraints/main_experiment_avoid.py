@@ -60,7 +60,7 @@ def build_model(device, dim=10, num_layers=10, conditioning=True, num_conditioni
 #     norms = [ActNorm(dim=dim) for _ in flows]
     flows = list(itertools.chain(*zip(norms, convs, flows)))
 
-    return NormalizingFlowModel(base_dist, flows, conditioning=conditioning)
+    return NormalizingFlowModel(base_dist, flows, device, conditioning=conditioning)
 
 
 def raise_cuda_error():
