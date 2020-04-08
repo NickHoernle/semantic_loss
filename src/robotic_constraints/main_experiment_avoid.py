@@ -252,9 +252,9 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
             optimizer.step()
 
             # scheduler.step(global_step
-            # progress_bar.set_postfix(nll=loss_meter.avg,
-            #                          lr=optimizer.param_groups[0]['lr'])
-            # progress_bar.update(x.size(0))
+            progress_bar.set_postfix(nll=loss_meter.avg,
+                                     lr=optimizer.param_groups[0]['lr'])
+            progress_bar.update(x.size(0))
             global_step += x.size(0)
 
     return loss_meter.avg
