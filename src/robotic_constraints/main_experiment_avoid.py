@@ -28,6 +28,7 @@ from nflib import (AffineConstantFlow,
     AffineConstantFlow, ActNorm, AffineHalfFlow,
     SlowMAF, MAF, IAF, Invertible1x1Conv,
     NormalizingFlow, NormalizingFlowModel,
+    BaseDistribution
 )
 
 from rss_code_and_data import (DMP,gen_weights,imitate_path,plot_rollout)
@@ -42,25 +43,19 @@ from robotic_constraints.dataloader import NavigateFromTo
 best_loss = 0
 global_step = 0
 
-def build_model(device, dim=10, num_layers=10, conditioning=True, num_conditioning=4):
-    base_dist = MultivariateNormal(torch.zeros(dim).to(device), torch.eye(dim).to(device))
-    flows = [SlowMAF(dim=dim, parity=i % 2,
-                          conditioning=conditioning,
-                          num_conditioning=num_conditioning,
-                          device=device) for i in range(num_layers)]
-    convs = [Invertible1x1Conv(dim=dim, device=device).to(device) for _ in flows]
-    norms = [ActNorm(dim=dim).to(device) for _ in flows]
+def build_model(dim=10, num_layers=10, conditioning=True, num_conditioning=4):
+
+    base_dist = BaseDistribution(dim)
+    flows = [SlowMAF(dim=dim,
+                     parity=i % 2,
+                     conditioning=conditioning,
+                     num_conditioning=num_conditioning)
+                for i in range(num_layers)]
+    convs = [Invertible1x1Conv(dim=dim) for _ in flows]
+    norms = [ActNorm(dim=dim) for _ in flows]
     flows = list(itertools.chain(*zip(norms, convs, flows)))
 
-#     nfs_flow = NSF_CL
-#     # nfs_flow = NSF_AR
-#     flows = [nfs_flow(dim=dim, K=8, B=3, hidden_dim=16,
-#                       conditioning=conditioning, num_conditioning=num_conditioning) for _ in range(num_layers)]
-#     convs = [Invertible1x1Conv(dim=dim) for _ in flows]
-#     norms = [ActNorm(dim=dim) for _ in flows]
-    flows = list(itertools.chain(*zip(norms, convs, flows)))
-
-    return NormalizingFlowModel(base_dist, flows, device, conditioning=conditioning)
+    return NormalizingFlowModel(base_dist, flows, conditioning=conditioning)
 
 
 def raise_cuda_error():
@@ -106,7 +101,7 @@ def main(args):
     # Model
     dims = training_set.n_dims
     print(f'Building model with {dims} latent dims')
-    net = build_model(dim=dims, num_layers=args.num_layers, device=device)
+    net = build_model(dim=dims, num_layers=args.num_layers)
     # net = FlowPlusPlus(scales=[(0, 4), (2, 3)],
     #                    in_shape=(1, 1, 50),
     #                    mid_channels=args.num_channels,

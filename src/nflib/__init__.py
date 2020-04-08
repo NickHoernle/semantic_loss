@@ -7,3 +7,4 @@ from nflib.flows import Invertible1x1Conv
 from nflib.flows import NormalizingFlow
 from nflib.flows import NormalizingFlowModel
 from nflib.flows import ActNorm
+from nflib.flows import BaseDistribution
