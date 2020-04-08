@@ -210,6 +210,8 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
         for x, condition_params, _ in trainloader:
 
             x = x.to(device)
+            condition_params = condition_params.to(device)
+
             optimizer.zero_grad()
 
             zs, prior_logprob, log_det = net(x, condition_variable=condition_params)
@@ -284,6 +286,8 @@ def test(epoch, net, testloader, device, num_samples, save_dir, args, model_name
     with tqdm(total=len(testloader.dataset)) as progress_bar:
         for x, condition_params, _ in testloader:
             x = x.to(device)
+            condition_params = condition_params.to(device)
+            
             zs, prior_logprob, log_det = net(x, condition_variable=condition_params)
             loss = forward_loss(prior_logprob, log_det)
             loss_meter.update(loss.item(), x.size(0))
