@@ -380,7 +380,8 @@ class NormalizingFlow(nn.Module):
 
     def to(self, *args, **kwargs):
         self = super().to(*args, **kwargs)
-        self.flows = self.flows.to(*args, **kwargs)
+        for f in self.flows:
+            f.to(*args, **kwargs)
         return self
 
 
