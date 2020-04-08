@@ -115,7 +115,7 @@ echo "Number of files at the destination: ${num_lines}"
 # you execute `sbatch --array=1:100 ...` the jobs will get numbers 1 to 100
 # inclusive.
 
-input_dir=${dest_path}/data
+input_dir=${dest_path}data
 output_dir=${dest_path}/output
 mkdir -p ${output_dir}
 mkdir -p ${output_dir}/models
