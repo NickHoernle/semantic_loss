@@ -172,6 +172,12 @@ class AffineHalfFlow(nn.Module):
 
         return x, log_det
 
+    # def to(self, *args, **kwargs):
+    #     self = super().to(*args, **kwargs)
+    #     for i in range(self.dim):
+    #         self.layers[str(i)] = self.layers[str(i)].to(*args, **kwargs)
+    #     return self
+
 
 class SlowMAF(nn.Module):
     """ 
@@ -232,7 +238,7 @@ class SlowMAF(nn.Module):
 class MAF(nn.Module):
     """ Masked Autoregressive Flow that uses a MADE-style network for fast forward """
     
-    def __init__(self, dim, parity, net_class=ARMLP, nh=24, **kwargs):
+    def __init__(self, dim, parity, net_class=MLP, nh=24, **kwargs):
         super().__init__()
         self.dim = dim
         self.parity = parity
@@ -258,7 +264,7 @@ class MAF(nn.Module):
     def backward(self, z, **kwargs):
         # we have to decode the x one at a time, sequentially
         x = torch.zeros_like(z)
-        log_det = torch.zeros(z.size(0))
+        log_det = torch.zeros_like(z[:,0])
         z = z.flip(dims=(1,)) if self.parity else z
         for i in range(self.dim):
             x0 = x.clone()
@@ -269,6 +275,12 @@ class MAF(nn.Module):
             x[:, i] = (z[:, i] - t[:, i]) * torch.exp(-s[:, i])
             log_det += -s[:, i]
         return x, log_det
+
+    # def to(self, *args, **kwargs):
+    #     self = super().to(*args, **kwargs)
+    #     for i in range(self.dim):
+    #         self.layers[str(i)] = self.layers[str(i)].to(*args, **kwargs)
+    #     return self
 
 class IAF(MAF):
     def __init__(self, *args, **kwargs):

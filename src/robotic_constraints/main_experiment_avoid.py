@@ -46,7 +46,7 @@ global_step = 0
 def build_model(dim=10, num_layers=10, conditioning=True, num_conditioning=4):
 
     base_dist = BaseDistribution(dim)
-    flows = [SlowMAF(dim=dim,
+    flows = [MAF(dim=dim,
                      parity=i % 2,
                      conditioning=conditioning,
                      num_conditioning=num_conditioning)
