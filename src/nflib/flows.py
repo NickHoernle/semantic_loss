@@ -201,7 +201,7 @@ class SlowMAF(nn.Module):
 class MAF(nn.Module):
     """ Masked Autoregressive Flow that uses a MADE-style network for fast forward """
     
-    def __init__(self, dim, parity, net_class=ARMLP, nh=24, **kwargs):
+    def __init__(self, dim, parity, device, net_class=ARMLP, nh=24, **kwargs):
         super().__init__()
         self.dim = dim
         self.parity = parity
@@ -210,6 +210,7 @@ class MAF(nn.Module):
         self.num_condition = kwargs.get('num_conditioning', 0)
 
         self.net = net_class(dim + self.num_condition*self.condition, dim * 2, nh)
+        self.net.to(device)
 
     def forward(self, x, **kwargs):
         # here we see that we are evaluating all of z in parallel, so density estimation will be fast

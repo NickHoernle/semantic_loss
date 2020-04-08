@@ -42,11 +42,12 @@ from robotic_constraints.dataloader import NavigateFromTo
 best_loss = 0
 global_step = 0
 
-def build_model(dim=10, num_layers=10, conditioning=True, num_conditioning=4):
+def build_model(device, dim=10, num_layers=10, conditioning=True, num_conditioning=4):
     base_dist = MultivariateNormal(torch.zeros(dim), torch.eye(dim))
     flows = [SlowMAF(dim=dim, parity=i % 2,
                           conditioning=conditioning,
-                          num_conditioning=num_conditioning) for i in range(num_layers)]
+                          num_conditioning=num_conditioning,
+                          device=device) for i in range(num_layers)]
     convs = [Invertible1x1Conv(dim=dim) for _ in flows]
     norms = [ActNorm(dim=dim) for _ in flows]
     flows = list(itertools.chain(*zip(norms, convs, flows)))
@@ -105,7 +106,7 @@ def main(args):
     # Model
     dims = training_set.n_dims
     print(f'Building model with {dims} latent dims')
-    net = build_model(dim=dims, num_layers=args.num_layers)
+    net = build_model(dim=dims, num_layers=args.num_layers, device=device)
     # net = FlowPlusPlus(scales=[(0, 4), (2, 3)],
     #                    in_shape=(1, 1, 50),
     #                    mid_channels=args.num_channels,
@@ -287,7 +288,7 @@ def test(epoch, net, testloader, device, num_samples, save_dir, args, model_name
         for x, condition_params, _ in testloader:
             x = x.to(device)
             condition_params = condition_params.to(device)
-            
+
             zs, prior_logprob, log_det = net(x, condition_variable=condition_params)
             loss = forward_loss(prior_logprob, log_det)
             loss_meter.update(loss.item(), x.size(0))
