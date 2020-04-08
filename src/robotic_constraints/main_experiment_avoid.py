@@ -48,7 +48,7 @@ def build_model(device, dim=10, num_layers=10, conditioning=True, num_conditioni
                           conditioning=conditioning,
                           num_conditioning=num_conditioning,
                           device=device) for i in range(num_layers)]
-    convs = [Invertible1x1Conv(dim=dim) for _ in flows]
+    convs = [Invertible1x1Conv(dim=dim, device=device) for _ in flows]
     norms = [ActNorm(dim=dim) for _ in flows]
     flows = list(itertools.chain(*zip(norms, convs, flows)))
 
