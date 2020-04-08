@@ -158,30 +158,41 @@ class SlowMAF(nn.Module):
     """ 
     Masked Autoregressive Flow, slow version with explicit networks per dim
     """
-    def __init__(self, dim, parity, net_class=MLP, nh=24):
+    def __init__(self, dim, parity, net_class=MLP, nh=24, **kwargs):
         super().__init__()
         self.dim = dim
         self.layers = nn.ModuleDict()
         self.layers[str(0)] = LeafParam(2)
+
+        self.condition = kwargs.get('conditioning', False)
+        self.num_condition = kwargs.get('num_conditioning', 0)
+
         for i in range(1, dim):
-            self.layers[str(i)] = net_class(i, 2, nh)
+            self.layers[str(i)] = net_class(i+self.num_condition*self.condition, 2, nh)
+
         self.order = list(range(dim)) if parity else list(range(dim))[::-1]
         
-    def forward(self, x):
+    def forward(self, x, **kwargs):
         z = torch.zeros_like(x)
         log_det = torch.zeros(x.size(0))
         for i in range(self.dim):
-            st = self.layers[str(i)](x[:, :i])
+            if self.condition:
+                st = self.layers[str(i)](torch.cat((x[:, :i], kwargs['condition_variable']), -1))
+            else:
+                st = self.layers[str(i)](x[:, :i])
             s, t = st[:, 0], st[:, 1]
             z[:, self.order[i]] = x[:, i] * torch.exp(s) + t
             log_det += s
         return z, log_det
 
-    def backward(self, z):
+    def backward(self, z, **kwargs):
         x = torch.zeros_like(z)
         log_det = torch.zeros(z.size(0))
         for i in range(self.dim):
-            st = self.layers[str(i)](x[:, :i])
+            if self.condition:
+                st = self.layers[str(i)](torch.cat((x[:, :i], kwargs['condition_variable']), -1))
+            else:
+                st = self.layers[str(i)](x[:, :i])
             s, t = st[:, 0], st[:, 1]
             x[:, i] = (z[:, self.order[i]] - t) * torch.exp(-s)
             log_det += -s
@@ -190,15 +201,22 @@ class SlowMAF(nn.Module):
 class MAF(nn.Module):
     """ Masked Autoregressive Flow that uses a MADE-style network for fast forward """
     
-    def __init__(self, dim, parity, net_class=ARMLP, nh=24):
+    def __init__(self, dim, parity, net_class=ARMLP, nh=24, **kwargs):
         super().__init__()
         self.dim = dim
-        self.net = net_class(dim, dim*2, nh)
         self.parity = parity
 
-    def forward(self, x):
+        self.condition = kwargs.get('conditioning', False)
+        self.num_condition = kwargs.get('num_conditioning', 0)
+
+        self.net = net_class(dim + self.num_condition*self.condition, dim * 2, nh)
+
+    def forward(self, x, **kwargs):
         # here we see that we are evaluating all of z in parallel, so density estimation will be fast
-        st = self.net(x)
+        x0 = x
+        if self.condition:
+            x0 = torch.cat((x, kwargs['condition_variable']), -1)
+        st = self.net(x0)
         s, t = st.split(self.dim, dim=1)
         z = x * torch.exp(s) + t
         # reverse order, so if we stack MAFs correct things happen
@@ -206,13 +224,16 @@ class MAF(nn.Module):
         log_det = torch.sum(s, dim=1)
         return z, log_det
     
-    def backward(self, z):
+    def backward(self, z, **kwargs):
         # we have to decode the x one at a time, sequentially
         x = torch.zeros_like(z)
         log_det = torch.zeros(z.size(0))
         z = z.flip(dims=(1,)) if self.parity else z
         for i in range(self.dim):
-            st = self.net(x.clone()) # clone to avoid in-place op errors if using IAF
+            x0 = x.clone()
+            if self.condition:
+                x0 = torch.cat((x, kwargs['condition_variable']), -1)
+            st = self.net(x0) # clone to avoid in-place op errors if using IAF
             s, t = st.split(self.dim, dim=1)
             x[:, i] = (z[:, i] - t[:, i]) * torch.exp(-s[:, i])
             log_det += -s[:, i]
