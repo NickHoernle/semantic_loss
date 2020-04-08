@@ -72,7 +72,7 @@ def main(args):
     global best_loss
 
     # Set up main device and scale batch size
-    use_cuda = not args.use_cuda and torch.cuda.is_available()
+    use_cuda = args.use_cuda and torch.cuda.is_available()
     if args.use_cuda and not use_cuda:
         raise_cuda_error()
 
