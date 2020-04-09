@@ -77,7 +77,7 @@ def main(args):
         logging.info(f'Using device: {torch.cuda.get_device_name()}')
 
     config_args = [str(vv) for kk, vv in vars(args).items()
-                   if kk in ['batch_size', 'lr', 'gamma', 'seed']]
+                   if kk in ['batch_size', 'lr', 'gamma', 'seed', "num_layers"]]
     model_name = '_'.join(config_args)
 
     if not os.path.exists(args.output):
