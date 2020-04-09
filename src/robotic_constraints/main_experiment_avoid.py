@@ -119,13 +119,13 @@ def main(args):
         # cudnn.benchmark = args.benchmark
 
     start_epoch = 0
-    save_dir = os.path.join(args.output, 'save')
+    save_dir = os.path.join(args.output, 'models')
 
     if args.resume:
         # Load checkpoint.
         print('Resuming from checkpoint at save/best.pth.tar...')
         assert os.path.isdir(save_dir), 'Error: no checkpoint directory found!'
-        checkpoint = torch.load(os.path.join(save_dir, model_name+'.pth.tar'))
+        checkpoint = torch.load(os.path.join(save_dir, model_name+'.pt'))
         net.load_state_dict(checkpoint['net'])
         global best_loss
         global global_step
@@ -157,10 +157,14 @@ def main(args):
             print(f'Early stopping implemented at epoch #: {epoch}')
             break
 
+        if np.isnan(vld_loss):
+            print(f'Early stopping: valid loss is NAN')
+            break
+
     log_fh.close()
 
     state_curr = { 'net': net.state_dict() }
-    torch.save(state_curr, os.path.join(save_dir, model_name + 'final.pth.tar'))
+    torch.save(state_curr, os.path.join(save_dir, model_name + '.final.pt'))
 
 
 def forward_loss(prior_logprob, log_det):
@@ -301,7 +305,7 @@ def test(epoch, net, testloader, device, num_samples, save_dir, args, model_name
             'epoch': epoch,
         }
         os.makedirs(save_dir, exist_ok=True)
-        torch.save(state, os.path.join(save_dir, model_name+'.best.pth.tar'))
+        torch.save(state, os.path.join(save_dir, model_name+'.best.pt'))
         best_loss = loss_meter.avg
 
     # Save samples and data
