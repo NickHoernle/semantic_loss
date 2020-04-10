@@ -51,6 +51,9 @@ class BaseDistribution(nn.Module):
     def log_prob(self, x):
         return self.base_dist.log_prob(x)
 
+    def sample(self, n_samps):
+        return self.base_dist.sample((n_samps,))
+
     def to(self, *args, **kwargs):
         self = super().to(*args, **kwargs)
         self.zeros = self.zeros.to(*args, **kwargs)
