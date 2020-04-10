@@ -227,7 +227,8 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
                 condition_params = torch.tensor([np.random.uniform(0, .1, size=num_samples),
                                                     np.random.uniform(0, 1., size=num_samples),
                                                     np.random.uniform(.9, 1., size=num_samples),
-                                                    np.random.uniform(0, 1., size=num_samples)]).float().T
+                                                    np.random.uniform(0, 1., size=num_samples)]).float().T.to(device)
+
                 xs, log_det_back = net.backward(z, condition_variable=condition_params)
 
                 dmp = DMP(x.size()[-1]//2, dt=1 / 100, d=2)
