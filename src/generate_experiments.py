@@ -22,7 +22,7 @@ backward = [True, False]
 # num_layers = [40]
 # gammas = [.99]
 
-settings = [(lr, gam, rep, lay) for lr in learning_rates for gam in gammas for lay in num_layers for back_ in backward
+settings = [(lr, gam, rep, lay, back_) for lr in learning_rates for gam in gammas for lay in num_layers for back_ in backward
             for rep in range(repeats)]
 nr_expts = len(learning_rates) * len(gammas) * len(num_layers) * repeats
 
