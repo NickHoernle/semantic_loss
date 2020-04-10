@@ -244,7 +244,7 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
                         (y_track[:, :, 1] - constraint['coords'][1]) ** 2 - constraint['radius'] ** 2,
                         torch.zeros_like(y_track[:, :, 0])).sum(dim=1) ** 2
 
-                loss += backward_loss(neg_loss, log_det_back)
+                loss += backward_loss(-neg_loss, log_det_back)
 
             loss += forward_loss(prior_logprob, log_det)
 
