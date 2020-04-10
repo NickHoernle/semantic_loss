@@ -77,7 +77,7 @@ def main(args):
         logging.info(f'Using device: {torch.cuda.get_device_name()}')
 
     config_args = [str(vv) for kk, vv in vars(args).items()
-                   if kk in ['batch_size', 'lr', 'gamma', 'seed', "num_layers"]]
+                   if kk in ['batch_size', 'lr', 'gamma', "num_layers", 'seed']]
     model_name = '_'.join(config_args)
 
     if not os.path.exists(args.output):
@@ -127,7 +127,6 @@ def main(args):
         assert os.path.isdir(save_dir), 'Error: no checkpoint directory found!'
         checkpoint = torch.load(os.path.join(save_dir, model_name+'.pt'))
         net.load_state_dict(checkpoint['net'])
-        global best_loss
         global global_step
         best_loss = checkpoint['test_loss']
         start_epoch = checkpoint['epoch']
@@ -156,6 +155,8 @@ def main(args):
         if count_valid_not_improving > args.early_stopping_lim:
             print(f'Early stopping implemented at epoch #: {epoch}')
             break
+        else:
+            count_valid_not_improving = 0
 
         if np.isnan(vld_loss):
             print(f'Early stopping: valid loss is NAN')

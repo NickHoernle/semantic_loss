@@ -14,8 +14,8 @@ base_call = (f"python main_experiment_avoid.py --input {DATA_HOME}/data --output
              "--use_cuda True --batch_size 256 --num_epochs 500 --early-stopping-lim 50 --num_workers 8")
 
 repeats = 3
-learning_rates = [1e-2, 1e-3, 1e-4]
-num_layers = [10, 20, 30, 40]
+learning_rates = [1e-3, 1e-4]
+num_layers = [10, 20, 30, 40, 50]
 gammas = [.6, .7, .8, .9, .99]
 # learning_rates = [1e-4]
 # num_layers = [40]
