@@ -69,6 +69,7 @@ def generate_trajectories(n_data=500):
 
     return trajectories, weights, params, constraints
 
+
 def plot_trajectories(trajectories, params=[], constraints=[], ax=None):
 
     for trajectory in trajectories:
@@ -82,9 +83,10 @@ def plot_trajectories(trajectories, params=[], constraints=[], ax=None):
         ax = plt.gca()
         ax.add_artist(circle)
 
-    plt.ylim([0, 1])
-    plt.xlim([0, 1])
-    plt.show()
+    ax.set_ylim([0, 1])
+    ax.set_xlim([0, 1])
+    return ax
+
 
 def save_trajectories(trajectories, weights, out_path, constraints=[]):
 
@@ -112,6 +114,29 @@ def save_trajectories(trajectories, weights, out_path, constraints=[]):
         obj['constraints'] = constraints
         json.dump(obj, f)
 
+
+def update_params_into_trajectories(out_path):
+    file_path = os.path.join(out_path, f"data_assignments.json")
+    with open(file_path, 'r') as f:
+        assignments = json.load(f)
+
+    assignments['params'] = {}
+
+    for dset in ['train', 'validate', 'test']:
+        ids = assignments[dset]
+        for ID in ids:
+            trajectory_path = os.path.join(out_path, f"trajectory_{ID}.pt")
+            trajectory_dat = torch.load(trajectory_path)
+            condition_params = [float(trajectory_dat[0, 0]),
+                                float(trajectory_dat[0, 1]),
+                                float(trajectory_dat[-1, 0]),
+                                float(trajectory_dat[-1, 1])]
+            assignments['params'][ID] = condition_params
+
+    with open(file_path, 'w') as f:
+        json.dump(assignments, f)
+
+
 def create_and_save_data(output_dir, n_data=1000):
 
     # refresh the data
@@ -121,6 +146,8 @@ def create_and_save_data(output_dir, n_data=1000):
     trajectories, weights, params, constraints = generate_trajectories(n_data)
     save_trajectories(trajectories, weights, output_dir, constraints)
 
+
 if __name__ == "__main__":
-    create_and_save_data('../../data/robotic_constraints/', 40000)
+    update_params_into_trajectories('../../data/robotic_constraints')
+    # create_and_save_data('../../data/robotic_constraints/', 40000)
 
