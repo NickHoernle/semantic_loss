@@ -77,7 +77,7 @@ def main(args):
         logging.info(f'Using device: {torch.cuda.get_device_name()}')
 
     config_args = [str(vv) for kk, vv in vars(args).items()
-                   if kk in ['batch_size', 'lr', 'gamma', "num_layers", 'seed']]
+                   if kk in ['batch_size', 'lr', 'gamma', "num_layers", 'seed', "backward"]]
     model_name = '_'.join(config_args)
 
     if not os.path.exists(args.output):
@@ -223,9 +223,8 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
 
             if args.backward:
                 num_samples = len(x)
-                z = net.prior.sample((num_samples,))
-                condition_params = torch.tensor([
-                                                    np.random.uniform(0, .1, size=num_samples),
+                z = net.prior.sample(num_samples)
+                condition_params = torch.tensor([np.random.uniform(0, .1, size=num_samples),
                                                     np.random.uniform(0, 1., size=num_samples),
                                                     np.random.uniform(.9, 1., size=num_samples),
                                                     np.random.uniform(0, 1., size=num_samples)]).float().T
@@ -237,8 +236,8 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
                                                                   xs[-1].view(num_samples, 2, 25))
 
                 neg_loss = 0
-                for constraint in trainloader.constraints:
-                    neg_loss -= 10e5 * torch.where(
+                for constraint in trainloader.dataset.constraints:
+                    neg_loss -= torch.where(
                         (y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
                         (y_track[:, :, 1] - constraint['coords'][1]) ** 2 < constraint['radius'] ** 2,
                         (y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
