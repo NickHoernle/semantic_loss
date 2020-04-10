@@ -17,11 +17,12 @@ repeats = 3
 learning_rates = [1e-3, 1e-4]
 num_layers = [10, 20, 30, 40, 50]
 gammas = [.6, .7, .8, .9, .99]
+backward = [True, False]
 # learning_rates = [1e-4]
 # num_layers = [40]
 # gammas = [.99]
 
-settings = [(lr, gam, rep, lay) for lr in learning_rates for gam in gammas for lay in num_layers
+settings = [(lr, gam, rep, lay) for lr in learning_rates for gam in gammas for lay in num_layers for back_ in backward
             for rep in range(repeats)]
 nr_expts = len(learning_rates) * len(gammas) * len(num_layers) * repeats
 
@@ -32,14 +33,15 @@ print(f'Estimated time = {(nr_expts / nr_servers * avg_expt_time)/60} hrs')
 
 output_file = open("experiment.txt", "w")
 
-for lr, gam, rep, lay in settings:
+for lr, gam, rep, lay, back_ in settings:
     # Note that we don't set a seed for rep - a seed is selected at random
     # and recorded in the output data by the python script
     expt_call = (
         f"{base_call} "
         f"--lr {lr} "
         f"--gamma {gam} "
-        f"--num_layers {lay}"
+        f"--num_layers {lay} "
+        f"--backward {back_}"
     )
     print(expt_call, file=output_file)
 
