@@ -239,8 +239,8 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
 
                 neg_loss = 0
                 for constraint in trainloader.dataset.constraints:
-                    neg_loss -= torch.where(
-                        (y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
+                    constraint.to(device)
+                    neg_loss -= torch.where((y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
                         (y_track[:, :, 1] - constraint['coords'][1]) ** 2 < constraint['radius'] ** 2,
                         (y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
                         (y_track[:, :, 1] - constraint['coords'][1]) ** 2 - constraint['radius'] ** 2,

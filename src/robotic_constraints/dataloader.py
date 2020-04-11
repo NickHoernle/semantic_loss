@@ -23,7 +23,7 @@ class NavigateFromTo(data.Dataset):
 
   @property
   def constraints(self):
-      return self.ids_all['constraints']
+      return torch.tensor(self.ids_all['constraints'])
 
   def __len__(self):
         return len(self.list_IDs)
