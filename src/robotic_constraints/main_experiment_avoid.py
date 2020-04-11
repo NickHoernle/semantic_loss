@@ -234,7 +234,8 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
                 dmp = DMP(x.size()[-1]//2, dt=1 / 100, d=2)
                 y_track, dy_track, ddy_track =  dmp.rollout_torch(condition_params[:, :2],
                                                                   condition_params[:, -2:],
-                                                                  xs[-1].view(num_samples, 2, 25))
+                                                                  xs[-1].view(num_samples, 2, 25),
+                                                                  device=device)
 
                 neg_loss = 0
                 for constraint in trainloader.dataset.constraints:
