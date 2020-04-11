@@ -231,7 +231,7 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
 
                 xs, log_det_back = net.backward(z, condition_variable=condition_params)
 
-                dmp = DMP(x.size()[-1]//2, dt=1 / 100, d=2)
+                dmp = DMP(x.size()[-1]//2, dt=1 / 100, d=2, device=device)
                 y_track, dy_track, ddy_track =  dmp.rollout_torch(condition_params[:, :2],
                                                                   condition_params[:, -2:],
                                                                   xs[-1].view(num_samples, 2, 25),
