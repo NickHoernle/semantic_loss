@@ -223,6 +223,9 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
 
             if args.backward:
                 if epoch > 10:
+                    regularizer = MultivariateNormal(torch.zeros_like(x[-1]).to(device),
+                                                     1. * torch.eye(x[-1].size()[1]).to(device))
+
                     num_samples = np.min([epoch*5, len(x)])
                     z = net.prior.sample(num_samples)
                     condition_params = torch.tensor([np.random.uniform(0, .1, size=num_samples),
@@ -238,7 +241,7 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
                                                                       xs[-1].view(num_samples, 2, 25),
                                                                       device=device)
 
-                    neg_loss = 0
+                    neg_loss = regularizer.log_prob(xs[-1])
                     for constraint in trainloader.dataset.constraints:
                         neg_loss -= torch.where((y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
                             (y_track[:, :, 1] - constraint['coords'][1]) ** 2 < constraint['radius'] ** 2,
