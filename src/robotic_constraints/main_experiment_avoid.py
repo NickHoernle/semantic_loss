@@ -146,7 +146,7 @@ def main(args):
 
         scheduler.step()
 
-        log_fh.write(f'{epoch},{loss},{vld_loss}')
+        log_fh.write(f'{epoch},{loss},{vld_loss}\n')
         log_fh.flush()
 
         # early stopping
