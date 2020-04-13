@@ -224,29 +224,29 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
             if args.backward:
                 if epoch > 10:
                     num_samples = np.min([epoch*5, len(x)])
-                z = net.prior.sample(num_samples)
-                condition_params = torch.tensor([np.random.uniform(0, .1, size=num_samples),
-                                                    np.random.uniform(0, 1., size=num_samples),
-                                                    np.random.uniform(.9, 1., size=num_samples),
-                                                    np.random.uniform(0, 1., size=num_samples)]).float().T.to(device)
+                    z = net.prior.sample(num_samples)
+                    condition_params = torch.tensor([np.random.uniform(0, .1, size=num_samples),
+                                                        np.random.uniform(0, 1., size=num_samples),
+                                                        np.random.uniform(.9, 1., size=num_samples),
+                                                        np.random.uniform(0, 1., size=num_samples)]).float().T.to(device)
 
-                xs, log_det_back = net.backward(z, condition_variable=condition_params)
+                    xs, log_det_back = net.backward(z, condition_variable=condition_params)
 
-                dmp = DMP(x.size()[-1]//2, dt=1 / 100, d=2, device=device)
-                y_track, dy_track, ddy_track =  dmp.rollout_torch(condition_params[:, :2],
-                                                                  condition_params[:, -2:],
-                                                                  xs[-1].view(num_samples, 2, 25),
-                                                                  device=device)
+                    dmp = DMP(x.size()[-1]//2, dt=1 / 100, d=2, device=device)
+                    y_track, dy_track, ddy_track =  dmp.rollout_torch(condition_params[:, :2],
+                                                                      condition_params[:, -2:],
+                                                                      xs[-1].view(num_samples, 2, 25),
+                                                                      device=device)
 
-                neg_loss = 0
-                for constraint in trainloader.dataset.constraints:
-                    neg_loss -= torch.where((y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
-                        (y_track[:, :, 1] - constraint['coords'][1]) ** 2 < constraint['radius'] ** 2,
-                        (y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
-                        (y_track[:, :, 1] - constraint['coords'][1]) ** 2 - constraint['radius'] ** 2,
-                        torch.zeros_like(y_track[:, :, 0])).sum(dim=1) ** 2
+                    neg_loss = 0
+                    for constraint in trainloader.dataset.constraints:
+                        neg_loss -= torch.where((y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
+                            (y_track[:, :, 1] - constraint['coords'][1]) ** 2 < constraint['radius'] ** 2,
+                            (y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
+                            (y_track[:, :, 1] - constraint['coords'][1]) ** 2 - constraint['radius'] ** 2,
+                            torch.zeros_like(y_track[:, :, 0])).sum(dim=1) ** 2
 
-                loss += backward_loss(neg_loss, log_det_back)
+                    loss += backward_loss(neg_loss, log_det_back)
 
             loss += forward_loss(prior_logprob, log_det)
 
