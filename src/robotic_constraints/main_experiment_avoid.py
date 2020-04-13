@@ -222,7 +222,8 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
             loss = 0
 
             if args.backward:
-                num_samples = len(x)
+                if epoch > 10:
+                    num_samples = np.min([epoch*5, len(x)])
                 z = net.prior.sample(num_samples)
                 condition_params = torch.tensor([np.random.uniform(0, .1, size=num_samples),
                                                     np.random.uniform(0, 1., size=num_samples),
