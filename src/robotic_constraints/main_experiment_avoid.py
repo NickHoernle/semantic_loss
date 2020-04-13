@@ -46,7 +46,7 @@ global_step = 0
 def build_model(dim=10, num_layers=10, conditioning=True, num_conditioning=4):
 
     base_dist = BaseDistribution(dim)
-    flows = [MAF(dim=dim,
+    flows = [AffineHalfFlow(dim=dim,
                      parity=i % 2,
                      conditioning=conditioning,
                      num_conditioning=num_conditioning)
@@ -137,7 +137,7 @@ def main(args):
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=args.gamma)
 
     os.makedirs(f'{args.output}/logs/', exist_ok=True)
-    log_fh = open(f'{args.output}/logs/{model_name}.log', 'w')
+    log_fh = open(f'{args.output}/logs/affine-half_{model_name}.log', 'w')
     count_valid_not_improving = 0
 
     for epoch in range(start_epoch, start_epoch + args.num_epochs):
@@ -224,7 +224,7 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
             if args.backward:
                 if epoch > 10:
                     regularizer = MultivariateNormal(torch.zeros_like(x[-1]).to(device),
-                                                     1. * torch.eye(x[-1].size()[1]).to(device))
+                                                     1. * torch.eye(x.size()[1]).to(device))
 
                     num_samples = np.min([epoch*5, len(x)])
                     z = net.prior.sample(num_samples)
