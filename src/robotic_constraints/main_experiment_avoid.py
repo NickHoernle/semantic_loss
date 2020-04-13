@@ -146,7 +146,8 @@ def main(args):
 
         scheduler.step()
 
-        print(f'{epoch},{loss},{vld_loss}', file=log_fh)
+        log_fh.write(f'{epoch},{loss},{vld_loss}')
+        log_fh.flush()
 
         # early stopping
         if vld_loss >= best_loss:
@@ -222,40 +223,39 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
             loss = 0
 
             if args.backward:
-                if epoch > 10:
-                    regularizer = MultivariateNormal(torch.zeros_like(x[-1]).to(device),
-                                                     1. * torch.eye(x.size()[1]).to(device))
+                regularizer = MultivariateNormal(torch.zeros_like(x[-1]).to(device),
+                                                 1. * torch.eye(x.size()[1]).to(device))
 
-                    num_samples = np.min([epoch*5, len(x)])
-                    z = net.prior.sample(num_samples)
-                    condition_params = torch.tensor([np.random.uniform(0, .1, size=num_samples),
-                                                        np.random.uniform(0, 1., size=num_samples),
-                                                        np.random.uniform(.9, 1., size=num_samples),
-                                                        np.random.uniform(0, 1., size=num_samples)]).float().T.to(device)
+                num_samples = np.min([(epoch+1)*5, len(x)])
+                z = net.prior.sample(num_samples)
+                condition_params = torch.tensor([np.random.uniform(0, 0.1, size=num_samples),
+                                                 np.random.uniform(0,  1., size=num_samples),
+                                                 np.random.uniform(.9, 1., size=num_samples),
+                                                 np.random.uniform(0,  1., size=num_samples)]).float().T.to(device)
 
-                    xs, log_det_back = net.backward(z, condition_variable=condition_params)
+                xs, log_det_back = net.backward(z, condition_variable=condition_params)
 
-                    dmp = DMP(x.size()[-1]//2, dt=1 / 100, d=2, device=device)
-                    y_track, dy_track, ddy_track =  dmp.rollout_torch(condition_params[:, :2],
-                                                                      condition_params[:, -2:],
-                                                                      xs[-1].view(num_samples, 2, 25),
-                                                                      device=device)
+                dmp = DMP(x.size()[-1]//2, dt=1 / 100, d=2, device=device)
+                y_track, dy_track, ddy_track =  dmp.rollout_torch(condition_params[:, :2],
+                                                                  condition_params[:, -2:],
+                                                                  xs[-1].view(num_samples, 2, 25),
+                                                                  device=device)
 
-                    neg_loss = regularizer.log_prob(xs[-1])
-                    for constraint in trainloader.dataset.constraints:
-                        neg_loss -= torch.where((y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
-                            (y_track[:, :, 1] - constraint['coords'][1]) ** 2 < constraint['radius'] ** 2,
-                            (y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
-                            (y_track[:, :, 1] - constraint['coords'][1]) ** 2 - constraint['radius'] ** 2,
-                            torch.zeros_like(y_track[:, :, 0])).sum(dim=1) ** 2
+                neg_loss = regularizer.log_prob(xs[-1])
+                for constraint in trainloader.dataset.constraints:
+                    neg_loss -= torch.where((y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
+                        (y_track[:, :, 1] - constraint['coords'][1]) ** 2 < constraint['radius'] ** 2,
+                        (y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
+                        (y_track[:, :, 1] - constraint['coords'][1]) ** 2 - constraint['radius'] ** 2,
+                        torch.zeros_like(y_track[:, :, 0])).sum(dim=1) ** 2
 
-                    loss += backward_loss(neg_loss, log_det_back)
+                loss += backward_loss(neg_loss, log_det_back)
 
             loss += forward_loss(prior_logprob, log_det)
 
             loss_meter.update(loss.item(), x.size(0))
-
             loss.backward()
+
             if max_grad_norm > 0:
                 clip_grad_norm(optimizer, max_grad_norm)
             optimizer.step()
@@ -303,7 +303,7 @@ def test(epoch, net, testloader, device, num_samples, save_dir, args, model_name
 
     # Save checkpoint
     if loss_meter.avg < best_loss:
-        print('Saving...')
+        print(f'Saving...  affine-half_{model_name}.best.pt')
         state = {
             'net': net.state_dict(),
             'test_loss': loss_meter.avg,
