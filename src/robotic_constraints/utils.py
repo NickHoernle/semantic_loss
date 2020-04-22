@@ -22,23 +22,25 @@ from rss_code_and_data.code.dmp import (DMP,gen_weights,imitate_path,plot_rollou
 def generate_trajectories(n_data=500):
 
     constraints = [
-        {"coords": [.25, .25], 'radius': .1},
-        {"coords": [.5, .5], 'radius': .1},
-        {"coords": [.8, .25], 'radius': .1},
-        {"coords": [.7, .75], 'radius': .1}
+        {"coords": [.2, .2], 'radius': .1},
+        {"coords": [.55, .35], 'radius': .1},
+        {"coords": [.45, .65], 'radius': .1},
+        {"coords": [.8, .8], 'radius': .1}
     ]
 
     trajectories = []
     params = []
     weights = []
 
+    device = torch.device("cpu")
+
     while len(trajectories) < n_data:
         start_params, trajectory = cf.simpleCurveWithAvoidPoint(
             start_range=([0.0, 0.0], [0.1, 1.0]),
-            goal_range=([0.9, 0.0], [1.0, 1.0]),
+            goal_range=([0.9, 0.499], [1.0, .501]),
             #         start_range=([0, 0.5], [0.01,.51]),
             #         goal_range=([.99, 0.5], [1., 0.51]),
-            attractor_range=([0.25, 0.25], [0.8, 0.8])
+            attractor_range=([0.01, 0.01], [0.99, 0.99])
         )
 
         valid = True
@@ -48,13 +50,17 @@ def generate_trajectories(n_data=500):
                 valid = False
                 break
 
+        if (trajectory[:, 0] > 1).any() or (trajectory[:, 1] > 1).any() or (trajectory[:, 0] < 0).any() \
+                    or (trajectory[:, 1] < 0).any():
+            valid = False
+
         if len(trajectory.reshape(-1,)) < 200:
             valid = False
 
         if valid:
 
             # now get the associated dmp weights
-            dmp = DMP(25, dt=1 / 100, d=2)
+            dmp = DMP(50, dt=1 / 100, d=2, device=device)
             dmp.T = 100
             dmp.start = trajectory[0]
             dmp.y0 = trajectory[0]
@@ -148,6 +154,5 @@ def create_and_save_data(output_dir, n_data=1000):
 
 
 if __name__ == "__main__":
+    create_and_save_data('../../data/robotic_constraints/', 2000)
     update_params_into_trajectories('../../data/robotic_constraints')
-    # create_and_save_data('../../data/robotic_constraints/', 40000)
-

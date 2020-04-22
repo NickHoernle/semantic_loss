@@ -43,4 +43,4 @@ class NavigateFromTo(data.Dataset):
         weights = torch.load(weight_path)
         condition_params = torch.tensor(self.ids_all['params'][f"{ID}"])
 
-        return weights.view(-1,), condition_params, trajectory_dat.view(-1,)
+        return weights.T.reshape(-1,), condition_params, trajectory_dat.view(-1,)

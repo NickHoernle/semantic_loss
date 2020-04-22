@@ -64,6 +64,7 @@ def build_flows(num_layers=3, dim=20, conditioning=True, num_conditioning=NUM_CA
                         nh=12,
                         num_conditioning=num_conditioning
                     ) for i in range(num_layers)]
+    flows.append(AffineConstantFlow(dim=dim, shift=False))
 
     return NormalizingFlowModel(base_dist, flows, conditioning=conditioning)
 
