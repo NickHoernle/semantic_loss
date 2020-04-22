@@ -1,5 +1,10 @@
 # all pytorch files (data and models)
 *.pt
+data/*/*.json
+data/*/*.zip
+
+# don't commit craig's code to the repo
+src/rss_code_and_data
 
 notebooks/.ipynb_checkpoints
 # Byte-compiled / optimized / DLL files

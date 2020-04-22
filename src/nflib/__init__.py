@@ -8,3 +8,5 @@ from nflib.flows import NormalizingFlow
 from nflib.flows import NormalizingFlowModel
 from nflib.flows import ActNorm
 from nflib.flows import BaseDistribution
+from nflib.flows import BaseDistributionMixtureGaussians
+from nflib.flows import SS_Flow

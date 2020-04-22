@@ -56,6 +56,13 @@ class MLP(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        original_dict = super().state_dict(destination, prefix, keep_vars)
+        return original_dict
+
+    def load_state_dict(self, state_dict, strict=True):
+        super().load_state_dict(state_dict, strict)
+
 class PosEncMLP(nn.Module):
     """ 
     Position Encoded MLP, where the first layer performs position encoding.
