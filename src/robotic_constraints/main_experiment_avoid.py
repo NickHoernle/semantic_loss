@@ -51,7 +51,7 @@ def build_model(dim=10, num_layers=10, conditioning=True, num_conditioning=4):
 
     # base_dist = BaseDistribution(dim)
     base_dist = BaseDistributionMixtureGaussians(dim, NUM_CATEGORIES)
-
+    #
     flows = [MAF(dim=dim, parity=i%2, conditioning=conditioning, num_conditioning=num_conditioning)
              for i in range(num_layers)]
     convs = [Invertible1x1Conv(dim=dim) for _ in flows]
@@ -105,8 +105,9 @@ def main(args):
     # Model
     dims = training_set.n_dims
     print(f'Building model with {dims} latent dims')
-    net = SS_Flow(flows=build_model(dim=dims, num_layers=args.num_layers, conditioning=True, num_conditioning=4),
+    net = SS_Flow(flows=build_model(dim=dims, num_layers=args.num_layers, conditioning=False, num_conditioning=0),
                   NUM_CATEGORIES=NUM_CATEGORIES, dims=dims)
+    # net = build_model(dim=dims, num_layers=args.num_layers, conditioning=False, num_conditioning=4)
     # net = FlowPlusPlus(scales=[(0, 4), (2, 3)],
     #                    in_shape=(1, 1, 50),
     #                    mid_channels=args.num_channels,
@@ -151,6 +152,7 @@ def main(args):
         loss = train(epoch, net, trainloader, device, optimizer, scheduler, args.max_grad_norm, args, log_fh)
         vld_loss = test(epoch, net, testloader, device, args.num_samples, save_dir, args, model_name, log_fh)
 
+        net.tau = np.max((0.5, net.tau * np.exp(-5e-3 * (epoch))))
         scheduler.step()
 
         if not np.isnan(vld_loss):
@@ -180,7 +182,7 @@ def main(args):
 
 def forward_loss(prior_logprob, log_det):
     logprob = prior_logprob + log_det
-    return -torch.sum(logprob)
+    return torch.sum(logprob)
 
 
 def backward_loss(neg_loss, log_det):
@@ -229,26 +231,28 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
             optimizer.zero_grad()
 
             zs, latent_losses, pred_label = net((x,None), condition_variable=condition_params)
+            # zs, prior_logprob, log_det = net(x)
+            prior_logprob, log_det, cat_kl = latent_losses
 
             loss = 0
             if args.backward and epoch > 1:
                 # optimizer.zero_grad()
-                regularizer = MultivariateNormal(torch.zeros_like(x[-1]).to(device),
-                                                 .25 * torch.eye(x.size()[1]).to(device))
+                # regularizer = MultivariateNormal(torch.zeros_like(x[-1]).to(device),
+                #                                  .25 * torch.eye(x.size()[1]).to(device))
 
                 # num_samples = np.min([(epoch+2), len(x)//10])
                 num_samples = len(x)
                 # z = net.prior.sample(num_samples)
-                condition_params = torch.tensor([np.random.uniform(0, .1,num_samples),
-                                np.random.uniform(0,  1.,num_samples),
-                                np.random.uniform(.9, 1.,num_samples),
-                                np.random.uniform(0.499, .501, num_samples)]).float().T.to(device)
+                condition_params = torch.tensor([np.random.uniform(0, .05, num_samples),
+                                                 np.random.uniform(0, .05, num_samples),
+                                                 np.random.uniform(.95, 1., num_samples),
+                                                 np.random.uniform(.95, 1., num_samples)]).float().T
 
                 labels = torch.zeros(num_samples, NUM_CATEGORIES).to(device)
                 labels[torch.arange(num_samples), torch.arange(NUM_CATEGORIES).repeat(num_samples // NUM_CATEGORIES)] = 1
 
                 xs, log_det_back = net.backward(labels, condition_variable=condition_params)
-                # xs, log_det_back = net.backward(z)
+                # zs, prior_logprob, log_det = net.backward(z)
 
                 dims = x.size(1)
                 dmp = DMP(x.size()[-1]//2, dt=1 / 100, d=2, device=device)
@@ -257,8 +261,8 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
                                                                  xs.view(num_samples, dims//2, -1).transpose(1,2),
                                                                  device=device)
 
-                neg_loss = regularizer.log_prob(xs)
-                # neg_loss = 0
+                # neg_loss = regularizer.log_prob(xs)
+                neg_loss = 0
                 const = 1e2
                 for constraint in trainloader.dataset.constraints:
                     neg_loss -= (const*torch.where((y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
@@ -289,8 +293,8 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
                 # optimizer.step()
                 loss += back_loss
 
-            # loss += forward_loss(prior_logprob, log_det)
-            loss += latent_losses[0] + latent_losses[1] + latent_losses[2]
+            loss += forward_loss(prior_logprob, (log_det+cat_kl))
+            # loss += latent_losses[0] + latent_losses[1] + latent_losses[2]
             loss_meter.update(loss.item(), x.size(0))
             loss.backward()
             if max_grad_norm > 0:
@@ -332,9 +336,11 @@ def test(epoch, net, testloader, device, num_samples, save_dir, args, model_name
             x = x.to(device)
             condition_params = condition_params.to(device)
 
+            # zs, prior_logprob, log_det = net(x)
             zs, latent_losses, pred_label = net((x, None), condition_variable=condition_params)
-            # loss = forward_loss(prior_logprob, log_det)
-            loss = latent_losses[0] + latent_losses[1] + latent_losses[2]
+            prior_logprob, log_det, cat_kl = latent_losses
+            loss = forward_loss(prior_logprob, (log_det + cat_kl))
+            # loss = latent_losses[0] + latent_losses[1] + latent_losses[2]
             loss_meter.update(loss.item(), x.size(0))
             progress_bar.set_postfix(nll=loss_meter.avg)
             progress_bar.update(x.size(0))
@@ -369,17 +375,16 @@ def plot_res(net, device, dims):
     NUM_CATEGORIES = 5
 
     z = net.prior.sample(num_samples)
-    condition_params = torch.tensor([
-        np.random.uniform(0, .1, num_samples),
-        np.random.uniform(0, 1., num_samples),
-        np.random.uniform(.9, 1., num_samples),
-        np.random.uniform(0.499, .501, num_samples)]).float().T
+    condition_params = torch.tensor([np.random.uniform(0, .05, num_samples),
+                                     np.random.uniform(0, .05, num_samples),
+                                     np.random.uniform(.95, 1., num_samples),
+                                     np.random.uniform(.95, 1., num_samples)]).float().T
 
     labels = torch.zeros(num_samples, NUM_CATEGORIES).to(device)
     labels[torch.arange(num_samples), torch.arange(NUM_CATEGORIES).repeat(num_samples // NUM_CATEGORIES)] = 1
 
     # run the flow
-    xs, logdet_backward = net.backward(labels, condition_variable=condition_params)
+    zs, latent_losses, pred_label = net.backward(labels, condition_variable=condition_params)
     weights = xs[-1].view(num_samples, dims // 2, -1).transpose(1, 2)
     dmp = DMP(dims // 2, dt=1 / 100, d=2, device=device)
 

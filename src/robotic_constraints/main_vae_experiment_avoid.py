@@ -24,110 +24,22 @@ from torch.nn import functional as F
 from rss_code_and_data import (DMP,gen_weights,imitate_path,plot_rollout)
 from robotic_constraints.dataloader import NavigateFromTo
 
+from vaelib.vae import VAE, VAE_Gaussian
+
 from torch.nn.utils import clip_grad_norm_
-
-
 
 best_loss = np.inf
 global_step = 0
 NUM_CATEGORIES = 5
 mdl_name = 'vae'
 
-def init_weights(m):
-    if type(m) == nn.Linear:
-        torch.nn.init.normal_(m.weight,0,.05)
-        m.bias.data.fill_(0)
-
-class VAE(nn.Module):
-    def __init__(self, data_dim, hidden_dim, condition=False, num_condition=0):
-        super().__init__()
-
-        # encoding layers
-        self.encoder = nn.Sequential(
-            nn.Linear(data_dim+condition*num_condition, 500),
-            nn.LeakyReLU(.01),
-            nn.Linear(500, 250),
-            nn.LeakyReLU(.01),
-            nn.Linear(250, 250),
-            nn.LeakyReLU(.01),
-            nn.Linear(250, 250),
-            nn.LeakyReLU(.01)
-            )
-
-        self.mu_enc = nn.Linear(250, hidden_dim)
-        self.sig_enc = nn.Linear(250, hidden_dim)
-
-        # decoder
-        self.decoder = nn.Sequential(
-            nn.Linear(hidden_dim+condition*num_condition, 250),
-            nn.LeakyReLU(.01),
-            nn.Linear(250, 250),
-            nn.LeakyReLU(.01),
-            nn.Linear(250, 500),
-            nn.LeakyReLU(.01),
-            nn.Linear(500, data_dim),
-        )
-        self.hidden_dim = hidden_dim
-        self.condition = condition
-        self.num_condition = num_condition
-
-        self.zeros = torch.zeros(hidden_dim)
-        self.eye = torch.eye(hidden_dim)
-        self.base = MultivariateNormal(self.zeros, self.eye)
-
-        self.apply(init_weights)
-
-    def encode(self, x, **kwargs):
-        input = x
-        if self.condition:
-            input = torch.cat((x, kwargs['condition_variable']), -1)
-        latent_q = self.encoder(input)
-        return self.mu_enc(latent_q), self.sig_enc(latent_q)
-
-    def reparameterize(self, mu, logvar):
-
-        sigma = torch.exp(logvar)
-        eps = torch.randn_like(sigma)
-        z = mu + eps * sigma
-
-        return z
-
-    def decode(self, z, **kwargs):
-        if self.condition:
-            return self.decoder(torch.cat((z, kwargs['condition_variable']), -1))
-        return self.decoder(z)
-
-    def forward(self, x, **kwargs):
-        q_mu, logvar = self.encode(x, **kwargs)
-
-        z = self.reparameterize(q_mu, logvar)
-
-        x_reconstructed = self.decode(z, **kwargs)
-
-        return x_reconstructed, (q_mu, logvar)
-
-    def reconstruct(self, z, **kwargs):
-        return self.decode(z, **kwargs)
-
-    # def loss_fn(self, x, x_reconstruct, latent_params):
-    #     # reconstruction loss
-    #     reconstruction_loss = ((x - x_reconstruct)**2).sum(dim=1)
-    #
-    #     # KL-div term
-    #     mu, logvar = latent_params
-    #     KL_term = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    #     return (reconstruction_loss + KL_term).sum()
-
-
-def build_model(data_dim=10, hidden_dim=10, conditioning=True, num_conditioning=4):
-    return VAE(data_dim=data_dim, hidden_dim=hidden_dim, condition=conditioning, num_condition=num_conditioning)
-
+def build_model(data_dim=10, hidden_dim=10, conditioning=False, num_conditioning=4):
+    return VAE_Gaussian(data_dim=data_dim, hidden_dim=hidden_dim, condition=conditioning, num_condition=num_conditioning)
 
 def raise_cuda_error():
     raise ValueError('You wanted to use cuda but it is not available. '
                      'Check nvidia-smi and your configuration. If you do '
                          'not want to use cuda, pass the --no-cuda flag.')
-
 
 def main(args):
     global best_loss
@@ -222,11 +134,20 @@ def main(args):
     torch.save(state_curr, os.path.join(save_dir, f'{mdl_name}_{model_name}.final.pt'))
 
     # plot_res(net, device, dims)
+def forward_loss_traj(y, y_recon, latent_params):
+    reconstruction_loss = ((y.view(-1,100,2) - y_recon) ** 2).sum(dim=1)
+    mu, logvar = latent_params
+    KL_term = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    return (reconstruction_loss + KL_term).sum()
 
-def forward_loss(x, x_reconstruct, latent_params):
+def forward_loss(x, reconstruction_x, latent_params):
     # reconstruction loss
-    # reconstruction_loss = ((x.view(-1,100,2) - x_reconstruct) ** 2).sum(dim=1)
-    reconstruction_loss = ((x - x_reconstruct) ** 2).sum(dim=1)
+    base_dist = MultivariateNormal(torch.zeros_like(x[0]), torch.eye(x.size(1)))
+    mu_x, logvar_x = reconstruction_x
+
+    reconstruction_loss = logvar_x + (x - mu_x)**2 / (2*torch.exp(logvar_x))
+    # reconstruction_loss = log_var*((x.view(-1,100,2) - reconstruction_x)**2).sum(dim=1)
+    # reconstruction_loss = ((x - x_reconstruct) ** 2).sum(dim=1)
 
     # KL-div term
     mu, logvar = latent_params
@@ -275,6 +196,8 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
 
             x = x.to(device)
             condition_params = condition_params.to(device)
+            condition_params_net, _ = net.to_logits(condition_params)
+
             trajectory = trajectory.to(device)
             dims = x.size(1)
 
@@ -283,22 +206,30 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
             optimizer.zero_grad()
 
             # x_reconstructed, latent_params = net(x)
-            x_reconstructed, latent_params = net(x, condition_variable=condition_params)
+            x_reconstructed, latent_params = net(x, condition_variable=condition_params_net)
+
+            # dist = MultivariateNormal(torch.zeros_like(x_reconstructed[0][0]), torch.eye(len(x_reconstructed[0][0])))
+            # xs = x_reconstructed[0] + torch.exp(x_reconstructed[1]) * dist.sample((len(x),))
+            #
             # y_reconstructed, _, __ = dmp.rollout_torch(condition_params[:, :2],
             #                                          condition_params[:, -2:],
-            #                                          x_reconstructed.view(x.size(0), dims//2, -1).transpose(1,2),
+            #                                          xs.view(len(x), dims // 2, -1).transpose(1, 2),
             #                                          device=device)
             loss = 0
-            if args.backward and epoch > 1:
+            if args.backward and epoch > 5:
                 # optimizer.zero_grad()
+                # num_samples = np.min([epoch + 1, len(x)])
                 num_samples = len(x)
-                z = net.base.sample((num_samples,))
-                condition_params = torch.tensor([np.random.uniform(0, .1,num_samples),
-                                np.random.uniform(0,  1.,num_samples),
-                                np.random.uniform(.9, 1.,num_samples),
-                                np.random.uniform(0.499, .501, num_samples)]).float().T.to(device)
+                # z = net.base.sample((num_samples,))
+                # condition_params = torch.tensor([np.random.uniform(0, .1,num_samples),
+                #                 np.random.uniform(0,  1.,num_samples),
+                #                 np.random.uniform(.9, 1.,num_samples),
+                #                 np.random.uniform(0,  1., num_samples)]).float().T.to(device)
+                # condition_params_net, _ = net.to_logits(condition_params)
 
-                xs = net.reconstruct(z, condition_variable=condition_params)
+                # xs = net.reconstruct(z, condition_variable=condition_params_net)
+                dist = MultivariateNormal(torch.zeros_like(x_reconstructed[0][0]), torch.eye(len(x_reconstructed[0][0])))
+                xs = x_reconstructed[0] + torch.exp(x_reconstructed[1])*dist.sample((num_samples, ))
 
                 y_track, dy_track, ddy_track = dmp.rollout_torch(condition_params[:,  :2],
                                                                  condition_params[:, -2:],
@@ -306,9 +237,10 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
                                                                  device=device)
 
                 back_loss = backward_loss(y_track, trainloader.dataset.constraints, args.back_strength)
+                print(back_loss.sum())
                 loss += back_loss.sum()
 
-            # loss += forward_loss(trajectory, y_reconstructed, latent_params)
+            # loss += forward_loss_traj(trajectory, y_reconstructed, latent_params)
             loss += forward_loss(x, x_reconstructed, latent_params)
             # loss += latent_losses[0] + latent_losses[1] + latent_losses[2]
             loss_meter.update(loss.item(), x.size(0))
@@ -335,18 +267,28 @@ def test(epoch, net, testloader, device, num_samples, save_dir, args, model_name
         for x, condition_params, trajectory in testloader:
             x = x.to(device)
             condition_params = condition_params.to(device)
+            condition_params_net, _ = net.to_logits(condition_params)
+
             trajectory = trajectory.to(device)
             dims = x.size(1)
 
             dmp = DMP(x.size()[-1] // 2, dt=1 / 100, d=2, device=device)
 
             # x_reconstructed, latent_params = net(x)
-            x_reconstructed, latent_params = net(x, condition_variable=condition_params)
+            x_reconstructed, latent_params = net(x, condition_variable=condition_params_net)
+
+            # dist = MultivariateNormal(torch.zeros_like(x_reconstructed[0][0]), torch.eye(len(x_reconstructed[0][0])))
+            # xs = x_reconstructed[0] + torch.exp(x_reconstructed[1]) * dist.sample((len(x),))
+            #
             # y_reconstructed, _, __ = dmp.rollout_torch(condition_params[:, :2],
             #                                            condition_params[:, -2:],
-            #                                            x_reconstructed.view(x.size(0), dims // 2, -1).transpose(1, 2),
+            #                                            xs.view(len(x), dims // 2, -1).transpose(1, 2),
             #                                            device=device)
-
+            # y_reconstructed, _, __ = dmp.rollout_torch(condition_params[:, :2],
+            #                                            condition_params[:, -2:],
+            #                                            x_reconstructed.view(x.size(0), -1, dims//2),
+            #                                            device=device)
+            # loss = forward_loss_traj(trajectory, y_reconstructed, latent_params)
             # loss = forward_loss(prior_logprob, log_det)
             # loss = forward_loss(trajectory, y_reconstructed, latent_params)
             loss = forward_loss(x, x_reconstructed, latent_params)

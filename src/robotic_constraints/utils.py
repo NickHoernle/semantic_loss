@@ -22,10 +22,10 @@ from rss_code_and_data.code.dmp import (DMP,gen_weights,imitate_path,plot_rollou
 def generate_trajectories(n_data=500):
 
     constraints = [
-        {"coords": [.2, .2], 'radius': .1},
-        {"coords": [.55, .35], 'radius': .1},
-        {"coords": [.45, .65], 'radius': .1},
-        {"coords": [.8, .8], 'radius': .1}
+        # {"coords": [.2, .2], 'radius': .1},
+        {"coords": [.5, .5], 'radius': .1},
+        {"coords": [.25, .65], 'radius': .1},
+        # {"coords": [.8, .8], 'radius': .1}
     ]
 
     trajectories = []
@@ -36,8 +36,8 @@ def generate_trajectories(n_data=500):
 
     while len(trajectories) < n_data:
         start_params, trajectory = cf.simpleCurveWithAvoidPoint(
-            start_range=([0.0, 0.0], [0.1, 1.0]),
-            goal_range=([0.9, 0.499], [1.0, .501]),
+            start_range=([0.0, 0.0], [0.05, 0.05]),
+            goal_range=([0.95, 0.95], [1.0, 1.0]),
             #         start_range=([0, 0.5], [0.01,.51]),
             #         goal_range=([.99, 0.5], [1., 0.51]),
             attractor_range=([0.01, 0.01], [0.99, 0.99])
@@ -60,7 +60,7 @@ def generate_trajectories(n_data=500):
         if valid:
 
             # now get the associated dmp weights
-            dmp = DMP(50, dt=1 / 100, d=2, device=device)
+            dmp = DMP(10, dt=1 / 100, d=2, device=device)
             dmp.T = 100
             dmp.start = trajectory[0]
             dmp.y0 = trajectory[0]
