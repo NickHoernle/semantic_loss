@@ -28,6 +28,25 @@ mdl_name = 'vae'
 def build_model(data_dim=10, hidden_dim=10, conditioning=True, num_conditioning=4):
     return VAE(data_dim=data_dim, hidden_dim=hidden_dim, condition=conditioning, num_condition=num_conditioning)
 
+def labelled_loss(data, data_reconstructed, latent_params, label_sample):
+    BCE = F.binary_cross_entropy(torch.sigmoid(data_reconstructed), data, reduction='sum')
+    mu, logvar, label_logprob = latent_params
+
+    KLD_continuous = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    discriminator_loss = -(label_sample*(label_logprob)).sum(dim=1).sum()
+
+    return BCE + KLD_continuous + discriminator_loss
+
+
+def unlabelled_loss(data, data_reconstructed, latent_params, label_sample):
+    BCE = F.binary_cross_entropy(torch.sigmoid(data_reconstructed), data, reduction='sum')
+    mu, logvar, label_logprob, prior = latent_params
+
+    KLD_continuous = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    KLD_discrete = -(label_sample * (label_logprob+prior)).sum(dim=1).sum()
+
+    return BCE + KLD_continuous + KLD_discrete
+
 
 def main(args):
     global best_loss
@@ -155,24 +174,7 @@ def main(args):
     state_curr = {'net': net.state_dict()}
     torch.save(state_curr, os.path.join(save_dir, f'{mdl_name}_{model_name}.final.pt'))
 
-def labelled_loss(data, data_reconstructed, latent_params, label_sample):
-    BCE = F.binary_cross_entropy(torch.sigmoid(data_reconstructed), data, reduction='sum')
-    mu, logvar, label_logprob = latent_params
 
-    KLD_continuous = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    discriminator_loss = -(label_sample*(label_logprob)).sum(dim=1).sum()
-
-    return BCE + KLD_continuous + discriminator_loss
-
-
-def unlabelled_loss(data, data_reconstructed, latent_params, label_sample):
-    BCE = F.binary_cross_entropy(torch.sigmoid(data_reconstructed), data, reduction='sum')
-    mu, logvar, label_logprob, prior = latent_params
-
-    KLD_continuous = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    KLD_discrete = -(label_sample * (label_logprob+prior)).sum(dim=1).sum()
-
-    return BCE + KLD_continuous + KLD_discrete
 
 @torch.enable_grad()
 def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, args, dims):

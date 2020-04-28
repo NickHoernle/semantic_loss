@@ -136,7 +136,7 @@ class VAE_Gaussian(VAE):
         return self.mu_dec(mid_var), self.sig_dec(mid_var)
 
 class VAE_Categorical(VAE):
-    def __init__(data_dim, hidden_dim, NUM_CATEGORIES, condition=False, num_condition=0):
+    def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, condition=False, num_condition=0):
         super().__init__(data_dim, hidden_dim, condition=condition, num_condition=num_condition)
 
         # encoding layers
