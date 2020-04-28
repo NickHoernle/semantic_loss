@@ -5,8 +5,6 @@ Each experimet will extend this class to define it's own parameters for the expe
 for more efficiency in the code.
 """
 
-from __future__ import print_function
-
 import os
 import random
 import logging
@@ -16,6 +14,7 @@ import torch
 from torch import optim
 
 from utils.logging import raise_cuda_error
+from torchvision.utils import save_image
 
 
 class GenerativeTrainer:
@@ -85,21 +84,22 @@ class GenerativeTrainer:
         self.device = init_device(use_cuda)
 
         # init loaders
-        loader_params = {
+        self.loader_params = {
             "batch_size": self.batch_size,
             "shuffle": self.data_shuffle,
             "num_workers": num_loader_workers,
         }
         train_ds, valid_ds = input_torch_datasets  # tuple of train, test torch datasets
 
-        self.train_loader = torch.utils.data.DataLoader(train_ds, **loader_params)
-        self.valid_loader = torch.utils.data.DataLoader(valid_ds, **loader_params)
+        self.train_loader = torch.utils.data.DataLoader(train_ds, **self.loader_params)
+        self.valid_loader = torch.utils.data.DataLoader(valid_ds, **self.loader_params)
 
         self.data_dims = 1
         for i in self.train_loader.dataset.__getitem__(0)[0].shape:
             self.data_dims *= i
 
         self.network_loaded = False
+
         self.net = self.model_builder(**self.model_parameters)
         logging.info(
             "number of params: ", sum(p.numel() for p in self.net.parameters())
@@ -110,16 +110,17 @@ class GenerativeTrainer:
         # logging
         create_folder_if_not_exists(self.output_data_path)
         self.logger_path = create_folder_if_not_exists(f"{self.output_data_path}/logs/")
-        self.models_path = create_folder_if_not_exists(
-            f"{self.output_data_path}/models/"
-        )
+        self.models_path = create_folder_if_not_exists(f"{self.output_data_path}/models/")
+        self.figure_path = create_folder_if_not_exists(f"{self.output_data_path}/figures/")
         self.log_fh = open(
-            f"{self.logger_path}/logs/{self.model_name}.log", "w"
+            f"{self.logger_path}/{self.model_name}.log", "w"
         )
+
+        self.num_categories = 0
 
     @property
     def model_name(self):
-        config_args = [getattr(self, source) for source in self.model_config_args]
+        config_args = [str(getattr(self, source)) for source in self.model_config_args]
         return "_".join(config_args)
 
     @property
@@ -163,7 +164,7 @@ class GenerativeTrainer:
 
         if self.resume:
             # Load checkpoint.
-            print("Resuming from checkpoint at save/best.pth.tar...")
+            logging.info("Resuming from checkpoint at save/best.pth.tar...")
             assert os.path.isdir(
                 self.models_path
             ), "Error: no checkpoint directory found!"
@@ -190,7 +191,7 @@ class GenerativeTrainer:
                 self.log_fh.write(f"{epoch},{loss},{vld_loss}\n")
 
             # count for early stopping
-            if vld_loss >= best_loss:
+            if vld_loss >= self.best_loss:
                 count_valid_not_improving += 1
             else:
                 count_valid_not_improving = 0
@@ -203,8 +204,25 @@ class GenerativeTrainer:
                 logging.info(f"Early stopping: valid loss is NAN")
                 break
 
-            if self.num_test_samples > 0:
-                # TODO implement sampler here to generate test samples
+            # Save checkpoint
+            if vld_loss < self.best_loss:
+                logging.info(f'Saving...  {self.model_name}.best.pt')
+                state = {
+                    'net': net.state_dict(),
+                    'valid_loss': vld_loss,
+                    'epoch': epoch,
+                }
+                os.makedirs(self.models_path, exist_ok=True)
+                torch.save(state, os.path.join(self.models_path, f'{self.model_name}.best.pt'))
+                self.best_loss = vld_loss
+
+            if self.num_test_samples > 0 and self.num_categories > 0:
+                with torch.no_grad():
+                    labels = torch.zeros(64, self.num_categories).to(self.device)
+                    labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
+                    img_sample = net.sample_labelled(labels)
+                    img_sample = torch.sigmoid(img_sample)
+                    save_image(img_sample.view(64, 1, 28, 28), f'{self.figure_path}/sample_' + str(epoch) + '.png')
                 pass
 
         self.log_fh.close()

@@ -682,11 +682,8 @@ class SS_Flow(nn.Module):
         # prediction loss
         log_pred_label_sm = torch.log(torch.softmax(prior_logprob, dim=1) + 1e-10)
 
-        # KL divergence for discrete latent variable
-        KL_term = -(sampled_labels * log_pred_label_sm).sum(dim=1)
-
         return zs[-1],\
-            (-(prior_logprob*sampled_labels).sum(dim=1).sum(), -(log_det.sum()), KL_term.sum()), \
+            (-(prior_logprob*sampled_labels).sum(dim=1).sum(), -(log_det.sum()), log_pred_label_sm, prior), \
             log_pred_label_sm
 
     def forward_labelled(self, x, y, **kwargs):

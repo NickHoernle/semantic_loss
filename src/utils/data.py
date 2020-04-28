@@ -19,7 +19,7 @@ def get_samplers(labels, n=100, n_categories=10):
     return SubsetRandomSampler(indices_labeled), SubsetRandomSampler(indices_unlabeled)
 
 
-def to_logits(cls, x):
+def to_logits(x):
     """Convert the input image `x` to logits.
 
     Args:
@@ -46,8 +46,13 @@ def to_logits(cls, x):
     return y, sldj
 
 
-def convert_to_one_hot(cls, num_categories, labels):
+def convert_to_one_hot(num_categories, labels):
     labels = torch.unsqueeze(labels, 1)
     one_hot = torch.FloatTensor(len(labels), num_categories).zero_()
     one_hot.scatter_(1, labels, 1)
     return one_hot
+
+
+def dequantize(x):
+    x = (x * 255. + torch.rand_like(x)) / 256.
+    return x
