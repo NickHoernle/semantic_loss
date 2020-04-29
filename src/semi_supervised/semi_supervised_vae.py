@@ -38,7 +38,9 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         name="vae-semi-supervised",
     ):
         model_parameters = {
+            "data_dim": 28*28,
             "hidden_dim": hidden_dim,
+            "num_categories": 10
         }
         super().__init__(
             build_model,
@@ -62,6 +64,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             name=name,
         )
 
+    def run(self):
         self.main()
 
     @staticmethod

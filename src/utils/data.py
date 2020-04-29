@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch.nn import functional as F
 
 def get_samplers(labels, n=100, n_categories=10):
     from functools import reduce
@@ -15,6 +16,11 @@ def get_samplers(labels, n=100, n_categories=10):
 
     indices_unlabeled = torch.from_numpy(indices[~np.in1d(indices, indices_labeled)])
     indices_labeled = torch.from_numpy(indices_labeled)
+    indices_labeled = np.repeat(indices_labeled, len(indices_unlabeled)//len(indices_labeled))
+    indices_unlabeled = indices_unlabeled[:len(indices_labeled)]
+
+    indices_labeled = np.random.choice(indices_labeled, len(indices_labeled), replace=False)
+    indices_unlabeled = np.random.choice(indices_unlabeled, len(indices_unlabeled), replace=False)
 
     return SubsetRandomSampler(indices_labeled), SubsetRandomSampler(indices_unlabeled)
 

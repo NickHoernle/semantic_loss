@@ -12,6 +12,7 @@ import logging
 import numpy as np
 import torch
 from torch import optim
+from torchvision import datasets, transforms
 
 from utils.logging import raise_cuda_error
 from torchvision.utils import save_image
@@ -28,7 +29,7 @@ class GenerativeTrainer:
         self,
         model_builder,
         model_parameters,
-        input_torch_datasets,
+        input_data,
         output_data,
         max_grad_norm=1,
         num_epochs=100,
@@ -56,6 +57,7 @@ class GenerativeTrainer:
         )  # Starting best validation loss that is used for early stopping and logging
 
         self.output_data_path = output_data  # Path to where logs, models are saved
+        self.input_data = input_data # path to input data
 
         # training parameters
         self.max_grad_norm = max_grad_norm
@@ -89,23 +91,9 @@ class GenerativeTrainer:
             "shuffle": self.data_shuffle,
             "num_workers": num_loader_workers,
         }
-        train_ds, valid_ds = input_torch_datasets  # tuple of train, test torch datasets
-
-        self.train_loader = torch.utils.data.DataLoader(train_ds, **self.loader_params)
-        self.valid_loader = torch.utils.data.DataLoader(valid_ds, **self.loader_params)
-
-        self.data_dims = 1
-        for i in self.train_loader.dataset.__getitem__(0)[0].shape:
-            self.data_dims *= i
+        # train_ds, valid_ds = input_torch_datasets  # tuple of train, test torch datasets
 
         self.network_loaded = False
-
-        self.net = self.model_builder(**self.model_parameters)
-        logging.info(
-            "number of params: ", sum(p.numel() for p in self.net.parameters())
-        )
-
-        self.net = self.net.to(self.device)
 
         # logging
         create_folder_if_not_exists(self.output_data_path)
@@ -134,7 +122,7 @@ class GenerativeTrainer:
         ] + self.additional_model_config_args
 
     @torch.enable_grad()
-    def train(self, epoch, optimizer, **kwargs):
+    def train(self, **kwargs):
         """
         Train step of model returned by model_builder
         """
@@ -143,7 +131,7 @@ class GenerativeTrainer:
         )
 
     @torch.no_grad()
-    def test(self, epoch, optimizer, **kwargs):
+    def test(self, **kwargs):
         """
         Test step of model returned by model_builder
         """
@@ -151,14 +139,35 @@ class GenerativeTrainer:
             "Class must be overridden and test should be implemented"
         )
 
+    def get_datasets(self):
+        train_ds = datasets.MNIST(
+            self.input_data, train=True, download=True, transform=transforms.ToTensor()
+        )
+        valid_ds = datasets.MNIST(
+            self.input_data, train=False, transform=transforms.ToTensor()
+        )
+        return train_ds, valid_ds
+
+    def get_loaders(self, *args):
+        train_loader = torch.utils.data.DataLoader(args[0], **self.loader_params)
+        valid_loader = torch.utils.data.DataLoader(args[1], **self.loader_params)
+        return train_loader, valid_loader
+
     def main(self):
         """
         Method that runs the main training and testing loop
         """
 
-        train_loader, valid_loader = self.train_loader, self.valid_loader
+        net = self.model_builder(**self.model_parameters)
+        logging.info(
+            "number of params: ", sum(p.numel() for p in net.parameters())
+        )
+        print("number of params: ", sum(p.numel() for p in net.parameters()))
+
+        net.to(self.device)
+
+        train_loader, valid_loader = self.get_loaders(*self.get_datasets())
         set_seeds(self.seed)
-        net = self.net
 
         start_epoch = 0
 
@@ -182,8 +191,8 @@ class GenerativeTrainer:
 
         for epoch in range(start_epoch, start_epoch + self.num_epochs):
 
-            loss = self.train(epoch, optimizer)
-            vld_loss = self.test(epoch, optimizer)
+            loss = self.train(epoch, net, optimizer, train_loader)
+            vld_loss = self.test(epoch, net, optimizer, valid_loader)
 
             scheduler.step()
 

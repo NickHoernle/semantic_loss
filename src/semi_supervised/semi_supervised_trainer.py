@@ -42,23 +42,13 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         additional_model_config_args=[],
         num_loader_workers=8,
         num_labeled_data_per_class=100,
-        transformer=lambda x: x,
         name="base-model",
     ):
-        train_ds, valid_ds, num_categories = get_dataset(input_data, dataset)
-
-        dims = 1
-        for i in train_ds.__getitem__(0)[0].shape:
-            dims *= i
-
-        model_parameters["data_dim"] = dims
-        model_parameters["num_categories"] = num_categories
-
         super().__init__(
             model_builder,
             model_parameters,
-            (train_ds, valid_ds),
-            output_data,
+            input_data=input_data,
+            output_data=output_data,
             max_grad_norm=max_grad_norm,
             num_epochs=num_epochs,
             batch_size=batch_size,
@@ -74,57 +64,36 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             data_shuffle=False,
             name=name,
         )
-
-        self.dataset = dataset  # Must be one of MNIST|CIFAR10|CIFAR100'
-        self.num_categories = num_categories
-
-        labelled_sampler, unlabelled_sampler = get_samplers(
-            train_ds.train_labels.numpy(),
-            n=num_labeled_data_per_class,
-            n_categories=num_categories,
-        )
-        self.train_loader_labeled = torch.utils.data.DataLoader(
-            train_ds, sampler=labelled_sampler, **self.loader_params
-        )
-        self.train_loader_unlabeled = torch.utils.data.DataLoader(
-            train_ds, sampler=unlabelled_sampler, **self.loader_params
-        )
-        self.train_loader = (self.train_loader_labeled, self.train_loader_unlabeled)
-        self.valid_loader = torch.utils.data.DataLoader(valid_ds, **self.loader_params)
-
-        self.transformer = transformer
+        self.dataset = dataset
+        self.num_labeled_data_per_class = num_labeled_data_per_class
+        self.data_dims = model_parameters['data_dim']
+        self.num_categories = model_parameters['num_categories']
 
     @torch.enable_grad()
-    def train(self, epoch, optimizer, **kwargs):
+    def train(self, epoch, net, optimizer, loaders, **kwargs):
         """
         Train step of model returned by model_builder
         """
-        net = self.net
         device = self.device
         dims = self.data_dims
 
         net.train()
         loss_meter = AverageMeter()
 
-        (train_loader_labelled_, train_loader) = self.train_loader
+        (train_loader_labelled_, train_loader) = loaders
         train_loader_labelled = iter(train_loader_labelled_)
 
-        with tqdm(total=len(train_loader.dataset)) as progress_bar:
-            for data_u, labels_u in train_loader:
+        with tqdm(total=len(train_loader.sampler)) as progress_bar:
+            for (data_u, labels_u) in train_loader:
+
+                (data_l, target_l) = next(train_loader_labelled)
 
                 optimizer.zero_grad()
 
-                try:
-                    data_l, target_l = next(train_loader_labelled)
-                except StopIteration:
-                    train_loader_labelled = iter(train_loader_labelled_)
-                    data_l, target_l = next(train_loader_labelled)
-
-                data_u = self.transformer(data_u)
                 data_u = data_u.view(-1, dims).to(device)
 
-                data_l = self.transformer(data_l)
                 data_l = data_l.view(-1, dims).to(device)
+
                 one_hot = convert_to_one_hot(
                     num_categories=self.num_categories, labels=target_l
                 ).to(device)
@@ -132,13 +101,14 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 labeled_results = net((data_l, one_hot))
                 unlabeled_results = net((data_u, None))
 
-                loss_l = self.labeled_loss(*labeled_results)
-                loss_u = self.unlabeled_loss(*unlabeled_results)
+                loss_l = self.labeled_loss(data_l, *labeled_results)
+                loss_u = self.unlabeled_loss(data_u, *unlabeled_results)
 
                 loss = loss_l + loss_u
 
                 loss_meter.update(loss.item(), data_u.size(0))
                 loss.backward()
+
                 if self.max_grad_norm > 0:
                     clip_grad_norm_(net.parameters(), self.max_grad_norm)
                 optimizer.step()
@@ -151,24 +121,22 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         return loss_meter.avg
 
     @torch.no_grad()
-    def test(self, epoch, optimizer, **kwargs):
+    def test(self, epoch, net, optimizer, loaders, **kwargs):
         """
         Test step of model returned by model_builder
         """
 
-        net = self.net
         device = self.device
         dims = self.data_dims
 
-        net.train()
+        net.eval()
         loss_meter = AverageMeter()
 
         accuracy = []
 
-        with tqdm(total=len(self.valid_loader.dataset)) as progress_bar:
-            for data, labels in self.valid_loader:
+        with tqdm(total=len(loaders.dataset)) as progress_bar:
+            for data, labels in loaders:
 
-                data = self.transformer(data)
                 data = data.view(-1, dims).to(device)
                 one_hot = convert_to_one_hot(
                     num_categories=self.num_categories, labels=labels
@@ -176,20 +144,20 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 net_args = net((data, one_hot))
 
-                loss = self.labeled_loss(*net_args)
+                loss = self.labeled_loss(data, *net_args)
 
                 loss_meter.update(loss.item(), data.size(0))
                 progress_bar.set_postfix(nll=loss_meter.avg)
                 progress_bar.update(data.size(0))
 
                 accuracy += (
-                    (torch.argmax(latent_params[-1], dim=1) == labels)
+                    (torch.argmax(net_args[1][-1], dim=1) == labels)
                     .float()
                     .detach()
                     .numpy()
                 ).tolist()
 
-        print(f"===============> Accuracy: {np.mean(accuracy)}")
+        print(f"===============> Epoch {epoch}; Accuracy: {np.mean(accuracy)}")
         return loss_meter.avg
 
     @staticmethod
@@ -206,35 +174,50 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         """
         raise NotImplementedError("Not implemented unlabeled loss")
 
+    def get_datasets(self):
+        """
+        Returns the dataset that is requested by the dataset param
+        """
+        if self.dataset == "MNIST":
+            train_ds = datasets.MNIST(
+                self.input_data, train=True, download=True, transform=transforms.ToTensor()
+            )
+            valid_ds = datasets.MNIST(
+                self.input_data, train=False, transform=transforms.ToTensor()
+            )
+            num_categories = 10
+        elif self.dataset == "CIFAR10":
+            train_ds = datasets.MNIST(
+                self.input_data, train=True, download=True, transform=transforms.ToTensor()
+            )
+            valid_ds = datasets.MNIST(
+                self.input_data, train=False, transform=transforms.ToTensor()
+            )
+            num_categories = 10
+        elif self.dataset == "CIFAR100":
+            train_ds = datasets.MNIST(
+                self.input_data, train=True, download=True, transform=transforms.ToTensor()
+            )
+            valid_ds = datasets.MNIST(
+                self.input_data, train=False, transform=transforms.ToTensor()
+            )
+            num_categories = 100
+        else:
+            raise ValueError("Dataset not in {MNIST|CIFAR10|CIFAR100}")
+        return train_ds, valid_ds, num_categories
 
-def get_dataset(input_data, dataset):
-    """
-    Returns the dataset that is requested by the dataset param
-    """
-    if dataset == "MNIST":
-        train_ds = datasets.MNIST(
-            input_data, train=True, download=True, transform=transforms.ToTensor()
+    def get_loaders(self, train_ds, valid_ds, num_categories):
+        labelled_sampler, unlabelled_sampler = get_samplers(
+            train_ds.train_labels.numpy(),
+            n=self.num_labeled_data_per_class,
+            n_categories=num_categories,
         )
-        valid_ds = datasets.MNIST(
-            input_data, train=False, transform=transforms.ToTensor()
+        train_loader_labeled = torch.utils.data.DataLoader(
+            train_ds, sampler=labelled_sampler, **self.loader_params
         )
-        num_categories = 10
-    elif dataset == "CIFAR10":
-        train_ds = datasets.MNIST(
-            input_data, train=True, download=True, transform=transforms.ToTensor()
+        train_loader_unlabeled = torch.utils.data.DataLoader(
+            train_ds, sampler=unlabelled_sampler, **self.loader_params
         )
-        valid_ds = datasets.MNIST(
-            input_data, train=False, transform=transforms.ToTensor()
-        )
-        num_categories = 10
-    elif dataset == "CIFAR100":
-        train_ds = datasets.MNIST(
-            input_data, train=True, download=True, transform=transforms.ToTensor()
-        )
-        valid_ds = datasets.MNIST(
-            input_data, train=False, transform=transforms.ToTensor()
-        )
-        num_categories = 100
-    else:
-        raise ValueError("Dataset not in {MNIST|CIFAR10|CIFAR100}")
-    return train_ds, valid_ds, num_categories
+        train_loader = (train_loader_labeled, train_loader_unlabeled)
+        valid_loader = torch.utils.data.DataLoader(valid_ds, **self.loader_params)
+        return train_loader, valid_loader
