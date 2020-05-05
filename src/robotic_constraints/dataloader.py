@@ -34,13 +34,13 @@ class NavigateFromTo(data.Dataset):
 
         # Load data and get label
         weight_path = os.path.join(self.data_path, f"weights_{ID}.pt")
-        trajectory_dat = torch.tensor([0])
+        trajectory_dat = torch.tensor([0]).float()
 
         if self.trajectory:
             trajectory_path = os.path.join(self.data_path, f"trajectory_{ID}.pt")
-            trajectory_dat = torch.load(trajectory_path)
+            trajectory_dat = torch.load(trajectory_path).float()
 
-        weights = torch.load(weight_path)
-        condition_params = torch.tensor(self.ids_all['params'][f"{ID}"])
+        weights = torch.load(weight_path).float()
+        condition_params = torch.tensor(self.ids_all['params'][f"{ID}"]).float()
 
         return weights.T.reshape(-1,), condition_params, trajectory_dat.view(-1,)

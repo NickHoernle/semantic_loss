@@ -235,7 +235,7 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
             prior_logprob, log_det, cat_kl = latent_losses
 
             loss = 0
-            if args.backward and epoch > 1:
+            if args.backward and epoch > 10:
                 # optimizer.zero_grad()
                 # regularizer = MultivariateNormal(torch.zeros_like(x[-1]).to(device),
                 #                                  .25 * torch.eye(x.size()[1]).to(device))

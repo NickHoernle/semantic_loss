@@ -7,49 +7,21 @@ import itertools
 import torch
 from torch import optim
 
-from torchvision.utils import save_image
-
-from nflib import (
-    AffineHalfFlow,
-    NormalizingFlowModel,
-    BaseDistributionMixtureGaussians,
-    MAF,
-    Invertible1x1Conv,
-    ActNorm,
-    BaseDistribution,
-    SS_Flow,
-)
-
 from rss_code_and_data import (DMP)
 from robotic_constraints.robotic_constraints_trainer import RCTrainer
 from utils.data import dequantize, to_logits
 from robotic_constraints.utils import plot_trajectories
+from robotic_constraints.dataloader import NavigateFromTo
 
+from vaelib.vae import VAE
 
 mdl_name = 'maf'
 
-def build_model(data_dim=10, num_layers=10, num_categories=10):
-    """
-    Construct the model for semi-supervised learning
-    """
-    # base_dist = BaseDistributionMixtureGaussians(data_dim, num_categories)
-    base_dist = BaseDistribution(data_dim)
-    # print(num_layers)
-    # print(data_dim)
-    #
-    flows = [MAF(dim=data_dim, parity=i % 2, nh=50) for i in range(num_layers)]
-    # flows = [AffineHalfFlow(dim=data_dim, parity=i % 2, nh=50) for i in range(num_layers)]
-    convs = [Invertible1x1Conv(dim=data_dim) for _ in flows]
-    norms = [ActNorm(dim=data_dim) for _ in flows]
-
-    flows = list(itertools.chain(*zip(flows, convs, norms)))
-
-    flow_main = NormalizingFlowModel(base_dist, flows)
-    return flow_main
-    # return SS_Flow(flows=flow_main, NUM_CATEGORIES=num_categories, dims=data_dim)
+def build_model(data_dim=10, hidden_dim=10, num_categories=10):
+    return VAE(data_dim=data_dim, hidden_dim=hidden_dim)
 
 
-class RC_Flow(RCTrainer):
+class RC_VAE(RCTrainer):
     """
     Semi-supervised flow to infer the categories of images.
     """
@@ -60,7 +32,7 @@ class RC_Flow(RCTrainer):
         output_data,
         backward=False,
         max_grad_norm=1,
-        num_layers=10,
+        hidden_dim=10,
         num_epochs=100,
         batch_size=1000,
         lr=1e-4,
@@ -73,12 +45,11 @@ class RC_Flow(RCTrainer):
         early_stopping_lim=50,
         additional_model_config_args=[],
         num_loader_workers=0,
-        num_labeled_data_per_class=100,
-        name="vae-semi-supervised",
+        name="vae_rc",
     ):
         model_parameters = {
             "data_dim": data_dims,
-            "num_layers": num_layers,
+            "hidden_dim": hidden_dim,
             "num_categories": 1
         }
         super().__init__(
@@ -108,39 +79,14 @@ class RC_Flow(RCTrainer):
         """
         self.main()
 
-
-            # def get_optimizer(self, net):
-    #     params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in ['means'], net.named_parameters()))))
-    #     base_params = list(
-    #         map(lambda x: x[1], list(filter(lambda kv: kv[0] not in ['means'], net.named_parameters()))))
-    #
-    #     return optim.Adam([
-    #         {"params": params, "lr": 1e-1},
-    #         {"params": base_params}], lr=self.lr)
-        # return optim.Adam(net.parameters(), lr=self.lr)
-    def get_y_tracks(self, weights):
-        import numpy as np
-        num_samples = len(weights)
-        condition_params = torch.tensor([np.random.uniform(0, .05, num_samples),
-                                         np.random.uniform(0, .05, num_samples),
-                                         np.random.uniform(.95, 1., num_samples),
-                                         np.random.uniform(.95, 1., num_samples)]).float().T
-
-        dims = weights.size(1)
-        dmp = DMP(weights.size()[-1] // 2, dt=1 / 100, d=2, device=self.device)
-        y_track, dy_track, ddy_track = dmp.rollout_torch(condition_params[:, :2],
-                                                         condition_params[:, -2:],
-                                                         weights.view(num_samples, dims // 2, -1).transpose(1, 2),
-                                                         device=self.device)
-        return y_track
-
     @staticmethod
-    def backward_loss(y_track, data_samp, log_det, constraints=[]):
+    def backward_loss(y_track, weights_recon, constraints):
         """
         Loss for the labeled data
         """
+
         neg_loss = 0
-        const = 1e5
+        const = 1e10
         for constraint in constraints:
             neg_loss -= (const * torch.where((y_track[:, :, 0] - constraint['coords'][0]) ** 2 +
                                              (y_track[:, :, 1] - constraint['coords'][1]) ** 2 < constraint[
@@ -150,24 +96,37 @@ class RC_Flow(RCTrainer):
                                                  'radius'] ** 2,
                                              torch.zeros_like(y_track[:, :, 0])).sum(dim=1) ** 2)
 
-        lsdj = log_det
-        # prior_logprob, lsdj, label_logprob = latent_loss
-        # discriminator_loss = -(true_label * (label_logprob)).sum(dim=1).sum()
-        # return
-        return -(neg_loss.sum() + lsdj.sum())/1e2
+        return -neg_loss.mean()
 
     @staticmethod
-    def forward_loss(data, latent_samp, prior_log_prob, log_det):
+    def forward_loss(data, weights_recon, latent_params, traj_recon):
         """
         Loss for the unlabeled data
         """
+        weights, trajectories = data
+
+        recon_loss = 1e2*torch.norm(trajectories - traj_recon.view(traj_recon.size(0), -1))
+
+        q_mu, q_logvar = latent_params
+        KLD_cont = -0.5 * torch.sum(1 + q_logvar - (q_mu).pow(2) - q_logvar.exp())
+
         # cat_kl_div = -(label_sample * (label_logprob + prior)).sum(dim=1).sum()
-        return - (prior_log_prob.sum() + log_det.sum())
+        return KLD_cont + recon_loss
 
     def sample_examples(self, epoch, net):
 
-        z = net.prior.sample(self.num_test_samples)
-        xs, _ = net.backward(z)
-        weights = xs[-1].view(self.num_test_samples, self.data_dims // 2, -1).transpose(1, 2)
+        z = torch.randn((self.num_test_samples, net.hidden_dim))
+        xs = net.decode(z)
+        weights = xs.view(self.num_test_samples, self.data_dims // 2, -1).transpose(1, 2)
 
         self.plot_gen_traj(weights, epoch)
+
+    def get_datasets(self):
+        """
+        Returns the dataset that is requested by the dataset param
+        """
+        train_ds = NavigateFromTo(type='train', data_path=self.input_data, trajectory=True)
+        valid_ds = NavigateFromTo(type='validate', data_path=self.input_data, trajectory=True)
+
+        return train_ds, valid_ds
+
