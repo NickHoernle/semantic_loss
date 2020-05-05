@@ -546,9 +546,9 @@ class NormalizingFlowModel(nn.Module):
         return xs, log_det
     
     def sample(self, num_samples, **kwargs):
-        z = self.prior.sample((num_samples,))
-        xs, _ = self.flow.backward(z, **kwargs)
-        return xs
+        z = self.prior.sample(num_samples)
+        xs, lsdj = self.flow.backward(z, **kwargs)
+        return xs[-1], lsdj
 
     def get_state_params(self):
         import copy
@@ -671,7 +671,6 @@ class SS_Flow(nn.Module):
     def forward_unlabelled(self, x, **kwargs):
 
         # x, sldj = SS_Flow.to_logits(x)
-
         zs, prior_logprob, log_det = self.flow_main(x, **kwargs)
 
         # sample label
@@ -679,32 +678,28 @@ class SS_Flow(nn.Module):
 
         # gumbel-softmax
         sampled_labels = F.gumbel_softmax(prior_logprob, tau=self.tau, hard=False)
+
         # prediction loss
         log_pred_label_sm = torch.log(torch.softmax(prior_logprob, dim=1) + 1e-10)
+        latent = log_det.sum()#-sldj.sum()
 
         return zs[-1],\
-            (-(prior_logprob*sampled_labels).sum(dim=1).sum(), -(log_det.sum()), log_pred_label_sm, prior), \
-            log_pred_label_sm
+            (-(prior_logprob*sampled_labels).sum(dim=1).sum(), -(latent), log_pred_label_sm, prior), \
+               sampled_labels
 
     def forward_labelled(self, x, y, **kwargs):
 
-        # convert labels to one hot
-        labels = torch.unsqueeze(y, 1)
-        one_hot = torch.FloatTensor(x.size()[0], self.NUM_CATEGORIES).zero_()
-        one_hot.scatter_(1, labels, 1)
-
+        one_hot = y
         x, sldj = SS_Flow.to_logits(x)
 
         zs, prior_logprob, log_det = self.flow_main(x, **kwargs)
 
-        # prediction loss
+        # prediction
         log_pred_label_sm = torch.log(torch.softmax(prior_logprob, dim=1) + 1e-10)
 
-        pred_loss = (one_hot * log_pred_label_sm).sum(dim=1)
-
         return zs[-1],\
-               (-(prior_logprob*one_hot).sum(dim=1).sum(), -(log_det.sum()+sldj.sum()), -pred_loss.sum()), \
-               log_pred_label_sm
+               (-(prior_logprob*one_hot).sum(dim=1).sum(), -(log_det.sum()-sldj.sum()), log_pred_label_sm), \
+               one_hot
 
     def backward(self, labels, **kwargs):
         z = self.flow_main.prior.sample(len(labels), labels)
@@ -724,3 +719,6 @@ class SS_Flow(nn.Module):
         prior_params = state_dict.pop('prior_params')
         self.flow_main.prior.load_state_dict(prior_params)
         return True
+
+    def sample_labelled(self, labels):
+        return self.backward(labels)
