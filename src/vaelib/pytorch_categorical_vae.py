@@ -208,10 +208,28 @@ def train(epoch, net, trainloader, device, optimizer, scheduler, max_grad_norm, 
             optimizer.zero_grad()
 
             data_reconstructed_l, latent_params_l, label_sample_l = net((data_l, one_hot))
-            data_reconstructed_u, latent_params_u, label_sample_u = net((data_u, None))
+            # data_reconstructed_u, latent_params_u, label_sample_u = net((data_u, None))
 
             loss_l = labelled_loss(data_l, data_reconstructed_l, latent_params_l, one_hot)
-            loss_u = unlabelled_loss(data_u, data_reconstructed_u, latent_params_u, label_sample_u)
+            # loss_u = unlabelled_loss(data_u, data_reconstructed_u, latent_params_u, label_sample_u)
+            loss_u = 0
+
+            (q_mu, q_logvar) = net.encode(data_u)
+            z = net.reparameterize(q_mu, q_logvar)
+            label_log_prob = net.discriminator(q_mu)
+            log_pred_label_sm = torch.log(torch.softmax(label_log_prob, dim=1) + 1e-10)
+
+            for cat in range(net.NUM_CATEGORIES):
+                one_hot = VAE_Categorical.convert_to_one_hot(
+                    num_categories=net.NUM_CATEGORIES,
+                    labels=cat*torch.ones(len(data_u))).to(device)
+
+                (q_mu, q_logvar) = net.encode(data_u)
+
+                means = (one_hot.unsqueeze(-1) * net.means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+                z = net.reparameterize(q_mu, q_logvar)
+
+                log_pred_label_sm = torch.log(torch.softmax(label_log_prob, dim=1) + 1e-10)
 
             loss = loss_l + loss_u
 
