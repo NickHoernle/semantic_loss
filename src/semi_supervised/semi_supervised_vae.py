@@ -4,6 +4,9 @@ Define semi-supervised class for training VAE models
 """
 import torch
 from torch.nn import functional as F
+from torch import optim
+from torchvision.utils import save_image
+from torch.distributions import MultivariateNormal
 
 from vaelib.vae import VAE_Categorical
 from semi_supervised.semi_supervised_trainer import SemiSupervisedTrainer
@@ -67,32 +70,77 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
     def run(self):
         self.main()
 
+    def get_means(self, results):
+
+        recon_data, samps, latent_params, labels = results
+        zs = latent_params[0]
+
+        counts = (labels).sum(dim=0)
+
+        return (labels.unsqueeze(-1).repeat(1, 1, zs.size(1)) * zs.unsqueeze(1).repeat(1, self.num_categories, 1)).sum(dim=0), counts
+
+    def get_means_param(self, net):
+        return net.means
+
     @staticmethod
-    def labeled_loss(data, data_reconstructed, latent_params, label_sample):
+    def labeled_loss(data, data_reconstructed, latent_samples, latent_params, true_label):
         """
         Loss for the labeled data
         """
         BCE = F.binary_cross_entropy(
             torch.sigmoid(data_reconstructed), data, reduction="sum"
         )
-        mu, logvar, label_logprob = latent_params
 
-        KLD_continuous = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-        discriminator_loss = -(label_sample * (label_logprob)).sum(dim=1).sum()
+        z, means = latent_samples
+        q_mu, q_logvar, q_label_logprob = latent_params
 
-        return BCE + KLD_continuous + discriminator_loss
+        KLD_cont = -0.5 * torch.sum(1 + q_logvar - q_mu.pow(2) - q_logvar.exp())
+
+        # cov = (torch.eye(q_mu.size(1)).unsqueeze(0).repeat(q_logvar.size(0),1,1))
+        # q_z_cov = torch.exp(q_logvar).unsqueeze(-1).repeat(1,1,q_mu.size(1))*cov
+
+        # z_std = z - means
+        # q_z = MultivariateNormal(z_std, q_z_cov)
+        # prior = MultivariateNormal(torch.zeros_like(q_mu), cov)
+        # KLD_continuous = torch.exp(q_z.log_prob(z_std)) * (prior.log_prob(z_std) - q_z.log_prob(z_std))
+
+        # cov = (torch.eye(means.size(1)))
+        # q_mean = MultivariateNormal(means, cov)
+        # prior_mean = MultivariateNormal(torch.zeros_like(means), 10*cov)
+        # KLD_continuous_global = torch.exp(q_mean.log_prob(samp_means)) * (prior_mean.log_prob(samp_means) - q_mean.log_prob(samp_means))
+
+        discriminator_loss = -(true_label*(q_label_logprob)).sum(dim=1).sum()
+
+        return BCE + KLD_cont.sum() + discriminator_loss
 
     @staticmethod
-    def unlabeled_loss(data, data_reconstructed, latent_params, label_sample):
+    def unlabeled_loss(data, data_reconstructed, latent_samples, latent_params, label_sample):
         """
         Loss for the unlabeled data
         """
         BCE = F.binary_cross_entropy(
             torch.sigmoid(data_reconstructed), data, reduction="sum"
         )
-        mu, logvar, label_logprob, prior = latent_params
+        z, means = latent_samples
+        q_mu, q_logvar, q_label_logprob, cat_prior = latent_params
 
-        KLD_continuous = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-        KLD_discrete = -(label_sample * (label_logprob + prior)).sum(dim=1).sum()
+        KLD_continuous = -0.5 * torch.sum(1 + q_logvar - (z-means).pow(2) - q_logvar.exp())
+        KLD_discrete = - (label_sample * (cat_prior - q_label_logprob)).sum(dim=1).sum()
 
         return BCE + KLD_continuous + KLD_discrete
+
+    def get_optimizer(self, net):
+
+        params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in ['means'], net.named_parameters()))))
+        base_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] not in ['means'], net.named_parameters()))))
+
+        return optim.Adam([
+            {"params": params,  "lr": 1e-1},
+            {"params": base_params}], lr=self.lr)
+
+    def sample_examples(self, epoch, net):
+        labels = torch.zeros(64, self.num_categories).to(self.device)
+        labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
+        img_sample = net.sample_labelled(labels)
+        img_sample = torch.sigmoid(img_sample)
+        save_image(img_sample.view(64, 1, 28, 28), f'{self.figure_path}/sample_' + str(epoch) + '.png')

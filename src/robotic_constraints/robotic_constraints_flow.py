@@ -10,16 +10,16 @@ from torch import optim
 from torchvision.utils import save_image
 
 from nflib import (
-    ActNorm,
-    MAF,
-    Invertible1x1Conv,
+    AffineHalfFlow,
     NormalizingFlowModel,
     BaseDistributionMixtureGaussians,
     SS_Flow,
 )
-from semi_supervised.semi_supervised_trainer import SemiSupervisedTrainer
+from robotic_constraints.robotic_constraints_trainer import RCTrainer
 from utils.data import dequantize, to_logits
 
+
+mdl_name = 'maf'
 
 def build_model(data_dim=10, num_layers=10, num_categories=10):
     """
@@ -27,30 +27,23 @@ def build_model(data_dim=10, num_layers=10, num_categories=10):
     """
     base_dist = BaseDistributionMixtureGaussians(data_dim, num_categories)
 
-    print(num_layers)
-    print(data_dim)
+    # print(num_layers)
+    # print(data_dim)
+    #
+    # flows = [MAF(dim=data_dim, parity=i % 2) for i in range(num_layers)]
+    # convs = [Invertible1x1Conv(dim=data_dim) for _ in flows]
+    # norms = [ActNorm(dim=data_dim) for _ in flows]
+    #
+    # flows = list(itertools.chain(*zip(flows, convs, norms)))
 
-    flows = [MAF(dim=data_dim, parity=i % 2) for i in range(num_layers)]
-    convs = [Invertible1x1Conv(dim=data_dim) for _ in flows]
-    norms = [ActNorm(dim=data_dim) for _ in flows]
-
-    flows = list(itertools.chain(*zip(flows, convs, norms)))
+    flows = [AffineHalfFlow(dim=2, parity=i % 2, nh=250) for i in range(9)]
 
     flow_main = NormalizingFlowModel(base_dist, flows)
 
     return SS_Flow(flows=flow_main, NUM_CATEGORIES=num_categories, dims=data_dim)
 
 
-def convert_discrete_to_continuous(data):
-    """
-    Convert a discrete image to a continuous representation to model the continuous distribution to 
-    avoid degenerate distriutions.
-    """
-    data = dequantize(data)
-    return data
-
-
-class FlowSemiSupervisedTrainer(SemiSupervisedTrainer):
+class RC_Flow(RCTrainer):
     """
     Semi-supervised flow to infer the categories of images.
     """
@@ -110,14 +103,14 @@ class FlowSemiSupervisedTrainer(SemiSupervisedTrainer):
         """
         self.main()
 
-    def get_optimizer(self, net):
-        params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in ['means'], net.named_parameters()))))
-        base_params = list(
-            map(lambda x: x[1], list(filter(lambda kv: kv[0] not in ['means'], net.named_parameters()))))
-
-        return optim.Adam([
-            {"params": params, "lr": 1e-1},
-            {"params": base_params}], lr=self.lr)
+    # def get_optimizer(self, net):
+    #     params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in ['means'], net.named_parameters()))))
+    #     base_params = list(
+    #         map(lambda x: x[1], list(filter(lambda kv: kv[0] not in ['means'], net.named_parameters()))))
+    #
+    #     return optim.Adam([
+    #         {"params": params, "lr": 1e-1},
+    #         {"params": base_params}], lr=self.lr)
         # return optim.Adam(net.parameters(), lr=self.lr)
 
     @staticmethod
@@ -139,8 +132,9 @@ class FlowSemiSupervisedTrainer(SemiSupervisedTrainer):
         return prior_logprob + lsdj + cat_kl_div
 
     def sample_examples(self, epoch, net):
-        labels = torch.zeros(64, self.num_categories).to(self.device)
-        labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
-        img_sample, _ = net.sample_labelled(labels)
-        img_sample = torch.sigmoid(img_sample)
-        save_image(img_sample.view(64, 1, 28, 28), f'{self.figure_path}/sample_' + str(epoch) + '.png')
+        pass
+        # labels = torch.zeros(64, self.num_categories).to(self.device)
+        # labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
+        # img_sample, _ = net.sample_labelled(labels)
+        # img_sample = torch.sigmoid(img_sample)
+        # save_image(img_sample.view(64, 1, 28, 28), f'{self.figure_path}/sample_' + str(epoch) + '.png')

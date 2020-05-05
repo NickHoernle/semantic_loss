@@ -16,6 +16,8 @@ from utils.generative_trainer import GenerativeTrainer
 from utils.logging import AverageMeter
 from utils.data import get_samplers, convert_to_one_hot
 
+from torch.nn import functional as F
+
 
 class SemiSupervisedTrainer(GenerativeTrainer):
     """
@@ -83,41 +85,114 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         (train_loader_labelled_, train_loader) = loaders
         train_loader_labelled = iter(train_loader_labelled_)
 
+        # anneal the tau parameter
+        net.tau = np.max((0.5, net.tau * np.exp(-5e-3 * (epoch))))
+        means, counts = torch.zeros_like(net.means), torch.zeros_like(net.means[:,0])
+
         with tqdm(total=len(train_loader.sampler)) as progress_bar:
             for (data_u, labels_u) in train_loader:
 
                 (data_l, target_l) = next(train_loader_labelled)
 
-                optimizer.zero_grad()
-
+                # prepare the data
                 data_u = data_u.view(-1, dims).to(device)
-
                 data_l = data_l.view(-1, dims).to(device)
 
                 one_hot = convert_to_one_hot(
                     num_categories=self.num_categories, labels=target_l
                 ).to(device)
 
-                labeled_results = net((data_l, one_hot))
-                unlabeled_results = net((data_u, None))
+                # discriminative learning
+                self.get_means_param(net).requires_grad = True
+                optimizer.zero_grad()
 
-                loss_l = self.labeled_loss(data_l, *labeled_results)
-                loss_u = self.unlabeled_loss(data_u, *unlabeled_results)
+                q_mu, label_log_prob = net.encode_means(data_l)
+                label_log_prob_sm = torch.log(torch.softmax(label_log_prob, dim=1) + 1e-10)
 
-                loss = loss_l + loss_u
+                loss = -(one_hot * label_log_prob_sm).sum(dim=1).sum()
+
+                loss.backward()
+                optimizer.step()
+
+                # do the semi-supervised learning
+                if epoch > 2:
+                    self.get_means_param(net).requires_grad = False
+
+                    optimizer.zero_grad()
+
+                    # labeled results
+                    labeled_results = net((data_l, one_hot))
+                    loss_l = self.labeled_loss(data_l, *labeled_results)
+
+                    loss_u = []
+
+                    (q_mu, q_logvar) = net.encode(data_u)
+                    label_log_prob = net.discriminator(q_mu)
+                    log_pred_label_sm = torch.log(torch.softmax(label_log_prob, dim=1) + 1e-10)
+                    KLD = -0.5 * torch.sum(1 + q_logvar - q_mu.pow(2) - q_logvar.exp())
+
+                    for cat in range(self.num_categories):
+
+                        one_hot_u = convert_to_one_hot(
+                            num_categories=self.num_categories, labels=cat * torch.ones(len(data_u)).long()
+                        ).to(device)
+
+                        means = (one_hot_u.unsqueeze(-1) * net.means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+                        z = net.reparameterize(q_mu - means, q_logvar)
+
+                        latent = torch.cat((z, one_hot_u), dim=1)
+                        data_reconstructed = net.decode(latent)
+
+                        BCE = F.binary_cross_entropy(
+                            torch.sigmoid(data_reconstructed), data_u, reduction="sum"
+                        )
+
+                        loss_u += [((BCE+KLD) + (one_hot_u*(log_pred_label_sm)).sum(dim=1).sum()).unsqueeze(0)]
+
+                    loss_u = torch.logsumexp(torch.cat(loss_u), dim=0)
+                    # loss_u = self.unlabeled_loss(data_u, *unlabeled_results)
+                    loss = loss_l + loss_u
+
+                    loss.backward()
+
+                    if self.max_grad_norm > 0:
+                        clip_grad_norm_(net.parameters(), self.max_grad_norm)
+                    optimizer.step()
 
                 loss_meter.update(loss.item(), data_u.size(0))
-                loss.backward()
 
-                if self.max_grad_norm > 0:
-                    clip_grad_norm_(net.parameters(), self.max_grad_norm)
-                optimizer.step()
+                # do the semi-supervised learning
+                # optimizer.zero_grad()
+                #
+                # labeled_results = net((data_l, one_hot))
+                # unlabeled_results = net((data_u, None))
+                #
+                # loss_l = self.labeled_loss(data_l, *labeled_results)
+                # loss_u = self.unlabeled_loss(data_u, *unlabeled_results)
+                #
+                # loss = loss_l + loss_u
+                # loss = loss_l
+                #
+                # loss_meter.update(loss.item(), data_u.size(0))
+                # loss.backward()
+
+                # if self.max_grad_norm > 0:
+                #     clip_grad_norm_(net.parameters(), self.max_grad_norm)
+                # optimizer.step()
 
                 progress_bar.set_postfix(
                     nll=loss_meter.avg, lr=optimizer.param_groups[0]["lr"]
                 )
                 progress_bar.update(data_u.size(0))
                 self.global_step += data_u.size(0)
+
+                # m, c = self.get_means(labeled_results)
+                # means += m
+                # counts += c
+
+                # stochastic VI update
+                # net.update_means(m, c, 1/((epoch+1)**2+100))
+
         return loss_meter.avg
 
     @torch.no_grad()
@@ -146,18 +221,19 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 loss = self.labeled_loss(data, *net_args)
 
-                loss_meter.update(loss.item(), data.size(0))
+                loss_meter.update(loss.item()/len(labels), data.size(0))
                 progress_bar.set_postfix(nll=loss_meter.avg)
                 progress_bar.update(data.size(0))
 
                 accuracy += (
-                    (torch.argmax(net_args[1][-1], dim=1) == labels)
+                    (torch.argmax(net_args[2][-1], dim=1) == labels)
                     .float()
                     .detach()
                     .numpy()
                 ).tolist()
 
         print(f"===============> Epoch {epoch}; Accuracy: {np.mean(accuracy)}")
+        # print(net.means)
         return loss_meter.avg
 
     @staticmethod
