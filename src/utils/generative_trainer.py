@@ -17,6 +17,9 @@ from torchvision import datasets, transforms
 from utils.logging import raise_cuda_error
 from torchvision.utils import save_image
 
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 
 class GenerativeTrainer:
     """
@@ -153,6 +156,12 @@ class GenerativeTrainer:
         valid_loader = torch.utils.data.DataLoader(args[1], **self.loader_params)
         return train_loader, valid_loader
 
+    def sample_examples(self, epoch, net):
+        pass
+
+    def get_optimizer(self, net):
+        return optim.Adam(net.parameters(), lr=self.lr)
+
     def main(self):
         """
         Method that runs the main training and testing loop
@@ -184,7 +193,7 @@ class GenerativeTrainer:
             best_loss = checkpoint["test_loss"]
             self.global_step = start_epoch * len(train_loader.dataset)
 
-        optimizer = optim.Adam(net.parameters(), lr=self.lr)
+        optimizer = self.get_optimizer(net)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.gamma)
 
         count_valid_not_improving = 0
@@ -225,14 +234,10 @@ class GenerativeTrainer:
                 torch.save(state, os.path.join(self.models_path, f'{self.model_name}.best.pt'))
                 self.best_loss = vld_loss
 
-            if self.num_test_samples > 0 and self.num_categories > 0:
+            if self.num_test_samples > 0:
                 with torch.no_grad():
-                    labels = torch.zeros(64, self.num_categories).to(self.device)
-                    labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
-                    img_sample = net.sample_labelled(labels)
-                    img_sample = torch.sigmoid(img_sample)
-                    save_image(img_sample.view(64, 1, 28, 28), f'{self.figure_path}/sample_' + str(epoch) + '.png')
-                pass
+                    # pass
+                    self.sample_examples(epoch, net)
 
         self.log_fh.close()
 
