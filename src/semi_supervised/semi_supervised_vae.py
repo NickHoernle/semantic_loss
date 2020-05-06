@@ -2,6 +2,8 @@
 Author: Nick Hoernle
 Define semi-supervised class for training VAE models
 """
+import numpy as np
+
 import torch
 from torch.nn import functional as F
 from torch import optim
@@ -91,27 +93,17 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             torch.sigmoid(data_reconstructed), data, reduction="sum"
         )
 
-        z, means = latent_samples
-        q_mu, q_logvar, q_label_logprob = latent_params
+        z, z_means = latent_samples
+        q_mu, q_logvar, q_main_mu, q_main_logvar, q_label_logprob = latent_params
 
-        KLD_cont = -0.5 * torch.sum(1 + q_logvar - q_mu.pow(2) - q_logvar.exp())
+        z_means_ = (true_label.unsqueeze(-1) * z_means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
-        # cov = (torch.eye(q_mu.size(1)).unsqueeze(0).repeat(q_logvar.size(0),1,1))
-        # q_z_cov = torch.exp(q_logvar).unsqueeze(-1).repeat(1,1,q_mu.size(1))*cov
-
-        # z_std = z - means
-        # q_z = MultivariateNormal(z_std, q_z_cov)
-        # prior = MultivariateNormal(torch.zeros_like(q_mu), cov)
-        # KLD_continuous = torch.exp(q_z.log_prob(z_std)) * (prior.log_prob(z_std) - q_z.log_prob(z_std))
-
-        # cov = (torch.eye(means.size(1)))
-        # q_mean = MultivariateNormal(means, cov)
-        # prior_mean = MultivariateNormal(torch.zeros_like(means), 10*cov)
-        # KLD_continuous_global = torch.exp(q_mean.log_prob(samp_means)) * (prior_mean.log_prob(samp_means) - q_mean.log_prob(samp_means))
+        KLD_cont = -0.5 * torch.sum(1 + q_logvar - (q_mu-z_means_).pow(2) - q_logvar.exp())
+        # KLD_cont_main = -0.5 * torch.sum(1 + q_main_logvar - np.log(100) - (q_main_logvar.exp() + q_main_mu.pow(2))/100)
 
         discriminator_loss = -(true_label*(q_label_logprob)).sum(dim=1).sum()
-
-        return BCE + KLD_cont.sum() + discriminator_loss
+        return BCE + KLD_cont.sum() #+ discriminator_loss
+        # return BCE + KLD_cont.sum() + KLD_cont_main.sum() + discriminator_loss
 
     @staticmethod
     def unlabeled_loss(data, data_reconstructed, latent_samples, latent_params, label_sample):
@@ -131,12 +123,12 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
     def get_optimizer(self, net):
 
-        params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in ['means'], net.named_parameters()))))
-        base_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] not in ['means'], net.named_parameters()))))
-
-        return optim.Adam([
-            {"params": params,  "lr": 1e-1},
-            {"params": base_params}], lr=self.lr)
+        # params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in ['means'], net.named_parameters()))))
+        # base_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] not in ['means'], net.named_parameters()))))
+        return optim.Adam(net.parameters(), lr=self.lr)
+        # return optim.Adam([
+        #     {"params": params,  "lr": 1e-1},
+        #     {"params": base_params}], lr=self.lr)
 
     def sample_examples(self, epoch, net):
         labels = torch.zeros(64, self.num_categories).to(self.device)

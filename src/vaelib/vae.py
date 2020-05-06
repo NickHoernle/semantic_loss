@@ -162,7 +162,7 @@ class VAE_Categorical(VAE):
         )
 
         self.decoder = nn.Sequential(
-            nn.Linear(hidden_dim+NUM_CATEGORIES, 250),
+            nn.Linear(hidden_dim, 250),
             nn.LeakyReLU(.01),
             nn.Linear(250, 250),
             nn.LeakyReLU(.01),
@@ -174,7 +174,8 @@ class VAE_Categorical(VAE):
         self.NUM_CATEGORIES = NUM_CATEGORIES
         self.category_prior = -torch.log(torch.tensor(self.NUM_CATEGORIES).float())
         self.apply(init_weights)
-        self.means = nn.Parameter(torch.rand(NUM_CATEGORIES, hidden_dim))
+        self.means = nn.Parameter(NUM_CATEGORIES*torch.rand(NUM_CATEGORIES, hidden_dim))
+        self.q_log_var = nn.Parameter(torch.rand(NUM_CATEGORIES, hidden_dim))
         # self.means = torch.rand(NUM_CATEGORIES, hidden_dim)
 
         self.prior = torch.zeros(hidden_dim)
@@ -260,23 +261,19 @@ class VAE_Categorical(VAE):
 
         (q_mu, q_logvar) = self.encode(x, **kwargs)
 
-        means = (one_hot_labels.unsqueeze(-1) * self.means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
-        z = self.reparameterize(q_mu-means, q_logvar)
-
         label_log_prob = self.discriminator(q_mu)
+        pred_label_sm = torch.softmax(label_log_prob, dim=1)
 
-        log_pred_label_sm = torch.log(torch.softmax(label_log_prob, dim=1)+1e-10)
+        z = self.reparameterize(q_mu, q_logvar)
 
-        latent = torch.cat((z, one_hot_labels), dim=1)
-
-        return self.decode(latent, **kwargs), (z, means), (q_mu, q_logvar, log_pred_label_sm), one_hot_labels
+        return self.decode(z, **kwargs), (z, self.means), (q_mu, q_logvar, self.means, self.q_log_var, torch.log(pred_label_sm + 1e-10)), one_hot_labels
 
     def sample_labelled(self, labels):
         n_samps = len(labels)
-        # z = (labels.unsqueeze(dim=2)*(self.means.repeat(n_samps, 1, 1)
-        #             + self.base_dist.sample((n_samps,)).unsqueeze(dim=1).repeat(1,self.NUM_CATEGORIES,1))).sum(dim=1)
-        z = self.base_dist.sample((n_samps,))
-        latent = torch.cat((z, labels), -1)
+        latent = (labels.unsqueeze(dim=2)*(self.means.repeat(n_samps, 1, 1)
+                    + self.base_dist.sample((n_samps,)).unsqueeze(dim=1).repeat(1,self.NUM_CATEGORIES,1))).sum(dim=1)
+        # z = self.base_dist.sample((n_samps,))
+        # latent = torch.cat((z, labels), -1)
         return self.decode(latent)
 
 

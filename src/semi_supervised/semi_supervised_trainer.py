@@ -102,63 +102,73 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     num_categories=self.num_categories, labels=target_l
                 ).to(device)
 
-                # discriminative learning
-                self.get_means_param(net).requires_grad = True
+                ############## DO Local Training ################
                 optimizer.zero_grad()
 
-                q_mu, label_log_prob = net.encode_means(data_l)
-                label_log_prob_sm = torch.log(torch.softmax(label_log_prob, dim=1) + 1e-10)
-
-                loss = -(one_hot * label_log_prob_sm).sum(dim=1).sum()
+                labeled_results = net((data_l, one_hot))
+                loss_l = self.labeled_loss(data_l, *labeled_results)
+                loss = loss_l
 
                 loss.backward()
                 optimizer.step()
 
-                # do the semi-supervised learning
-                if epoch > 2:
-                    self.get_means_param(net).requires_grad = False
 
-                    optimizer.zero_grad()
+                ############# Do Global Training ################
+                # optimizer.zero_grad()
+                # self.get_means_param(net).requires_grad = True
+                # (q_mu, q_logvar) = net.encode(data_l)
+                # label_log_prob = net.discriminator(q_mu)
+                # pred_label_sm = torch.softmax(label_log_prob, dim=1)
+                #
+                # # labeled results
+                # means = (one_hot.unsqueeze(-1) * net.means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+                # z = net.reparameterize(means, torch.zeros_like(q_logvar))
+                # recon_batch = net.decode(z)
+                # BCE = F.binary_cross_entropy( torch.sigmoid(recon_batch), data_l, reduction="sum" )
+                # KLD_cont = -0.5 * torch.sum(1 + 0 - net.means.pow(2) + 1)
+                #
+                # loss = BCE + KLD_cont.sum()
+                # loss.backward()
+                # if self.max_grad_norm > 0:
+                #     clip_grad_norm_(net.parameters(), self.max_grad_norm)
+                # optimizer.step()
+                # loss_l = self.labeled_loss(data_l, *labeled_results)
 
-                    # labeled results
-                    labeled_results = net((data_l, one_hot))
-                    loss_l = self.labeled_loss(data_l, *labeled_results)
-
-                    loss_u = []
-
-                    (q_mu, q_logvar) = net.encode(data_u)
-                    label_log_prob = net.discriminator(q_mu)
-                    log_pred_label_sm = torch.log(torch.softmax(label_log_prob, dim=1) + 1e-10)
-                    KLD = -0.5 * torch.sum(1 + q_logvar - q_mu.pow(2) - q_logvar.exp())
-
-                    for cat in range(self.num_categories):
-
-                        one_hot_u = convert_to_one_hot(
-                            num_categories=self.num_categories, labels=cat * torch.ones(len(data_u)).long()
-                        ).to(device)
-
-                        means = (one_hot_u.unsqueeze(-1) * net.means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
-                        z = net.reparameterize(q_mu - means, q_logvar)
-
-                        latent = torch.cat((z, one_hot_u), dim=1)
-                        data_reconstructed = net.decode(latent)
-
-                        BCE = F.binary_cross_entropy(
-                            torch.sigmoid(data_reconstructed), data_u, reduction="sum"
-                        )
-
-                        loss_u += [((BCE+KLD) + (one_hot_u*(log_pred_label_sm)).sum(dim=1).sum()).unsqueeze(0)]
-
-                    loss_u = torch.logsumexp(torch.cat(loss_u), dim=0)
+                #     loss_u = []
+                #
+                #     (q_mu, q_logvar) = net.encode(data_u)
+                #     label_log_prob = net.discriminator(q_mu)
+                #     log_pred_label_sm = torch.log(torch.softmax(label_log_prob, dim=1) + 1e-10)
+                #     KLD = -0.5 * torch.sum(1 + q_logvar - q_mu.pow(2) - q_logvar.exp())
+                #
+                #     for cat in range(self.num_categories):
+                #
+                #         one_hot_u = convert_to_one_hot(
+                #             num_categories=self.num_categories, labels=cat * torch.ones(len(data_u)).long()
+                #         ).to(device)
+                #
+                #         means = (one_hot_u.unsqueeze(-1) * net.means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+                #         z = net.reparameterize(q_mu - means, q_logvar)
+                #
+                #         latent = torch.cat((z, one_hot_u), dim=1)
+                #         data_reconstructed = net.decode(latent)
+                #
+                #         BCE = F.binary_cross_entropy(
+                #             torch.sigmoid(data_reconstructed), data_u, reduction="sum"
+                #         )
+                #
+                #         loss_u += [((BCE+KLD) + (one_hot_u*(log_pred_label_sm)).sum(dim=1).sum()).unsqueeze(0)]
+                #
+                #     loss_u = torch.logsumexp(torch.cat(loss_u), dim=0)
                     # loss_u = self.unlabeled_loss(data_u, *unlabeled_results)
-                    loss = loss_l + loss_u
-
-                    loss.backward()
-
-                    if self.max_grad_norm > 0:
-                        clip_grad_norm_(net.parameters(), self.max_grad_norm)
-                    optimizer.step()
-
+                # loss = loss_l #+ loss_u
+                #
+                # loss.backward()
+                #
+                # if self.max_grad_norm > 0:
+                #     clip_grad_norm_(net.parameters(), self.max_grad_norm)
+                # optimizer.step()
+                #
                 loss_meter.update(loss.item(), data_u.size(0))
 
                 # do the semi-supervised learning
