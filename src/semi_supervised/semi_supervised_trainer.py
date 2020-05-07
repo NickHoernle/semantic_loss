@@ -90,7 +90,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         means, counts = torch.zeros_like(net.means), torch.zeros_like(net.means[:,0])
 
         with tqdm(total=len(train_loader.sampler)) as progress_bar:
-            for (data_u, labels_u) in train_loader:
+            for i, (data_u, labels_u) in enumerate(train_loader):
 
                 (data_l, target_l) = next(train_loader_labelled)
 
@@ -102,13 +102,55 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     num_categories=self.num_categories, labels=target_l
                 ).to(device)
 
-                ############## DO Local Training ################
                 optimizer.zero_grad()
+
+                ############## Labeled step ################
+                # if epoch % 2 == 0:
+                #     self.get_means_param(net).requires_grad = True
+                #     for param in self.get_decoder_params(net):
+                #         param.requires_grad = False
+                # else:
+                #     self.get_means_param(net).requires_grad = False
+                    # for param in self.get_decoder_params(net):
+                    #     param.requires_grad = True
 
                 labeled_results = net((data_l, one_hot))
                 loss_l = self.labeled_loss(data_l, *labeled_results)
-                loss = loss_l
 
+                ############## Unlabeled step ################
+                loss_u = 0
+                # for the first epoch warm up on only labeled data
+                if epoch >= 1:
+
+                    (q_mu, q_logvar) = net.encode(data_u)
+
+                    # z_means = net.reparameterize(net.means, net.q_log_var)
+                    z = net.reparameterize(q_mu, q_logvar)
+
+                    label_log_prob = net.discriminator(q_mu)
+                    pred_label_sm = torch.softmax(label_log_prob, dim=1)
+
+                    recon = net.decode(z)
+                    BCE = F.binary_cross_entropy(torch.sigmoid(recon), data_u, reduction="sum")
+
+                    for cat in range(self.num_categories):
+
+                        q_y = pred_label_sm[:, cat]
+                        log_q_y = torch.log(q_y + 1e-10)
+
+                        one_hot_u = convert_to_one_hot(num_categories=self.num_categories, labels=cat*torch.ones(len(data_u)).long()).to(device)
+                        z_means_ = (one_hot_u.unsqueeze(-1) * net.means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+                        KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - z_means_).pow(2) - q_logvar.exp()).sum(dim=1)
+
+                        loss_u += (q_y*KLD_cont + (q_y*log_q_y + (1-q_y)*torch.log(1 - q_y + 1e-10))).sum()
+
+                    # KLD_cont_main = -0.5 * torch.sum(1 + net.q_log_var - np.log(100) - (net.q_log_var.exp() + net.means.pow(2)) / 100)
+                    loss_u += BCE
+                    # loss_u += KLD_cont_main.sum()
+
+                # TODO: penalize the means for being too close to one another....
+
+                loss = loss_l + loss_u
                 loss.backward()
                 optimizer.step()
 

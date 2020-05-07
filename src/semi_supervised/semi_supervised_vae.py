@@ -84,6 +84,11 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
     def get_means_param(self, net):
         return net.means
 
+    def get_decoder_params(self, net):
+        for name, param in net.named_parameters():
+            if 'decoder' in name:
+                yield param
+
     @staticmethod
     def labeled_loss(data, data_reconstructed, latent_samples, latent_params, true_label):
         """
@@ -102,7 +107,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         # KLD_cont_main = -0.5 * torch.sum(1 + q_main_logvar - np.log(100) - (q_main_logvar.exp() + q_main_mu.pow(2))/100)
 
         discriminator_loss = -(true_label*(q_label_logprob)).sum(dim=1).sum()
-        return BCE + KLD_cont.sum() #+ discriminator_loss
+        return BCE + KLD_cont.sum() + discriminator_loss
         # return BCE + KLD_cont.sum() + KLD_cont_main.sum() + discriminator_loss
 
     @staticmethod
