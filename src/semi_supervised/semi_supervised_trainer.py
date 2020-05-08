@@ -104,49 +104,24 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 optimizer.zero_grad()
 
-                ############## Labeled step ################
-                # if epoch % 2 == 0:
-                #     self.get_means_param(net).requires_grad = True
-                #     for param in self.get_decoder_params(net):
-                #         param.requires_grad = False
-                # else:
-                #     self.get_means_param(net).requires_grad = False
-                    # for param in self.get_decoder_params(net):
-                    #     param.requires_grad = True
+                # for param in self.get_means_param(net):
+                #     param.requires_grad = False
+                # for param in self.get_not_means_param(net):
+                #     param.requires_grad = True
 
+                #TODO: potentially only use labeled data to update means...
+                ############## Labeled step ################
                 labeled_results = net((data_l, one_hot))
                 loss_l = self.labeled_loss(data_l, *labeled_results)
 
                 ############## Unlabeled step ################
                 loss_u = 0
                 # for the first epoch warm up on only labeled data
-                if epoch >= 1:
+                # if epoch % 2 == 1:
+                if epoch > 1:
 
-                    (q_mu, q_logvar) = net.encode(data_u)
-
-                    # z_means = net.reparameterize(net.means, net.q_log_var)
-                    z = net.reparameterize(q_mu, q_logvar)
-
-                    label_log_prob = net.discriminator(q_mu)
-                    pred_label_sm = torch.softmax(label_log_prob, dim=1)
-
-                    recon = net.decode(z)
-                    BCE = F.binary_cross_entropy(torch.sigmoid(recon), data_u, reduction="sum")
-
-                    for cat in range(self.num_categories):
-
-                        q_y = pred_label_sm[:, cat]
-                        log_q_y = torch.log(q_y + 1e-10)
-
-                        one_hot_u = convert_to_one_hot(num_categories=self.num_categories, labels=cat*torch.ones(len(data_u)).long()).to(device)
-                        z_means_ = (one_hot_u.unsqueeze(-1) * net.means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
-                        KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - z_means_).pow(2) - q_logvar.exp()).sum(dim=1)
-
-                        loss_u += (q_y*KLD_cont + (q_y*log_q_y + (1-q_y)*torch.log(1 - q_y + 1e-10))).sum()
-
-                    # KLD_cont_main = -0.5 * torch.sum(1 + net.q_log_var - np.log(100) - (net.q_log_var.exp() + net.means.pow(2)) / 100)
-                    loss_u += BCE
-                    # loss_u += KLD_cont_main.sum()
+                    unlabeled_results = net((data_u, None))
+                    loss_u = self.unlabeled_loss(data_u, *unlabeled_results, self.num_categories)
 
                 # TODO: penalize the means for being too close to one another....
 
@@ -154,83 +129,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 loss.backward()
                 optimizer.step()
 
+                # import pdb
+                # pdb.set_trace()
 
-                ############# Do Global Training ################
-                # optimizer.zero_grad()
-                # self.get_means_param(net).requires_grad = True
-                # (q_mu, q_logvar) = net.encode(data_l)
-                # label_log_prob = net.discriminator(q_mu)
-                # pred_label_sm = torch.softmax(label_log_prob, dim=1)
-                #
-                # # labeled results
-                # means = (one_hot.unsqueeze(-1) * net.means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
-                # z = net.reparameterize(means, torch.zeros_like(q_logvar))
-                # recon_batch = net.decode(z)
-                # BCE = F.binary_cross_entropy( torch.sigmoid(recon_batch), data_l, reduction="sum" )
-                # KLD_cont = -0.5 * torch.sum(1 + 0 - net.means.pow(2) + 1)
-                #
-                # loss = BCE + KLD_cont.sum()
-                # loss.backward()
-                # if self.max_grad_norm > 0:
-                #     clip_grad_norm_(net.parameters(), self.max_grad_norm)
-                # optimizer.step()
-                # loss_l = self.labeled_loss(data_l, *labeled_results)
-
-                #     loss_u = []
-                #
-                #     (q_mu, q_logvar) = net.encode(data_u)
-                #     label_log_prob = net.discriminator(q_mu)
-                #     log_pred_label_sm = torch.log(torch.softmax(label_log_prob, dim=1) + 1e-10)
-                #     KLD = -0.5 * torch.sum(1 + q_logvar - q_mu.pow(2) - q_logvar.exp())
-                #
-                #     for cat in range(self.num_categories):
-                #
-                #         one_hot_u = convert_to_one_hot(
-                #             num_categories=self.num_categories, labels=cat * torch.ones(len(data_u)).long()
-                #         ).to(device)
-                #
-                #         means = (one_hot_u.unsqueeze(-1) * net.means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
-                #         z = net.reparameterize(q_mu - means, q_logvar)
-                #
-                #         latent = torch.cat((z, one_hot_u), dim=1)
-                #         data_reconstructed = net.decode(latent)
-                #
-                #         BCE = F.binary_cross_entropy(
-                #             torch.sigmoid(data_reconstructed), data_u, reduction="sum"
-                #         )
-                #
-                #         loss_u += [((BCE+KLD) + (one_hot_u*(log_pred_label_sm)).sum(dim=1).sum()).unsqueeze(0)]
-                #
-                #     loss_u = torch.logsumexp(torch.cat(loss_u), dim=0)
-                    # loss_u = self.unlabeled_loss(data_u, *unlabeled_results)
-                # loss = loss_l #+ loss_u
-                #
-                # loss.backward()
-                #
-                # if self.max_grad_norm > 0:
-                #     clip_grad_norm_(net.parameters(), self.max_grad_norm)
-                # optimizer.step()
-                #
                 loss_meter.update(loss.item(), data_u.size(0))
-
-                # do the semi-supervised learning
-                # optimizer.zero_grad()
-                #
-                # labeled_results = net((data_l, one_hot))
-                # unlabeled_results = net((data_u, None))
-                #
-                # loss_l = self.labeled_loss(data_l, *labeled_results)
-                # loss_u = self.unlabeled_loss(data_u, *unlabeled_results)
-                #
-                # loss = loss_l + loss_u
-                # loss = loss_l
-                #
-                # loss_meter.update(loss.item(), data_u.size(0))
-                # loss.backward()
-
-                # if self.max_grad_norm > 0:
-                #     clip_grad_norm_(net.parameters(), self.max_grad_norm)
-                # optimizer.step()
 
                 progress_bar.set_postfix(
                     nll=loss_meter.avg, lr=optimizer.param_groups[0]["lr"]
@@ -238,12 +140,29 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 progress_bar.update(data_u.size(0))
                 self.global_step += data_u.size(0)
 
-                # m, c = self.get_means(labeled_results)
-                # means += m
-                # counts += c
+            # if epoch > 1:
+            #     optimizer.zero_grad()
+            #
+            #     for param in self.get_means_param(net):
+            #         param.requires_grad = True
+            #     for param in self.get_not_means_param(net):
+            #         param.requires_grad = False
+            #
+            #     (q_mu, q_logvar) = net.encode(data_l)
+            #     # z = net.reparameterize(q_mu, q_logvar)
+            #     label_log_prob = net.discriminator(q_mu, q_logvar)
+            #     pred_label_sm_log = label_log_prob - torch.logsumexp(label_log_prob, dim=1).unsqueeze(1)
+            #
+            #     discriminator_loss = -(one_hot * (pred_label_sm_log)).sum(dim=1).sum()
+            #     print(discriminator_loss)
+            #     # import pdb
+            #     # pdb.set_trace()
+            #     discriminator_loss.backward()
+            #     optimizer.step()
 
-                # stochastic VI update
-                # net.update_means(m, c, 1/((epoch+1)**2+100))
+                # if epoch >= 8:
+                #     import pdb
+                #     pdb.set_trace()
 
         return loss_meter.avg
 
@@ -286,6 +205,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
         print(f"===============> Epoch {epoch}; Accuracy: {np.mean(accuracy)}")
         # print(net.means)
+        # print(net.q_log_var)
         return loss_meter.avg
 
     @staticmethod

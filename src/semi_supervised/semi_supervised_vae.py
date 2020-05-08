@@ -82,7 +82,12 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         return (labels.unsqueeze(-1).repeat(1, 1, zs.size(1)) * zs.unsqueeze(1).repeat(1, self.num_categories, 1)).sum(dim=0), counts
 
     def get_means_param(self, net):
-        return net.means
+        return [net.means]
+
+    def get_not_means_param(self, net):
+        for name, param in net.named_parameters():
+            if name not in ["means"]:
+                yield param
 
     def get_decoder_params(self, net):
         for name, param in net.named_parameters():
@@ -103,37 +108,56 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         z_means_ = (true_label.unsqueeze(-1) * z_means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
-        KLD_cont = -0.5 * torch.sum(1 + q_logvar - (q_mu-z_means_).pow(2) - q_logvar.exp())
-        # KLD_cont_main = -0.5 * torch.sum(1 + q_main_logvar - np.log(100) - (q_main_logvar.exp() + q_main_mu.pow(2))/100)
+        KLD_cont = -0.5 * ((1 + q_logvar - (q_mu-z_means_).pow(2) - q_logvar.exp()).sum(dim=1)).sum()
+        # can perform full posterior inference over the means as well not just ML on these parameters.
+        KLD_cont_main = -0.5 * torch.sum(1 + q_main_logvar - np.log(100) - (q_main_logvar.exp() + q_main_mu.pow(2))/100)
 
         discriminator_loss = -(true_label*(q_label_logprob)).sum(dim=1).sum()
-        return BCE + KLD_cont.sum() + discriminator_loss
+
+        # Amazingly we don't even need the discriminator loss here
+        # return BCE + KLD_cont.sum() + discriminator_loss
         # return BCE + KLD_cont.sum() + KLD_cont_main.sum() + discriminator_loss
+        return BCE + KLD_cont.sum() + discriminator_loss
 
     @staticmethod
-    def unlabeled_loss(data, data_reconstructed, latent_samples, latent_params, label_sample):
+    def unlabeled_loss(data, data_reconstructed, latent_samples, latent_params, num_categories):
         """
         Loss for the unlabeled data
         """
-        BCE = F.binary_cross_entropy(
-            torch.sigmoid(data_reconstructed), data, reduction="sum"
-        )
+        BCE = F.binary_cross_entropy(torch.sigmoid(data_reconstructed), data, reduction="sum")
+
+        q_mu, q_logvar, net_means, net_q_log_var,  pred_label_sm = latent_params
         z, means = latent_samples
-        q_mu, q_logvar, q_label_logprob, cat_prior = latent_params
 
-        KLD_continuous = -0.5 * torch.sum(1 + q_logvar - (z-means).pow(2) - q_logvar.exp())
-        KLD_discrete = - (label_sample * (cat_prior - q_label_logprob)).sum(dim=1).sum()
+        loss_u = 0
+        for cat in range(num_categories):
+            q_y = pred_label_sm[:, cat]
+            log_q_y = torch.log(q_y + 1e-10)
 
-        return BCE + KLD_continuous + KLD_discrete
+            # TODO: going to cause an issue as vector is not on target device
+            one_hot_u = VAE_Categorical.convert_to_one_hot(
+                num_categories=num_categories, labels=cat * torch.ones(len(data)).long())
+
+            z_means_ = (one_hot_u.unsqueeze(-1) * means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+            KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - z_means_).pow(2) - q_logvar.exp()).sum(dim=1)
+
+            # loss_u += ((q_y * KLD_cont).mean() - (q_y * log_q_y + (1 - q_y) * torch.log(1 - q_y + 1e-10)).sum())
+            loss_u += ((q_y * KLD_cont).sum() - (q_y * log_q_y).sum())
+
+        # KLD_cont_main = -0.5 * torch.sum(1 + net_q_log_var - np.log(100) - (net_q_log_var.exp() + net_means.pow(2)) / 100)
+
+        loss_u += BCE
+
+        return loss_u # + KLD_cont_main
 
     def get_optimizer(self, net):
-
-        # params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in ['means'], net.named_parameters()))))
-        # base_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] not in ['means'], net.named_parameters()))))
-        return optim.Adam(net.parameters(), lr=self.lr)
-        # return optim.Adam([
-        #     {"params": params,  "lr": 1e-1},
-        #     {"params": base_params}], lr=self.lr)
+        params_ = ['means', "q_log_var"]
+        params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in params_, net.named_parameters()))))
+        base_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] not in params_, net.named_parameters()))))
+        # return optim.Adam(net.parameters(), lr=self.lr)
+        return optim.Adam([
+            {"params": params,  "lr": 1e-2},
+            {"params": base_params}], lr=self.lr)
 
     def sample_examples(self, epoch, net):
         labels = torch.zeros(64, self.num_categories).to(self.device)
