@@ -181,8 +181,9 @@ class VAE_Categorical(VAE):
 
         self.prior = torch.zeros(hidden_dim)
         self.post_cov = torch.eye(hidden_dim)
+        self.eye = torch.eye(hidden_dim)
 
-        self.base_dist = MultivariateNormal(self.prior, torch.eye(hidden_dim))
+        self.base_dist = MultivariateNormal(self.prior, self.eye)
         self.tau = 2.
         self.reparameterize_means()
 
