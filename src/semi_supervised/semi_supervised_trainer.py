@@ -197,7 +197,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 progress_bar.update(data.size(0))
 
                 accuracy += (
-                    (torch.argmax(net_args[2][-1], dim=1) == labels)
+                    (torch.argmax(net_args[2][-1], dim=1).to(device) == labels)
                     .float()
                     .detach()
                     .numpy()
