@@ -230,7 +230,7 @@ class VAE_Categorical(VAE):
         ms = self.means.unsqueeze(0).repeat(len(q_mu), 1, 1)
         # import pdb
         # pdb.set_trace()
-        sigs = torch.exp(self.q_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
+        sigs = torch.exp(q_logvar).unsqueeze(0).repeat(len(q_mu), 1, 1)
         # return self.base_dist.log_prob((qs - ms)/sigs)
         base_dist = MultivariateNormal(self.prior, self.eye)
         return base_dist.log_prob((qs - ms)/sigs)
@@ -308,3 +308,10 @@ class VAE_Categorical(VAE):
     def update_means(self, sum_means, n, annealing):
         new_means = (sum_means/n.view(-1,1))
         self.means.copy_((1-annealing)*self.means + annealing*new_means)
+
+    def to(self, *args, **kwargs):
+        self = super().to(*args, **kwargs)
+        self.prior = self.prior.to(*args, **kwargs)
+        self.post_cov = self.post_cov.to(*args, **kwargs)
+        self.eye = self.eye.to(*args, **kwargs)
+        return self
