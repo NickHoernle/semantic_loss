@@ -178,7 +178,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         net.eval()
         loss_meter = AverageMeter()
 
-        accuracy = []
+        correct, total = 0, 0
 
         with tqdm(total=len(loaders.dataset)) as progress_bar:
             for data, labels in loaders:
@@ -196,14 +196,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 progress_bar.set_postfix(nll=loss_meter.avg)
                 progress_bar.update(data.size(0))
 
-                accuracy += (
-                    (torch.argmax(net_args[2][-1], dim=1).to(device) == labels)
-                    .float()
-                    .detach()
-                    .numpy()
-                ).tolist()
+                correct += (torch.argmax(net_args[2][-1], dim=1).to(device) == labels).sum()
+                total += len(labels)
 
-        print(f"===============> Epoch {epoch}; Accuracy: {np.mean(accuracy)}")
+        print(f"===============> Epoch {epoch}; Accuracy: {correct/total}")
         # print(net.means)
         # print(net.q_log_var)
         return loss_meter.avg
