@@ -136,7 +136,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
             # TODO: going to cause an issue as vector is not on target device
             ones_vector = torch.ones_like(q_y).long()
-            one_hot_u = VAE_Categorical.convert_to_one_hot(num_categories=num_categories, labels=cat*ones_vector)
+            one_hot_u = self.convert_to_one_hot(num_categories=num_categories, labels=cat*ones_vector)
 
             z_means_ = (one_hot_u.unsqueeze(-1) * means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
             KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - z_means_).pow(2) - q_logvar.exp()).sum(dim=1)

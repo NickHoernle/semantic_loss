@@ -14,7 +14,7 @@ from torchvision import datasets, transforms
 
 from utils.generative_trainer import GenerativeTrainer
 from utils.logging import AverageMeter
-from utils.data import get_samplers, convert_to_one_hot
+from utils.data import get_samplers
 
 from torch.nn import functional as F
 
@@ -98,7 +98,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 data_u = data_u.view(-1, dims).to(device)
                 data_l = data_l.view(-1, dims).to(device)
 
-                one_hot = convert_to_one_hot(
+                one_hot = self.convert_to_one_hot(
                     num_categories=self.num_categories, labels=target_l
                 ).to(device)
 
@@ -178,13 +178,13 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         net.eval()
         loss_meter = AverageMeter()
 
-        correct, total = 0, 0
+        correct, total = 0.0, 0.0
 
         with tqdm(total=len(loaders.dataset)) as progress_bar:
             for data, labels in loaders:
 
                 data = data.view(-1, dims).to(device)
-                one_hot = convert_to_one_hot(
+                one_hot = self.convert_to_one_hot(
                     num_categories=self.num_categories, labels=labels
                 ).to(device)
 
@@ -196,8 +196,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 progress_bar.set_postfix(nll=loss_meter.avg)
                 progress_bar.update(data.size(0))
 
-                correct += (torch.argmax(net_args[2][-1], dim=1) == labels.to(device)).sum()
-                total += len(labels)
+                correct += (torch.argmax(net_args[2][-1], dim=1) == labels.to(device)).sum().float()
+                total += len(labels).float()
 
         print(f"===============> Epoch {epoch}; Accuracy: {correct/total}")
         # print(net.means)
@@ -265,3 +265,9 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         train_loader = (train_loader_labeled, train_loader_unlabeled)
         valid_loader = torch.utils.data.DataLoader(valid_ds, **self.loader_params)
         return train_loader, valid_loader
+
+    def convert_to_one_hot(self, num_categories, labels):
+        labels = torch.unsqueeze(labels, 1)
+        one_hot = torch.FloatTensor(len(labels), num_categories).zero_().to(self.device)
+        one_hot.scatter_(1, labels, 1)
+        return one_hot

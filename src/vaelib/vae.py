@@ -296,14 +296,6 @@ class VAE_Categorical(VAE):
         # latent = torch.cat((z, labels), -1)
         return self.decode(latent)
 
-
-    @classmethod
-    def convert_to_one_hot(cls, num_categories, labels):
-        labels = torch.unsqueeze(labels, 1)
-        one_hot = torch.FloatTensor(len(labels), num_categories).zero_()
-        one_hot.scatter_(1, labels, 1)
-        return one_hot
-
     @torch.no_grad()
     def update_means(self, sum_means, n, annealing):
         new_means = (sum_means/n.view(-1,1))
