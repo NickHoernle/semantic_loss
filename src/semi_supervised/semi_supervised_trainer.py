@@ -123,7 +123,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 if epoch > 1:
 
                     unlabeled_results = net((data_u, None))
-                    loss_u = self.unlabeled_loss(data_u, *unlabeled_results, self.num_categories)
+                    loss_u = self.unlabeled_loss(data_u, *unlabeled_results, self.num_categories, self.convert_to_one_hot)
 
                 # TODO: penalize the means for being too close to one another....
 
