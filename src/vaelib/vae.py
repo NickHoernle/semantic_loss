@@ -183,7 +183,6 @@ class VAE_Categorical(VAE):
         self.post_cov = torch.eye(hidden_dim)
         self.eye = torch.eye(hidden_dim)
 
-        self.base_dist = MultivariateNormal(self.prior, self.eye)
         self.tau = 2.
         self.reparameterize_means()
 
@@ -233,7 +232,8 @@ class VAE_Categorical(VAE):
         # pdb.set_trace()
         sigs = torch.exp(self.q_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
         # return self.base_dist.log_prob((qs - ms)/sigs)
-        return self.base_dist.log_prob((qs - ms)/sigs)
+        base_dist = MultivariateNormal(self.prior, self.eye)
+        return base_dist.log_prob((qs - ms)/sigs)
 
     def decode(self, latent_samp, **kwargs):
 
