@@ -98,6 +98,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 data_u = data_u.view(-1, dims).to(device)
                 data_l = data_l.view(-1, dims).to(device)
 
+                target_l = target_l.to(device)
+
                 one_hot = self.convert_to_one_hot(
                     num_categories=self.num_categories, labels=target_l
                 ).to(device)
@@ -184,6 +186,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             for data, labels in loaders:
 
                 data = data.view(-1, dims).to(device)
+                labels = labels.to(device)
+
                 one_hot = self.convert_to_one_hot(
                     num_categories=self.num_categories, labels=labels
                 ).to(device)
@@ -196,7 +200,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 progress_bar.set_postfix(nll=loss_meter.avg)
                 progress_bar.update(data.size(0))
 
-                correct += (torch.argmax(net_args[2][-1], dim=1) == labels.to(device)).sum().float()
+                correct += (torch.argmax(net_args[2][-1], dim=1) == labels).sum().float()
                 total += len(labels)
 
         print(f"===============> Epoch {epoch}; Accuracy: {correct/total}")
