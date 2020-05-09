@@ -37,7 +37,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         gamma=0.9,
         resume=False,
         early_stopping_lim=50,
-        additional_model_config_args=[],
+        additional_model_config_args=['num_labeled_data_per_class'],
         num_loader_workers=8,
         num_labeled_data_per_class=100,
         name="vae-semi-supervised",
@@ -135,8 +135,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             log_q_y = torch.log(q_y + 1e-10)
 
             # TODO: going to cause an issue as vector is not on target device
-            one_hot_u = VAE_Categorical.convert_to_one_hot(
-                num_categories=num_categories, labels=cat * torch.ones(len(data)).long())
+            ones_vector = torch.ones_like(q_y).long()
+            one_hot_u = VAE_Categorical.convert_to_one_hot(num_categories=num_categories, labels=cat*ones_vector)
 
             z_means_ = (one_hot_u.unsqueeze(-1) * means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
             KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - z_means_).pow(2) - q_logvar.exp()).sum(dim=1)
