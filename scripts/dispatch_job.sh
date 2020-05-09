@@ -57,7 +57,7 @@ SCRATCH_HOME=${SCRATCH_DISK}/${USER}
 mkdir -p ${SCRATCH_HOME}
 
 # Activate your conda environment
-CONDA_ENV_NAME=pt
+CONDA_ENV_NAME=sloss
 echo "Activating conda environment: ${CONDA_ENV_NAME}"
 conda activate ${CONDA_ENV_NAME}
 
@@ -83,10 +83,10 @@ echo "Moving input data to the compute node's scratch space: $SCRATCH_DISK"
 
 # input data directory path on the DFS - change line below if loc different
 repo_home=/home/${USER}/git/semantic_loss
-src_path=${repo_home}/data/robotic_constraints
+src_path=${repo_home}/data/vaelib
 
 # input data directory path on the scratch disk of the node
-dest_path=${SCRATCH_DISK}/${USER}/robotic_constraints
+dest_path=${SCRATCH_DISK}/${USER}/vaelib
 mkdir -p ${dest_path}  # make it if required
 
 # Important notes about rsync:
@@ -115,7 +115,7 @@ echo "Number of files at the destination: ${num_lines}"
 # you execute `sbatch --array=1:100 ...` the jobs will get numbers 1 to 100
 # inclusive.
 
-input_dir=${dest_path}data
+input_dir=${dest_path}/data
 output_dir=${dest_path}/output
 mkdir -p ${output_dir}
 mkdir -p ${output_dir}/models
@@ -124,6 +124,8 @@ mkdir -p ${output_dir}/logs
 experiment_text_file=$1
 COMMAND="`sed \"${SLURM_ARRAY_TASK_ID}q;d\" ${experiment_text_file}`"
 #./main_strunk_white_count_data.py --input ${input_dir} --output ${output_dir} --epochs 50
+# semi_supervised_vae.py --input-data=${input_dir} --output-data=${output_dir} --use_cuda=True --num_epochs=500 --hidden_dim=50 --batch_size=200 --lr=1e-3 --num_labeled_data_per_class=10 --gamma=0.99 --num_test_samples=0 --num_loader_workers=4 run
+
 echo "Running provided command: ${COMMAND}"
 eval "${COMMAND}"
 echo "Command ran successfully!"
@@ -137,7 +139,7 @@ echo "Command ran successfully!"
 echo "Moving output data back to DFS"
 
 src_path=${output_dir}
-dest_path=${repo_home}/experiments/robotic_constraints
+dest_path=${repo_home}/experiments/semi_supervised_vae
 mkdir -p ${dest_path}
 rsync --archive --update --compress --progress ${src_path}/ ${dest_path}
 
@@ -149,3 +151,4 @@ echo "============"
 echo "job finished successfully"
 dt=$(date '+%d/%m/%Y %H:%M:%S')
 echo "Job finished: $dt"
+
