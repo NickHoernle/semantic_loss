@@ -46,10 +46,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         num_labeled_data_per_class=100,
         name="base-model",
     ):
-        self.dataset = dataset
         self.num_labeled_data_per_class = num_labeled_data_per_class
-        self.data_dims = model_parameters['data_dim']
-        self.num_categories = model_parameters['num_categories']
         super().__init__(
             model_builder,
             model_parameters,
@@ -70,6 +67,9 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             data_shuffle=False,
             name=name,
         )
+        self.dataset = dataset
+        self.data_dims = model_parameters['data_dim']
+        self.num_categories = model_parameters['num_categories']
 
     @torch.enable_grad()
     def train(self, epoch, net, optimizer, loaders, **kwargs):
