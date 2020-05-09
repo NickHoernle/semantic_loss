@@ -290,8 +290,9 @@ class VAE_Categorical(VAE):
 
     def sample_labelled(self, labels):
         n_samps = len(labels)
+        base_dist = MultivariateNormal(self.prior, self.eye)
         latent = (labels.unsqueeze(dim=2)*(self.means.repeat(n_samps, 1, 1)
-                    + self.base_dist.sample((n_samps,)).unsqueeze(dim=1).repeat(1,self.NUM_CATEGORIES,1))).sum(dim=1)
+                    + base_dist.sample((n_samps,)).unsqueeze(dim=1).repeat(1,self.NUM_CATEGORIES,1))).sum(dim=1)
         # z = self.base_dist.sample((n_samps,))
         # latent = torch.cat((z, labels), -1)
         return self.decode(latent)

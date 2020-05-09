@@ -192,11 +192,12 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     num_categories=self.num_categories, labels=labels
                 ).to(device)
 
-                net_args = net((data, one_hot))
+                net_args = net((data, None))
 
-                loss = self.labeled_loss(data, *net_args)
+                loss = self.unlabeled_loss(data, *net_args, self.num_categories, self.convert_to_one_hot)
+                # loss = self.labeled_loss(data, *net_args)
 
-                loss_meter.update(loss.item()/len(labels), data.size(0))
+                loss_meter.update(loss.item(), data.size(0))
                 progress_bar.set_postfix(nll=loss_meter.avg)
                 progress_bar.update(data.size(0))
 
