@@ -230,7 +230,7 @@ class VAE_Categorical(VAE):
         ms = self.means.unsqueeze(0).repeat(len(q_mu), 1, 1)
         # import pdb
         # pdb.set_trace()
-        sigs = torch.exp(q_logvar).unsqueeze(0).repeat(len(q_mu), 1, 1)
+        sigs = torch.exp(q_logvar).unsqueeze(1).repeat(1, self.NUM_CATEGORIES, 1)
         # return self.base_dist.log_prob((qs - ms)/sigs)
         base_dist = MultivariateNormal(self.prior, self.eye)
         return base_dist.log_prob((qs - ms)/sigs)
