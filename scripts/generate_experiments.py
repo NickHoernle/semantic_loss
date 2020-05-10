@@ -17,7 +17,7 @@ base_call = (f"semi_supervised_vae.py --input-data={DATA_HOME}/data --output-dat
 
 repeats = 1
 learning_rates = [1e-3, 1e-4]
-learning_rates2 = [1e-2, 1e-3]
+learning_rates2 = [1e-1, 1e-2, 1e-3]
 gammas = [.99, .999]
 hidden_dim = [20, 50, 70]
 batch_size = [100, 250]

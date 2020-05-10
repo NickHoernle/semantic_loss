@@ -38,7 +38,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         gamma=0.9,
         resume=False,
         early_stopping_lim=50,
-        additional_model_config_args=['hidden_dim', 'num_labeled_data_per_class'],
+        additional_model_config_args=['hidden_dim', 'num_labeled_data_per_class', 'lr2'],
         num_loader_workers=8,
         num_labeled_data_per_class=100,
         name="vae-semi-supervised",
