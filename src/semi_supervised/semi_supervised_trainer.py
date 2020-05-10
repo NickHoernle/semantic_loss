@@ -129,6 +129,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 loss = loss_l + loss_u
                 loss.backward()
+
+                if self.max_grad_norm > 0:
+                    clip_grad_norm_(net.parameters(), self.max_grad_norm)
+
                 optimizer.step()
 
                 # import pdb

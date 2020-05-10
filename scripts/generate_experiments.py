@@ -11,12 +11,13 @@ SCRATCH_HOME = f'{SCRATCH_DISK}/{USER}'
 
 DATA_HOME = f'{SCRATCH_HOME}/vaelib'
 base_call = (f"semi_supervised_vae.py --input-data={DATA_HOME}/data --output-data={DATA_HOME}/output "
-             f"--use_cuda=True --num_epochs=500 "
+             f"--use_cuda=True --num_epochs=200 "
              f"--num_labeled_data_per_class=10 "
              f"--num_test_samples=0 --num_loader_workers=4 ")
 
 repeats = 1
-learning_rates = [1e-2, 1e-3, 1e-4]
+learning_rates = [1e-3, 1e-4]
+learning_rates2 = [1e-2, 1e-3]
 gammas = [.99, .999]
 hidden_dim = [20, 50, 70]
 batch_size = [100, 250]
@@ -27,6 +28,7 @@ batch_size = [100, 250]
 
 settings = [(lr, gam, h_dim, bs, rep)
             for lr in learning_rates
+            for lr2 in learning_rates2
             for gam in gammas
             for h_dim in hidden_dim
             for bs in batch_size
@@ -41,12 +43,13 @@ print(f'Estimated time = {(nr_expts / nr_servers * avg_expt_time)/60} hrs')
 
 output_file = open("experiment.txt", "w")
 
-for (lr, gam, h_dim, bs, rep) in settings:
+for (lr, lr2, gam, h_dim, bs, rep) in settings:
     # Note that we don't set a seed for rep - a seed is selected at random
     # and recorded in the output data by the python script
     expt_call = (
         f"{base_call} "
         f"--lr={lr} "
+        f"--lr2={lr2} "
         f"--gamma={gam} "
         f"--hidden_dim={h_dim} "
         f"--batch_size {bs} "

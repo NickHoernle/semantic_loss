@@ -30,6 +30,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         hidden_dim=10,
         num_epochs=100,
         batch_size=256,
+        lr2=1e-2,
         lr=1e-3,
         use_cuda=True,
         num_test_samples=256,
@@ -37,7 +38,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         gamma=0.9,
         resume=False,
         early_stopping_lim=50,
-        additional_model_config_args=['num_labeled_data_per_class'],
+        additional_model_config_args=['hidden_dim', 'num_labeled_data_per_class'],
         num_loader_workers=8,
         num_labeled_data_per_class=100,
         name="vae-semi-supervised",
@@ -47,6 +48,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             "hidden_dim": hidden_dim,
             "num_categories": 10
         }
+        self.lr2 = lr2
+        self.hidden_dim = hidden_dim
         super().__init__(
             build_model,
             model_parameters,
@@ -156,7 +159,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         base_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] not in params_, net.named_parameters()))))
         # return optim.Adam(net.parameters(), lr=self.lr)
         return optim.Adam([
-            {"params": params,  "lr": 1e-2},
+            {"params": params,  "lr": self.lr2},
             {"params": base_params}], lr=self.lr)
 
     def sample_examples(self, epoch, net):

@@ -52,6 +52,7 @@ class RC_VAE(RCTrainer):
             "hidden_dim": hidden_dim,
             "num_categories": 1
         }
+        self.hidden_dim = hidden_dim
         super().__init__(
             build_model,
             model_parameters,
