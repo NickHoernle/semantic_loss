@@ -26,7 +26,7 @@ batch_size = [100, 250]
 # num_layers = [40]
 # gammas = [.99]
 
-settings = [(lr, gam, h_dim, bs, rep)
+settings = [(lr, lr2, gam, h_dim, bs, rep)
             for lr in learning_rates
             for lr2 in learning_rates2
             for gam in gammas
