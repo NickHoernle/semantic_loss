@@ -13,7 +13,7 @@ DATA_HOME = f'{SCRATCH_HOME}/vaelib'
 base_call = (f"semi_supervised_vae.py --input-data={DATA_HOME}/data --output-data={DATA_HOME}/output "
              f"--use_cuda=True --num_epochs=200 "
              f"--num_labeled_data_per_class=10 "
-             f"--num_test_samples=0 --num_loader_workers=4 ")
+             f"--num_test_samples=0 --num_loader_workers=0 ")
 
 repeats = 1
 learning_rates = [1e-3, 1e-4]
