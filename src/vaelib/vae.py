@@ -225,15 +225,16 @@ class VAE_Categorical(VAE):
         self.samp_means = self.means + torch.randn_like(self.means)
 
     def discriminator(self, q_mu, q_logvar):
-        #todo incorporate log var in discriminator
+
         qs = q_mu.unsqueeze(1).repeat(1, self.NUM_CATEGORIES, 1)
-        ms = self.means.unsqueeze(0).repeat(len(q_mu), 1, 1)
-        # import pdb
-        # pdb.set_trace()
         sigs = torch.exp(q_logvar).unsqueeze(1).repeat(1, self.NUM_CATEGORIES, 1)
-        # return self.base_dist.log_prob((qs - ms)/sigs)
+
+        ms = self.means.unsqueeze(0).repeat(len(q_mu), 1, 1)
+        ms_sigs = torch.exp(self.q_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
+
         base_dist = MultivariateNormal(self.prior, self.eye)
-        return base_dist.log_prob((qs - ms)/sigs)
+
+        return base_dist.log_prob((qs - ms)/(sigs + ms_sigs))
 
     def decode(self, latent_samp, **kwargs):
 
@@ -252,7 +253,7 @@ class VAE_Categorical(VAE):
 
         (q_mu, q_logvar) = self.encode(x, **kwargs)
 
-        # z_means = self.reparameterize(self.means, self.q_log_var)
+        z_means = self.reparameterize(self.means, self.q_log_var)
         z = self.reparameterize(q_mu, q_logvar)
 
         label_log_prob = self.discriminator(q_mu, q_logvar)
@@ -264,7 +265,7 @@ class VAE_Categorical(VAE):
         # import pdb
         # pdb.set_trace()
 
-        return self.decode(z, **kwargs), (z, self.means), (q_mu, q_logvar, self.means, self.q_log_var, pred_label_sm)
+        return self.decode(z, **kwargs), (z, z_means), (q_mu, q_logvar, self.means, self.q_log_var, pred_label_sm)
 
     def forward_labelled(self, x, one_hot_labels, **kwargs):
 
@@ -278,9 +279,9 @@ class VAE_Categorical(VAE):
         label_log_prob = self.discriminator(q_mu, q_logvar)
         pred_label_sm_log = label_log_prob - torch.logsumexp(label_log_prob, dim=1).unsqueeze(1)
 
-        # z_means = self.reparameterize(self.means, self.q_log_var)
+        z_means = self.reparameterize(self.means, self.q_log_var)
 
-        return self.decode(z, **kwargs), (z, self.means), (q_mu, q_logvar, self.means, self.q_log_var, pred_label_sm_log), one_hot_labels
+        return self.decode(z, **kwargs), (z, z_means), (q_mu, q_logvar, self.means, self.q_log_var, pred_label_sm_log), one_hot_labels
 
     def sample(self, num_samples, **kwargs):
         num_test_samples = num_samples * self.NUM_CATEGORIES

@@ -119,8 +119,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         # Amazingly we don't even need the discriminator loss here
         # return BCE + KLD_cont.sum() + discriminator_loss
-        # return BCE + KLD_cont.sum() + KLD_cont_main.sum() + discriminator_loss
-        return BCE + KLD_cont.sum() + discriminator_loss
+        return BCE + KLD_cont.sum() + KLD_cont_main.sum() + discriminator_loss
+        # return BCE + KLD_cont.sum() + discriminator_loss
 
     @staticmethod
     def unlabeled_loss(data, data_reconstructed, latent_samples, latent_params, num_categories, one_hot_func):
@@ -147,11 +147,11 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             # loss_u += ((q_y * KLD_cont).mean() - (q_y * log_q_y + (1 - q_y) * torch.log(1 - q_y + 1e-10)).sum())
             loss_u += ((q_y * KLD_cont).sum() - (q_y * log_q_y).sum())
 
-        # KLD_cont_main = -0.5 * torch.sum(1 + net_q_log_var - np.log(100) - (net_q_log_var.exp() + net_means.pow(2)) / 100)
+        KLD_cont_main = -0.5 * torch.sum(1 + net_q_log_var - np.log(100) - (net_q_log_var.exp() + net_means.pow(2)) / 100)
 
         loss_u += BCE
 
-        return loss_u # + KLD_cont_main
+        return loss_u + KLD_cont_main
 
     def get_optimizer(self, net):
         params_ = ['means', "q_log_var"]

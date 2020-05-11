@@ -89,62 +89,62 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         net.tau = np.max((0.5, net.tau * np.exp(-5e-3 * (epoch))))
         means, counts = torch.zeros_like(net.means), torch.zeros_like(net.means[:,0])
 
-        with tqdm(total=len(train_loader.sampler)) as progress_bar:
-            for i, (data_u, labels_u) in enumerate(train_loader):
+        # with tqdm(total=len(train_loader.sampler)) as progress_bar:
+        for i, (data_u, labels_u) in enumerate(train_loader):
 
-                (data_l, target_l) = next(train_loader_labelled)
+            (data_l, target_l) = next(train_loader_labelled)
 
-                # prepare the data
-                data_u = data_u.view(-1, dims).to(device)
-                data_l = data_l.view(-1, dims).to(device)
+            # prepare the data
+            data_u = data_u.view(-1, dims).to(device)
+            data_l = data_l.view(-1, dims).to(device)
 
-                target_l = target_l.to(device)
+            target_l = target_l.to(device)
 
-                one_hot = self.convert_to_one_hot(
-                    num_categories=self.num_categories, labels=target_l
-                ).to(device)
+            one_hot = self.convert_to_one_hot(
+                num_categories=self.num_categories, labels=target_l
+            ).to(device)
 
-                optimizer.zero_grad()
+            optimizer.zero_grad()
 
-                # for param in self.get_means_param(net):
-                #     param.requires_grad = False
-                # for param in self.get_not_means_param(net):
-                #     param.requires_grad = True
+            # for param in self.get_means_param(net):
+            #     param.requires_grad = False
+            # for param in self.get_not_means_param(net):
+            #     param.requires_grad = True
 
-                #TODO: potentially only use labeled data to update means...
-                ############## Labeled step ################
-                labeled_results = net((data_l, one_hot))
-                loss_l = self.labeled_loss(data_l, *labeled_results)
+            #TODO: potentially only use labeled data to update means...
+            ############## Labeled step ################
+            labeled_results = net((data_l, one_hot))
+            loss_l = self.labeled_loss(data_l, *labeled_results)
 
-                ############## Unlabeled step ################
-                loss_u = 0
-                # for the first epoch warm up on only labeled data
-                # if epoch % 2 == 1:
-                if epoch > 1:
+            ############## Unlabeled step ################
+            loss_u = 0
+            # for the first epoch warm up on only labeled data
+            # if epoch % 2 == 1:
+            if epoch > 1:
 
-                    unlabeled_results = net((data_u, None))
-                    loss_u = self.unlabeled_loss(data_u, *unlabeled_results, self.num_categories, self.convert_to_one_hot)
+                unlabeled_results = net((data_u, None))
+                loss_u = self.unlabeled_loss(data_u, *unlabeled_results, self.num_categories, self.convert_to_one_hot)
 
-                # TODO: penalize the means for being too close to one another....
+            # TODO: penalize the means for being too close to one another....
 
-                loss = loss_l + loss_u
-                loss.backward()
+            loss = loss_l + loss_u
+            loss.backward()
 
-                if self.max_grad_norm > 0:
-                    clip_grad_norm_(net.parameters(), self.max_grad_norm)
+            if self.max_grad_norm > 0:
+                clip_grad_norm_(net.parameters(), self.max_grad_norm)
 
-                optimizer.step()
+            optimizer.step()
 
-                # import pdb
-                # pdb.set_trace()
+            # import pdb
+            # pdb.set_trace()
 
-                loss_meter.update(loss.item(), data_u.size(0))
+            loss_meter.update(loss.item(), data_u.size(0))
 
-                progress_bar.set_postfix(
-                    nll=loss_meter.avg, lr=optimizer.param_groups[0]["lr"]
-                )
-                progress_bar.update(data_u.size(0))
-                self.global_step += data_u.size(0)
+            # progress_bar.set_postfix(
+            #     nll=loss_meter.avg, lr=optimizer.param_groups[0]["lr"]
+            # )
+            # progress_bar.update(data_u.size(0))
+            self.global_step += data_u.size(0)
 
             # if epoch > 1:
             #     optimizer.zero_grad()
@@ -186,27 +186,27 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
         correct, total = 0.0, 0.0
 
-        with tqdm(total=len(loaders.dataset)) as progress_bar:
-            for data, labels in loaders:
+        # with tqdm(total=len(loaders.dataset)) as progress_bar:
+        for data, labels in loaders:
 
-                data = data.view(-1, dims).to(device)
-                labels = labels.to(device)
+            data = data.view(-1, dims).to(device)
+            labels = labels.to(device)
 
-                one_hot = self.convert_to_one_hot(
-                    num_categories=self.num_categories, labels=labels
-                ).to(device)
+            one_hot = self.convert_to_one_hot(
+                num_categories=self.num_categories, labels=labels
+            ).to(device)
 
-                net_args = net((data, None))
+            net_args = net((data, None))
 
-                loss = self.unlabeled_loss(data, *net_args, self.num_categories, self.convert_to_one_hot)
-                # loss = self.labeled_loss(data, *net_args)
+            loss = self.unlabeled_loss(data, *net_args, self.num_categories, self.convert_to_one_hot)
+            # loss = self.labeled_loss(data, *net_args)
 
-                loss_meter.update(loss.item(), data.size(0))
-                progress_bar.set_postfix(nll=loss_meter.avg)
-                progress_bar.update(data.size(0))
+            loss_meter.update(loss.item(), data.size(0))
+                # progress_bar.set_postfix(nll=loss_meter.avg)
+                # progress_bar.update(data.size(0))
 
-                correct += (torch.argmax(net_args[2][-1], dim=1) == labels).sum().float()
-                total += len(labels)
+            correct += (torch.argmax(net_args[2][-1], dim=1) == labels).sum().float()
+            total += len(labels)
 
         print(f"===============> Epoch {epoch}; Accuracy: {correct/total}")
         # print(net.means)
