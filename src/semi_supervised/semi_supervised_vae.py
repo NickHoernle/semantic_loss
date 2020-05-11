@@ -73,7 +73,20 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         )
 
     def run(self):
+        """
+        Run the main function        
+        """
         self.main()
+
+    def get_optimizer(self, net):
+        params_ = ['means', "q_log_var"]
+        params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in params_, net.named_parameters()))))
+        base_params = list(
+            map(lambda x: x[1], list(filter(lambda kv: kv[0] not in params_, net.named_parameters()))))
+        # return optim.Adam(net.parameters(), lr=self.lr)
+        return optim.Adam([
+            {"params": params, "lr": self.lr2},
+            {"params": base_params}], lr=self.lr)
 
     def get_means(self, results):
 
@@ -152,15 +165,6 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         loss_u += BCE
 
         return loss_u + KLD_cont_main
-
-    def get_optimizer(self, net):
-        params_ = ['means', "q_log_var"]
-        params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in params_, net.named_parameters()))))
-        base_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] not in params_, net.named_parameters()))))
-        # return optim.Adam(net.parameters(), lr=self.lr)
-        return optim.Adam([
-            {"params": params,  "lr": self.lr2},
-            {"params": base_params}], lr=self.lr)
 
     def sample_examples(self, epoch, net):
         labels = torch.zeros(64, self.num_categories).to(self.device)

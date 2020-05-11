@@ -224,17 +224,17 @@ class VAE_Categorical(VAE):
     def reparameterize_means(self):
         self.samp_means = self.means + torch.randn_like(self.means)
 
-    def discriminator(self, q_mu, q_logvar):
+    def discriminator(self, z_means, q_mu, q_logvar):
 
         qs = q_mu.unsqueeze(1).repeat(1, self.NUM_CATEGORIES, 1)
         sigs = torch.exp(q_logvar).unsqueeze(1).repeat(1, self.NUM_CATEGORIES, 1)
 
-        ms = self.means.unsqueeze(0).repeat(len(q_mu), 1, 1)
-        ms_sigs = torch.exp(self.q_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
+        ms = z_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
+        # ms_sigs = torch.exp(self.q_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
 
         base_dist = MultivariateNormal(self.prior, self.eye)
 
-        return base_dist.log_prob((qs - ms)/(sigs + ms_sigs))
+        return base_dist.log_prob((qs - ms)/(sigs))
 
     def decode(self, latent_samp, **kwargs):
 
@@ -256,11 +256,11 @@ class VAE_Categorical(VAE):
         z_means = self.reparameterize(self.means, self.q_log_var)
         z = self.reparameterize(q_mu, q_logvar)
 
-        label_log_prob = self.discriminator(q_mu, q_logvar)
+        label_log_prob = self.discriminator(z_means, q_mu, q_logvar)
         # label_log_prob = torch.clamp(label_log_prob, min=-10)
         # impose a minimum log prob
 
-        label_log_prob += 10.0
+        # label_log_prob += 10.0
         pred_label_sm = torch.exp(label_log_prob - torch.logsumexp(label_log_prob, dim=1).unsqueeze(1))
         # import pdb
         # pdb.set_trace()
@@ -275,11 +275,10 @@ class VAE_Categorical(VAE):
         # q_log_var_ = (one_hot_labels.unsqueeze(-1) * self.q_log_var.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
         z = self.reparameterize(q_mu, q_logvar)
-
-        label_log_prob = self.discriminator(q_mu, q_logvar)
-        pred_label_sm_log = label_log_prob - torch.logsumexp(label_log_prob, dim=1).unsqueeze(1)
-
         z_means = self.reparameterize(self.means, self.q_log_var)
+
+        label_log_prob = self.discriminator(z_means, q_mu, q_logvar)
+        pred_label_sm_log = label_log_prob - torch.logsumexp(label_log_prob, dim=1).unsqueeze(1)
 
         return self.decode(z, **kwargs), (z, z_means), (q_mu, q_logvar, self.means, self.q_log_var, pred_label_sm_log), one_hot_labels
 
