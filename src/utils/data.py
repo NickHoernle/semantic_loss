@@ -19,8 +19,8 @@ def get_samplers(labels, n=100, n_categories=10):
     indices_labeled = np.repeat(indices_labeled, len(indices_unlabeled)//len(indices_labeled))
     indices_unlabeled = indices_unlabeled[:len(indices_labeled)]
 
-    indices_labeled = np.random.choice(indices_labeled, len(indices_labeled), replace=False)
-    indices_unlabeled = np.random.choice(indices_unlabeled, len(indices_unlabeled), replace=False)
+    indices_labeled = np.random.choice(indices_labeled, len(indices_labeled), replace=False).astype(int)
+    indices_unlabeled = np.random.choice(indices_unlabeled, len(indices_unlabeled), replace=False).astype(int)
 
     return SubsetRandomSampler(indices_labeled), SubsetRandomSampler(indices_unlabeled)
 
