@@ -44,7 +44,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         name="vae-semi-supervised",
     ):
         model_parameters = {
-            "data_dim": 28*28,
+            "data_dim": 32,
             "hidden_dim": hidden_dim,
             "num_categories": 10
         }
@@ -110,11 +110,15 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             if 'decoder' in name:
                 yield param
 
+    def get_pred(self, net_args):
+        return torch.argmax(net_args[2][-1], dim=1)
+
     @staticmethod
     def labeled_loss(data, data_reconstructed, latent_samples, latent_params, true_label):
         """
         Loss for the labeled data
         """
+
         BCE = F.binary_cross_entropy(
             torch.sigmoid(data_reconstructed), data, reduction="sum"
         )
@@ -132,6 +136,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         # Amazingly we don't even need the discriminator loss here
         # return BCE + KLD_cont.sum() + discriminator_loss
+
         return BCE + KLD_cont.sum() + KLD_cont_main.sum() + discriminator_loss
         # return BCE + KLD_cont.sum() + discriminator_loss
 
@@ -142,33 +147,35 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         """
         BCE = F.binary_cross_entropy(torch.sigmoid(data_reconstructed), data, reduction="sum")
 
-        q_mu, q_logvar, net_means, net_q_log_var,  pred_label_sm = latent_params
+        q_mu, q_logvar, net_means, net_q_log_var, log_pred_label_sm = latent_params
         z, means = latent_samples
 
         loss_u = 0
         for cat in range(num_categories):
-            q_y = pred_label_sm[:, cat]
-            log_q_y = torch.log(q_y + 1e-10)
+
+            log_q_y = log_pred_label_sm[:, cat]
+            q_y = torch.exp(log_q_y)
 
             # TODO: going to cause an issue as vector is not on target device
             ones_vector = torch.ones_like(q_y).long()
             one_hot_u = one_hot_func(num_categories=num_categories, labels=cat*ones_vector)
 
+            # TODO: don't need the one hot. Can rather just index here.
             z_means_ = (one_hot_u.unsqueeze(-1) * means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
             KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - z_means_).pow(2) - q_logvar.exp()).sum(dim=1)
 
             # loss_u += ((q_y * KLD_cont).mean() - (q_y * log_q_y + (1 - q_y) * torch.log(1 - q_y + 1e-10)).sum())
-            loss_u += ((q_y * KLD_cont).sum() - (q_y * log_q_y).sum())
+            loss_u += ((q_y * KLD_cont).sum() + (q_y * log_q_y).sum())
 
         KLD_cont_main = -0.5 * torch.sum(1 + net_q_log_var - np.log(100) - (net_q_log_var.exp() + net_means.pow(2)) / 100)
+        #
+        # loss_u += BCE
 
-        loss_u += BCE
-
-        return loss_u + KLD_cont_main
+        return BCE + loss_u + KLD_cont_main
 
     def sample_examples(self, epoch, net):
         labels = torch.zeros(64, self.num_categories).to(self.device)
         labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
         img_sample = net.sample_labelled(labels)
         img_sample = torch.sigmoid(img_sample)
-        save_image(img_sample.view(64, 1, 28, 28), f'{self.figure_path}/sample_' + str(epoch) + '.png')
+        save_image(img_sample, f'{self.figure_path}/sample_' + str(epoch) + '.png')

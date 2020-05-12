@@ -87,6 +87,7 @@ class GenerativeTrainer:
 
         self.device_loaded = False
         self.device = init_device(use_cuda)
+        self.tqdm_print = use_cuda
 
         # init loaders
         self.loader_params = {

@@ -47,6 +47,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         name="base-model",
     ):
         self.num_labeled_data_per_class = num_labeled_data_per_class
+        self.dataset = dataset
         super().__init__(
             model_builder,
             model_parameters,
@@ -67,7 +68,6 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             data_shuffle=False,
             name=name,
         )
-        self.dataset = dataset
         self.data_dims = model_parameters['data_dim']
         self.num_categories = model_parameters['num_categories']
 
@@ -86,52 +86,54 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         train_loader_labelled = iter(train_loader_labelled_)
 
         # anneal the tau parameter
-        net.tau = np.max((0.5, net.tau * np.exp(-5e-3 * (epoch))))
+        # net.tau = np.max((0.5, net.tau * np.exp(-5e-3 * (epoch))))
 
-        # with tqdm(total=len(train_loader.sampler)) as progress_bar:
-        for i, (data_u, labels_u) in enumerate(train_loader):
+        with tqdm(total=len(train_loader.sampler), disable=self.tqdm_print) as progress_bar:
+            for i, (data_u, labels_u) in enumerate(train_loader):
 
-            (data_l, target_l) = next(train_loader_labelled)
+                (data_l, target_l) = next(train_loader_labelled)
 
-            # prepare the data
-            data_u = data_u.view(-1, dims).to(device)
-            data_l = data_l.view(-1, dims).to(device)
+                # prepare the data
+                data_u = data_u.to(device)
+                data_l = data_l.to(device)
 
-            target_l = target_l.to(device)
+                target_l = target_l.to(device)
 
-            one_hot = self.convert_to_one_hot(
-                num_categories=self.num_categories, labels=target_l
-            ).to(device)
+                one_hot = self.convert_to_one_hot(
+                    num_categories=self.num_categories, labels=target_l
+                ).to(device)
 
-            optimizer.zero_grad()
+                optimizer.zero_grad()
 
-            ############## Labeled step ################
-            labeled_results = net((data_l, one_hot))
-            loss_l = self.labeled_loss(data_l, *labeled_results)
+                ############## Labeled step ################
+                labeled_results = net((data_l, one_hot))
+                loss_l = self.labeled_loss(data_l, *labeled_results)
 
-            ############## Unlabeled step ################
-            loss_u = 0
-            if epoch > 1:
+                ############## Unlabeled step ################
+                loss_u = 0
+                if epoch > -1:
 
-                unlabeled_results = net((data_u, None))
-                loss_u = self.unlabeled_loss(data_u,
-                                             *unlabeled_results,
-                                             num_categories=self.num_categories,
-                                             one_hot_func=self.convert_to_one_hot)
+                    unlabeled_results = net((data_u, None))
+                    loss_u = self.unlabeled_loss(data_u,
+                                                 *unlabeled_results,
+                                                 num_categories=self.num_categories,
+                                                 one_hot_func=self.convert_to_one_hot)
 
-            # TODO: penalize the means for being too close to one another....
+                # TODO: penalize the means for being too close to one another....
 
-            loss = loss_l + loss_u
-            loss.backward()
+                loss = loss_l + loss_u
+                loss.backward()
 
-            if self.max_grad_norm > 0:
-                clip_grad_norm_(net.parameters(), self.max_grad_norm)
+                if self.max_grad_norm > 0:
+                    clip_grad_norm_(net.parameters(), self.max_grad_norm)
 
-            optimizer.step()
+                optimizer.step()
 
-            loss_meter.update(loss.item(), data_u.size(0))
+                loss_meter.update(loss.item(), data_u.size(0))
+                progress_bar.set_postfix(nll=loss_meter.avg)
+                progress_bar.update(data_u.size(0))
 
-            self.global_step += data_u.size(0)
+                self.global_step += data_u.size(0)
 
         return loss_meter.avg
 
@@ -149,27 +151,27 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
         correct, total = 0.0, 0.0
 
-        # with tqdm(total=len(loaders.dataset)) as progress_bar:
-        for data, labels in loaders:
+        with tqdm(total=len(loaders.dataset), disable=self.tqdm_print) as progress_bar:
+            for data, labels in loaders:
 
-            data = data.view(-1, dims).to(device)
-            labels = labels.to(device)
+                data = data.to(device)
+                labels = labels.to(device)
 
-            one_hot = self.convert_to_one_hot(
-                num_categories=self.num_categories, labels=labels
-            ).to(device)
+                one_hot = self.convert_to_one_hot(
+                    num_categories=self.num_categories, labels=labels
+                ).to(device)
 
-            net_args = net((data, None))
+                net_args = net((data, None))
 
-            loss = self.unlabeled_loss(data,
-                                        *net_args,
-                                        num_categories=self.num_categories,
-                                        one_hot_func=self.convert_to_one_hot)
-            # loss = self.labeled_loss(data, *net_args)
+                loss = self.unlabeled_loss(data,
+                                            *net_args,
+                                            num_categories=self.num_categories,
+                                            one_hot_func=self.convert_to_one_hot)
+                # loss = self.labeled_loss(data, *net_args)
 
-            loss_meter.update(loss.item(), data.size(0))
-                # progress_bar.set_postfix(nll=loss_meter.avg)
-                # progress_bar.update(data.size(0))
+                loss_meter.update(loss.item(), data.size(0))
+                progress_bar.set_postfix(nll=loss_meter.avg)
+                progress_bar.update(data.size(0))
 
             correct += (torch.argmax(net_args[2][-1], dim=1) == labels).sum().float()
             total += len(labels)
@@ -197,37 +199,70 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         """
         Returns the dataset that is requested by the dataset param
         """
+        _MNIST_TRAIN_TRANSFORMS = _MNIST_TEST_TRANSFORMS = [
+            transforms.ToTensor(),
+            transforms.ToPILImage(),
+            transforms.Pad(2),
+            transforms.ToTensor(),
+        ]
+
+        _CIFAR_TRAIN_TRANSFORMS = [
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+        ]
+
+        _CIFAR_TEST_TRANSFORMS = [
+            transforms.ToTensor(),
+        ]
+
         if self.dataset == "MNIST":
-            train_ds = datasets.MNIST(
-                self.input_data, train=True, download=True, transform=transforms.ToTensor()
-            )
-            valid_ds = datasets.MNIST(
-                self.input_data, train=False, transform=transforms.ToTensor()
-            )
-            num_categories = 10
+            TRAIN_DATASETS={'MNIST': datasets.MNIST(
+                self.input_data, train=True, download=True,
+                transform=transforms.Compose(_MNIST_TRAIN_TRANSFORMS)
+            ),}
+            TEST_DATASETS = {
+            'MNIST': datasets.MNIST(
+                self.input_data, train=False,
+                transform=transforms.Compose(_MNIST_TEST_TRANSFORMS)
+            ),}
         elif self.dataset == "CIFAR10":
-            train_ds = datasets.MNIST(
-                self.input_data, train=True, download=True, transform=transforms.ToTensor()
-            )
-            valid_ds = datasets.MNIST(
-                self.input_data, train=False, transform=transforms.ToTensor()
-            )
-            num_categories = 10
-        elif self.dataset == "CIFAR100":
-            train_ds = datasets.MNIST(
-                self.input_data, train=True, download=True, transform=transforms.ToTensor()
-            )
-            valid_ds = datasets.MNIST(
-                self.input_data, train=False, transform=transforms.ToTensor()
-            )
-            num_categories = 100
+            TRAIN_DATASETS = {'CIFAR10': datasets.CIFAR10(
+                self.input_data, train=True, download=True,
+                transform=transforms.Compose(_CIFAR_TRAIN_TRANSFORMS)
+            ),}
+            TEST_DATASETS = {
+                'CIFAR10': datasets.CIFAR10(
+                self.input_data, train=False,
+                transform=transforms.Compose(_CIFAR_TEST_TRANSFORMS)
+            ),}
         else:
-            raise ValueError("Dataset not in {MNIST|CIFAR10|CIFAR100}")
+            TRAIN_DATASETS = {'CIFAR100': datasets.CIFAR100(
+                self.input_data, train=True, download=True,
+                transform=transforms.Compose(_CIFAR_TRAIN_TRANSFORMS)
+            )}
+            TEST_DATASETS = {
+                'CIFAR100': datasets.CIFAR100(
+                self.input_data, train=True, download=True,
+                transform=transforms.Compose(_CIFAR_TRAIN_TRANSFORMS)
+            )}
+
+        DATASET_CONFIGS = {
+            'MNIST': {'size': 32, 'channels': 1, 'classes': 10},
+            'CIFAR10': {'size': 32, 'channels': 3, 'classes': 10},
+            'CIFAR100': {'size': 32, 'channels': 3, 'classes': 100},
+        }
+
+        train_ds = TRAIN_DATASETS[self.dataset]
+        valid_ds = TEST_DATASETS[self.dataset]
+        configs = DATASET_CONFIGS[self.dataset]
+        num_categories = configs['size']
+
         return train_ds, valid_ds, num_categories
 
     def get_loaders(self, train_ds, valid_ds, num_categories):
         labelled_sampler, unlabelled_sampler = get_samplers(
-            train_ds.train_labels.numpy(),
+            np.array(train_ds.targets).astype(int),
             n=self.num_labeled_data_per_class,
             n_categories=num_categories,
         )
@@ -239,6 +274,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         )
         train_loader = (train_loader_labeled, train_loader_unlabeled)
         valid_loader = torch.utils.data.DataLoader(valid_ds, **self.loader_params)
+
         return train_loader, valid_loader
 
     def convert_to_one_hot(self, num_categories, labels):
