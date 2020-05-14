@@ -190,7 +190,7 @@ class VAE_Categorical(VAE):
         self.NUM_CATEGORIES = NUM_CATEGORIES
         self.category_prior = 1
         self.apply(init_weights)
-        self.means = nn.Parameter(1e-1*torch.rand(NUM_CATEGORIES, hidden_dim))
+        self.means = nn.Parameter(torch.rand(NUM_CATEGORIES, hidden_dim))
         self.q_log_var = nn.Parameter(torch.ones(NUM_CATEGORIES, hidden_dim))
 
         # self.means = torch.rand(NUM_CATEGORIES, hidden_dim)

@@ -146,8 +146,6 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                     sloss.backward()
                     optimizer.step()
-                if i > 50:
-                    break
 
         return loss_meter.avg
 
