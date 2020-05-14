@@ -119,9 +119,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                                                  num_categories=self.num_categories,
                                                  one_hot_func=self.convert_to_one_hot)
 
-                # TODO: penalize the means for being too close to one another....
-
-                loss = loss_l + loss_u
+                loss = loss_l + loss_u # + sloss
                 loss.backward()
 
                 if self.max_grad_norm > 0:
@@ -135,6 +133,22 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 self.global_step += data_u.size(0)
 
+                # TODO: penalize the means for being too close to one another....
+                ############## Semantic Loss Step ################
+                sloss = 0
+                if epoch > 5:
+                    optimizer.zero_grad()
+                    sloss = 0
+                    idxs = np.arange(self.num_categories)
+                    for j in range(self.num_categories):
+                        distances = torch.sqrt(torch.square(net.means[j] - net.means[idxs[idxs != j]]).sum(dim=1))
+                        sloss += 1e2 + torch.where(distances < 10, 10 - distances, torch.zeros_like(distances)).sum()
+
+                    sloss.backward()
+                    optimizer.step()
+                if i > 50:
+                    break
+
         return loss_meter.avg
 
     @torch.no_grad()
@@ -142,6 +156,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         """
         Test step of model returned by model_builder
         """
+
+        return_accuracy = kwargs.get("return_accuracy", False)
 
         device = self.device
         dims = self.data_dims
@@ -179,6 +195,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         print(f"===============> Epoch {epoch}; Accuracy: {correct/total}")
         # print(net.means)
         # print(net.q_log_var)
+        if return_accuracy:
+            return loss_meter.avg, correct/total
         return loss_meter.avg
 
     @staticmethod

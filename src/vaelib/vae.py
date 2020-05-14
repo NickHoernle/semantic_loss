@@ -153,7 +153,7 @@ class UnFlatten(nn.Module):
 
 
 class VAE_Categorical(VAE):
-    def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=100, condition=False, num_condition=0):
+    def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150, condition=False, num_condition=0):
         super().__init__(data_dim, hidden_dim, condition=condition, num_condition=num_condition)
 
         self.image_size = data_dim
@@ -190,7 +190,7 @@ class VAE_Categorical(VAE):
         self.NUM_CATEGORIES = NUM_CATEGORIES
         self.category_prior = 1
         self.apply(init_weights)
-        self.means = nn.Parameter(torch.rand(NUM_CATEGORIES, hidden_dim))
+        self.means = nn.Parameter(1e-1*torch.rand(NUM_CATEGORIES, hidden_dim))
         self.q_log_var = nn.Parameter(torch.ones(NUM_CATEGORIES, hidden_dim))
 
         # self.means = torch.rand(NUM_CATEGORIES, hidden_dim)
