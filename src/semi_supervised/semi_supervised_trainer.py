@@ -142,7 +142,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     idxs = np.arange(self.num_categories)
                     for j in range(self.num_categories):
                         distances = torch.sqrt(torch.square(net.means[j] - net.means[idxs[idxs != j]]).sum(dim=1))
-                        sloss += 1e2 + torch.where(distances < 10, 10 - distances, torch.zeros_like(distances)).sum()
+                        sloss += 1e1*torch.where(distances < 20, 20 - distances, torch.zeros_like(distances)).sum()
 
                     sloss.backward()
                     optimizer.step()
@@ -190,7 +190,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             correct += (torch.argmax(net_args[2][-1], dim=1) == labels).sum().float()
             total += len(labels)
 
-        print(f"===============> Epoch {epoch}; Accuracy: {correct/total}")
+        print(f"===============> Epoch {epoch}; Accuracy: {correct/total}; NLL: {loss.item()}")
         # print(net.means)
         # print(net.q_log_var)
         if return_accuracy:
