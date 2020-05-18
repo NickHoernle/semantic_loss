@@ -187,8 +187,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 progress_bar.set_postfix(nll=loss_meter.avg)
                 progress_bar.update(data.size(0))
 
-            correct += (torch.argmax(net_args[2][-1], dim=1) == labels).sum().float()
-            total += len(labels)
+                correct += (torch.argmax(net_args[2][-1], dim=1) == labels).sum().float()
+                total += len(labels)
 
         print(f"===============> Epoch {epoch}; Accuracy: {correct/total}; NLL: {loss.item()}")
         # print(net.means)
