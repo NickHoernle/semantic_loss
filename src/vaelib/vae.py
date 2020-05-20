@@ -464,27 +464,9 @@ class M2(LinearVAE):
         Wz = torch.sqrt(self.softplus(self.proj_y(labels)))
         Wyy = self.Wy(labels)
         h1 = self.relu(Wyy + Wz * z)
-        # h1 = torch.cat((z, labels), dim=1)
 
-        # Ws = self.softplus(Wy)
-        #
-        # h1 = self.relu(Ws * z)
-
-        # import pdb
-        # pdb.set_trace()
-        # h1 = torch.cat((z, one_hot_labels), dim=1)
-        # h1 = torch.cat((z, one_hot_labels), dim=1)
-        z_projected = self.project(h1)#.view(
-            # -1, self.kernel_num,
-            # self.feature_size,
-            # self.feature_size,
-        # )
-        # x_reconstructed = self.decoder(z_projected)
-# /
+        z_projected = self.project(h1)
         x_reconstructed = self.decoder(z_projected).view(len(x), self.channel_num, self.image_size, self.image_size)
-        # import pdb
-        # pdb.set_trace()
-
         return {"reconstructed": [x_reconstructed],
                 "latent_samples": [z],
                 "q_vals": [q_mu, q_logvar, pred_label_sm_log],
@@ -508,20 +490,12 @@ class M2(LinearVAE):
             labels[:, cat] = 1
 
             z = self.reparameterize(q_mu, q_logvar)
-            # h1 = torch.cat((z, labels), dim=1)
+
             Wz = torch.sqrt(self.softplus(self.proj_y(labels)))
             Wyy = self.Wy(labels)
             h1 = self.relu(Wyy + Wz * z)
-            # Ws = self.softplus(self.proj_y(labels)).unsqueeze(1) * self.eye
-            # h1 = self.relu(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1))
 
-            # h1 = torch.cat((z, labels), dim=1)
-            z_projected = self.project(h1)#.view(
-                # -1, self.kernel_num,
-                # self.feature_size,
-                # self.feature_size,
-            # )
-            # x_reconstructed = self.decoder(z_projected)
+            z_projected = self.project(h1)
             x_reconstructed = self.decoder(z_projected).view(len(x), self.channel_num, self.image_size, self.image_size)
 
 
@@ -535,26 +509,12 @@ class M2(LinearVAE):
         n_samps = len(labels)
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
-        # latent = (labels.unsqueeze(dim=2)*(self.means.repeat(n_samps, 1, 1)
-        #             + base_dist.sample((n_samps,)).unsqueeze(dim=1).repeat(1,self.NUM_CATEGORIES,1))).sum(dim=1)
-
-        # z = self.base_dist.sample((n_samps,))
-        # Ws = self.softplus(self.proj_y(labels)).unsqueeze(1) * self.eye
-        # h1 = self.relu(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1))
-        # h1 = torch.cat((z, labels), dim=1)
 
         Wz = torch.sqrt(self.softplus(self.proj_y(labels)))
         Wyy = self.Wy(labels)
         h1 = self.relu(Wyy + Wz * z)
-        # h1 = torch.cat((z, labels), dim=1)
 
-        z_projected = self.project(h1)#.view(
-            # -1, self.kernel_num,
-            # self.feature_size,
-            # self.feature_size,
-        # )
-
-        # return self.decoder(z_projected)
+        z_projected = self.project(h1)
         return self.decoder(z_projected).view(n_samps, self.channel_num, self.image_size, self.image_size)
 
     def to(self, *args, **kwargs):
