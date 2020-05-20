@@ -128,8 +128,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 self.global_step += data_u.size(0)
 
-                if i > 100:
-                    break
+                # if i > 100:
+                #     break
                 # TODO: penalize the means for being too close to one another....
                 ############## Semantic Loss Step ################
                 # sloss = 0
