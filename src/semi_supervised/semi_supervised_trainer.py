@@ -107,17 +107,12 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 ############## Labeled step ################
                 labeled_results = net((data_l, one_hot))
-                loss_l = self.labeled_loss(data_l, *labeled_results)
+                loss_l = self.labeled_loss(data_l, **labeled_results)
 
                 ############## Unlabeled step ################
                 loss_u = 0
-                if epoch > -1:
-
-                    unlabeled_results = net((data_u, None))
-                    loss_u = self.unlabeled_loss(data_u,
-                                                 *unlabeled_results,
-                                                 num_categories=self.num_categories,
-                                                 one_hot_func=self.convert_to_one_hot)
+                unlabeled_results = net((data_u, None))
+                loss_u = self.unlabeled_loss(data_u, **unlabeled_results)
 
                 loss = loss_l + loss_u # + sloss
                 loss.backward()
@@ -133,19 +128,21 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 self.global_step += data_u.size(0)
 
+                if i > 100:
+                    break
                 # TODO: penalize the means for being too close to one another....
                 ############## Semantic Loss Step ################
-                sloss = 0
-                if epoch > 5:
-                    optimizer.zero_grad()
-                    sloss = 0
-                    idxs = np.arange(self.num_categories)
-                    for j in range(self.num_categories):
-                        distances = torch.sqrt(torch.square(net.means[j] - net.means[idxs[idxs != j]]).sum(dim=1))
-                        sloss += 1e1*torch.where(distances < 20, 20 - distances, torch.zeros_like(distances)).sum()
-
-                    sloss.backward()
-                    optimizer.step()
+                # sloss = 0
+                # if epoch > 5:
+                #     optimizer.zero_grad()
+                #     sloss = 0
+                #     idxs = np.arange(self.num_categories)
+                #     for j in range(self.num_categories):
+                #         distances = torch.sqrt(torch.square(net.means[j] - net.means[idxs[idxs != j]]).sum(dim=1))
+                #         sloss += 1e1*torch.where(distances < 20, 20 - distances, torch.zeros_like(distances)).sum()
+                #
+                #     sloss.backward()
+                #     optimizer.step()
 
         return loss_meter.avg
 
@@ -175,19 +172,18 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     num_categories=self.num_categories, labels=labels
                 ).to(device)
 
-                net_args = net((data, None))
+                # net_args = net((data, None))
+                net_args = net((data, one_hot))
+                loss = self.labeled_loss(data, **net_args)
 
-                loss = self.unlabeled_loss(data,
-                                            *net_args,
-                                            num_categories=self.num_categories,
-                                            one_hot_func=self.convert_to_one_hot)
+                # loss = self.unlabeled_loss(data, **net_args)
                 # loss = self.labeled_loss(data, *net_args)
 
                 loss_meter.update(loss.item(), data.size(0))
                 progress_bar.set_postfix(nll=loss_meter.avg)
                 progress_bar.update(data.size(0))
 
-                correct += (torch.argmax(net_args[2][-1], dim=1) == labels).sum().float()
+                correct += (torch.argmax(net_args['q_vals'][-1], dim=1) == labels).sum().float()
                 total += len(labels)
 
         print(f"===============> Epoch {epoch}; Accuracy: {correct/total}; NLL: {loss.item()}")
@@ -198,14 +194,14 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         return loss_meter.avg
 
     @staticmethod
-    def labeled_loss(*args):
+    def labeled_loss(*args, **kwargs):
         """
         Loss for the labeled data
         """
         raise NotImplementedError("Not implemented labeled loss")
 
     @staticmethod
-    def unlabeled_loss(*args):
+    def unlabeled_loss(*args, **kwargs):
         """
         Loss for the unlabeled data
         """

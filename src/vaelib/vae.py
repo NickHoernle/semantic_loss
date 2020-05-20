@@ -151,10 +151,14 @@ class UnFlatten(nn.Module):
     def forward(self, input, size=1024):
         return input.view(input.size(0), size, 1, 1)
 
+class CNN(VAE):
+    def __init__(self, *args, **kwargs):
+        super().__init__(**kwargs)
 
-class VAE_Categorical(VAE):
-    def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150, condition=False, num_condition=0):
-        super().__init__(data_dim, hidden_dim, condition=condition, num_condition=num_condition)
+        data_dim = kwargs.get("data_dim", 32)
+        channel_num = kwargs.get("channel_num", 1)
+        kernel_num = kwargs.get("kernel_num", 100)
+        hidden_dim = kwargs.get("hidden_dim", 100)
 
         self.image_size = data_dim
         self.channel_num = channel_num
@@ -186,22 +190,6 @@ class VAE_Categorical(VAE):
             self._deconv(kernel_num // 4, channel_num, last=True),
         )
 
-
-        self.NUM_CATEGORIES = NUM_CATEGORIES
-        self.category_prior = 1
-        self.apply(init_weights)
-        self.means = nn.Parameter(torch.rand(NUM_CATEGORIES, hidden_dim))
-        self.q_log_var = nn.Parameter(torch.ones(NUM_CATEGORIES, hidden_dim))
-
-        # self.means = torch.rand(NUM_CATEGORIES, hidden_dim)
-
-        self.prior = torch.zeros(hidden_dim)
-        self.post_cov = torch.eye(hidden_dim)
-        self.eye = torch.eye(hidden_dim)
-
-        self.tau = 2.
-        self.reparameterize_means()
-
     ##########  LAYERS  ###########
     def _conv(self, channel_size, kernel_num, last=False):
         conv = nn.Conv2d(
@@ -211,7 +199,7 @@ class VAE_Categorical(VAE):
         return conv if last else nn.Sequential(
             conv,
             nn.BatchNorm2d(kernel_num),
-            nn.ReLU(),
+            nn.ReLU(True),
         )
 
     def _deconv(self, channel_num, kernel_num, last=False):
@@ -222,56 +210,39 @@ class VAE_Categorical(VAE):
         return deconv if last else nn.Sequential(
             deconv,
             nn.BatchNorm2d(kernel_num),
-            nn.ReLU(),
+            nn.ReLU(True),
         )
 
     def _linear(self, in_size, out_size, relu=True):
         return nn.Sequential(
             nn.Linear(in_size, out_size),
-            nn.ReLU(),
+            nn.ReLU(True),
         ) if relu else nn.Linear(in_size, out_size)
 
     def q(self, encoded):
         unrolled = encoded.view(-1, self.feature_volume)
         return self.q_mean(unrolled), self.q_logvar(unrolled)
 
-    def encode_means(self, x):
-        mid_dim = self.encoder(x)
-        q_mu = self.mu_enc(mid_dim)
-        return q_mu, self.discriminator(q_mu)
 
-    def decode_means(self, z):
-        return self.decoder(z)
+class VAE_Categorical(CNN):
+    def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150, condition=False, num_condition=0):
+        super().__init__(data_dim=data_dim, hidden_dim=hidden_dim, channel_num=channel_num,
+                         kernel_num=kernel_num, condition=condition, num_condition=num_condition)
 
-    def forward_means(self, x):
-        q_mu, label_log_prob = self.encode_means(x)
-        label_log_prob_sm = torch.log(torch.softmax(label_log_prob, dim=1) + 1e-10)
-        return self.decode_means(q_mu), label_log_prob_sm
+        self.NUM_CATEGORIES = NUM_CATEGORIES
+        self.category_prior = 1
 
-    def encode(self, x, **kwargs):
-        input = x
-        if self.condition:
-            input = torch.cat((x, kwargs['condition_variable']), -1)
+        self.means = nn.Parameter(torch.rand(NUM_CATEGORIES, hidden_dim))
+        self.q_log_var = nn.Parameter(torch.ones(NUM_CATEGORIES, hidden_dim))
 
-        mid_dim = self.encoder(input)
+        self.prior = torch.zeros(hidden_dim)
+        self.post_cov = torch.eye(hidden_dim)
+        self.eye = torch.eye(hidden_dim)
 
-        return self.mu_enc(mid_dim), self.sig_enc(mid_dim)
+        self.tau = 2.
+        self.reparameterize_means()
 
-    def get_parameters(self):
-        return (itertools.chain(*[self.encoder.parameters(), self.mu_enc.parameters(), self.sig_enc.parameters()]),
-                itertools.chain(*[self.decoder.parameters()]),
-                itertools.chain(*[self.means]),)
-
-    def reparameterize(self, mu, logvar):
-
-        sigma = torch.exp(logvar)
-        eps = torch.randn_like(sigma)
-        z = mu + eps * sigma
-
-        return z
-
-    def reparameterize_means(self):
-        self.samp_means = self.means + torch.randn_like(self.means)
+        self.apply(init_weights)
 
     def discriminator(self, z_means, q_mu, q_logvar):
 
@@ -284,12 +255,6 @@ class VAE_Categorical(VAE):
         base_dist = MultivariateNormal(self.prior, self.eye)
 
         return base_dist.log_prob((qs - ms)/(sigs + ms_sigs))
-
-    def decode(self, latent_samp, **kwargs):
-
-        if self.condition:
-            return self.decoder(torch.cat((latent_samp, kwargs['condition_variable']), -1))
-        return self.decoder(latent_samp)
 
     def forward(self, data_sample, **kwargs):
 
@@ -378,3 +343,95 @@ class VAE_Categorical(VAE):
         self.post_cov = self.post_cov.to(*args, **kwargs)
         self.eye = self.eye.to(*args, **kwargs)
         return self
+
+
+class M2(CNN):
+    def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):
+        super().__init__(data_dim=data_dim, hidden_dim=hidden_dim, channel_num=channel_num, kernel_num=kernel_num)
+
+        self.log_q_y = self._linear(self.feature_volume, NUM_CATEGORIES, relu=False)
+        self.project = self._linear(hidden_dim, self.feature_volume, relu=False)
+        self.proj_y = self._linear(NUM_CATEGORIES, hidden_dim, relu=False)
+
+        self.num_categories = NUM_CATEGORIES
+        self.softplus = nn.Softplus()
+        self.eye = torch.eye(hidden_dim)
+
+    def q(self, encoded):
+        unrolled = encoded.view(-1, self.feature_volume)
+        return self.q_mean(unrolled), self.q_logvar(unrolled), self.log_q_y(unrolled)
+
+    def forward(self, data_sample, **kwargs):
+
+        (data, labels) = data_sample
+        if type(labels) != type(None):
+            return self.forward_labelled(data, labels, **kwargs)
+        return self.forward_unlabelled(data, **kwargs)
+
+    def forward_labelled(self, x, one_hot_labels, **kwargs):
+
+        encoded = self.encoder(x)
+        (q_mu, q_logvar, log_p_y) = self.q(encoded)
+        pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
+
+        z = self.reparameterize(q_mu, q_logvar)
+        Ws = self.softplus(self.proj_y(one_hot_labels)).unsqueeze(1) * self.eye
+
+        z_projected = self.project(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1)).view(
+            -1, self.kernel_num,
+            self.feature_size,
+            self.feature_size,
+        )
+        x_reconstructed = self.decoder(z_projected)
+
+        return {"reconstructed": [x_reconstructed],
+                "latent_samples": [z],
+                "q_vals": [q_mu, q_logvar, pred_label_sm_log],
+                "labels": [one_hot_labels]}
+
+    def forward_unlabelled(self, x, **kwargs):
+
+        encoded = self.encoder(x)
+        (q_mu, q_logvar, log_p_y) = self.q(encoded)
+        pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
+
+        z = self.reparameterize(q_mu, q_logvar)
+
+        reconstructions = []
+
+        for cat in range(self.num_categories):
+            labels = torch.zeros_like(pred_label_sm_log)
+            labels[:, cat] = 1
+
+            z = self.reparameterize(q_mu, q_logvar)
+            Ws = self.softplus(self.proj_y(labels)).unsqueeze(1) * self.eye
+
+            z_projected = self.project(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1)).view(
+                -1, self.kernel_num,
+                self.feature_size,
+                self.feature_size,
+            )
+
+            reconstructions.append(self.decoder(z_projected))
+
+        return {"reconstructed": reconstructions,
+                "latent_samples": [z],
+                "q_vals": [q_mu, q_logvar, pred_label_sm_log]}
+
+    def sample_labelled(self, labels):
+        n_samps = len(labels)
+        base_dist = MultivariateNormal(self.zeros, self.eye)
+        z = base_dist.sample((n_samps,))
+        # latent = (labels.unsqueeze(dim=2)*(self.means.repeat(n_samps, 1, 1)
+        #             + base_dist.sample((n_samps,)).unsqueeze(dim=1).repeat(1,self.NUM_CATEGORIES,1))).sum(dim=1)
+
+        # z = self.base_dist.sample((n_samps,))
+        Ws = self.softplus(self.proj_y(labels)).unsqueeze(1) * self.eye
+
+        z_projected = self.project(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1)).view(
+            -1, self.kernel_num,
+            self.feature_size,
+            self.feature_size,
+        )
+
+        return self.decoder(z_projected)
