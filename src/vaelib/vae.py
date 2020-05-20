@@ -354,8 +354,10 @@ class M2(CNN):
         self.proj_y = self._linear(NUM_CATEGORIES, hidden_dim, relu=False)
 
         self.num_categories = NUM_CATEGORIES
-        self.softplus = nn.Softplus()
         self.eye = torch.eye(hidden_dim)
+
+        self.softplus = nn.Softplus()
+        self.relu = nn.ReLU()
 
     def q(self, encoded):
         unrolled = encoded.view(-1, self.feature_volume)
@@ -376,8 +378,9 @@ class M2(CNN):
 
         z = self.reparameterize(q_mu, q_logvar)
         Ws = self.softplus(self.proj_y(one_hot_labels)).unsqueeze(1) * self.eye
+        h1 = self.relu(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1))
 
-        z_projected = self.project(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1)).view(
+        z_projected = self.project(h1).view(
             -1, self.kernel_num,
             self.feature_size,
             self.feature_size,
@@ -405,8 +408,9 @@ class M2(CNN):
 
             z = self.reparameterize(q_mu, q_logvar)
             Ws = self.softplus(self.proj_y(labels)).unsqueeze(1) * self.eye
+            h1 = self.relu(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1))
 
-            z_projected = self.project(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1)).view(
+            z_projected = self.project(h1).view(
                 -1, self.kernel_num,
                 self.feature_size,
                 self.feature_size,
@@ -427,11 +431,17 @@ class M2(CNN):
 
         # z = self.base_dist.sample((n_samps,))
         Ws = self.softplus(self.proj_y(labels)).unsqueeze(1) * self.eye
+        h1 = self.relu(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1))
 
-        z_projected = self.project(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1)).view(
+        z_projected = self.project(h1).view(
             -1, self.kernel_num,
             self.feature_size,
             self.feature_size,
         )
 
         return self.decoder(z_projected)
+
+    def to(self, *args, **kwargs):
+        self = super().to(*args, **kwargs)
+        self.eye = self.eye.to(*args, **kwargs)
+        return self
