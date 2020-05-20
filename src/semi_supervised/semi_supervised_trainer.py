@@ -16,6 +16,8 @@ from utils.generative_trainer import GenerativeTrainer
 from utils.logging import AverageMeter
 from utils.data import get_samplers
 
+from torchvision.utils import save_image
+
 from torch.nn import functional as F
 
 
@@ -161,6 +163,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         loss_meter = AverageMeter()
 
         correct, total = 0.0, 0.0
+        saved = False
 
         with tqdm(total=len(loaders.dataset), disable=self.tqdm_print) as progress_bar:
             for data, labels in loaders:
@@ -175,6 +178,11 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 # net_args = net((data, None))
                 net_args = net((data, one_hot))
                 loss = self.labeled_loss(data, **net_args)
+
+                if not saved:
+                    save_image(torch.sigmoid(net_args["reconstructed"][0]), f'{self.figure_path}/recon_{epoch}.png')
+                    save_image(data, f'{self.figure_path}/true_{epoch}.png')
+                    saved = True
 
                 # loss = self.unlabeled_loss(data, **net_args)
                 # loss = self.labeled_loss(data, *net_args)

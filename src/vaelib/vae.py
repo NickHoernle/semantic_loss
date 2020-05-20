@@ -65,7 +65,6 @@ class VAE(nn.Module):
     def reparameterize(self, mu, logvar):
 
         sigma = torch.exp(logvar)
-        # sigma = torch.ones_like(logvar)
         eps = torch.randn_like(sigma)
         z = mu + eps * sigma
 
@@ -205,7 +204,7 @@ class CNN(VAE):
         return conv if last else nn.Sequential(
             conv,
             nn.BatchNorm2d(kernel_num),
-            nn.ReLU(True),
+            nn.ReLU(),
         )
 
     def _deconv(self, channel_num, kernel_num, last=False):
@@ -216,18 +215,70 @@ class CNN(VAE):
         return deconv if last else nn.Sequential(
             deconv,
             nn.BatchNorm2d(kernel_num),
-            nn.ReLU(True),
+            nn.ReLU(),
         )
 
     def _linear(self, in_size, out_size, relu=True):
         return nn.Sequential(
             nn.Linear(in_size, out_size),
-            nn.ReLU(True),
+            nn.ReLU(),
         ) if relu else nn.Linear(in_size, out_size)
 
     def q(self, encoded):
         unrolled = encoded.view(-1, self.feature_volume)
         return self.q_mean(unrolled), self.q_logvar(unrolled)
+
+
+class LinearVAE(VAE):
+    def __init__(self, *args, **kwargs):
+        super().__init__(**kwargs)
+
+        data_dim = kwargs.get("data_dim", 32)
+        channel_num = kwargs.get("channel_num", 1)
+        kernel_num = kwargs.get("kernel_num", 100)
+        hidden_dim = kwargs.get("hidden_dim", 100)
+
+        mid_dim = 500
+
+        self.image_size = data_dim
+        self.channel_num = channel_num
+        self.kernel_num = kernel_num
+        self.z_size = hidden_dim
+
+        # encoding layers
+        self.encoder = nn.Sequential(
+            self._linear(data_dim*data_dim*channel_num, mid_dim),
+            self._linear(mid_dim, mid_dim),
+            self._linear(mid_dim, hidden_dim),
+        )
+
+        # encoded feature's size and volume
+        # self.feature_size = self.image_size // 8
+        # self.feature_volume = kernel_num * (self.feature_size ** 2)
+
+        # q
+        self.q_mean = self._linear(hidden_dim, hidden_dim, relu=False)
+        self.q_logvar = self._linear(hidden_dim, hidden_dim, relu=False)
+
+        # projection
+        self.project = self._linear(hidden_dim, hidden_dim, relu=False)
+
+        # decoder
+        self.decoder = nn.Sequential(
+            self._linear(hidden_dim, mid_dim),
+            self._linear(mid_dim, mid_dim),
+            self._linear(mid_dim, data_dim * data_dim * channel_num, relu=False),
+        )
+
+    ##########  LAYERS  ###########
+    def _linear(self, in_size, out_size, relu=True):
+        return nn.Sequential(
+            nn.Linear(in_size, out_size),
+            nn.ReLU(),
+        ) if relu else nn.Linear(in_size, out_size)
+
+    def q(self, encoded):
+        return self.q_mean(encoded), self.q_logvar(encoded)
 
 
 class VAE_Categorical(CNN):
@@ -355,9 +406,16 @@ class M2(CNN):
     def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):
         super().__init__(data_dim=data_dim, hidden_dim=hidden_dim, channel_num=channel_num, kernel_num=kernel_num)
 
+        self.enc2 = self._linear(self.feature_volume, self.feature_volume, relu=True)
         self.log_q_y = self._linear(self.feature_volume, NUM_CATEGORIES, relu=False)
-        self.project = self._linear(hidden_dim, self.feature_volume, relu=False)
+        self.project = nn.Sequential(
+            self._linear(hidden_dim, hidden_dim),
+            self._linear(hidden_dim, self.feature_volume),
+            self._linear(self.feature_volume, self.feature_volume, relu=False),
+        )
+
         self.proj_y = self._linear(NUM_CATEGORIES, hidden_dim, relu=False)
+        self.Wy = self._linear(NUM_CATEGORIES, hidden_dim, relu=False)
 
         self.num_categories = NUM_CATEGORIES
         self.eye = torch.eye(hidden_dim)
@@ -365,8 +423,11 @@ class M2(CNN):
         self.softplus = nn.Softplus()
         self.relu = nn.ReLU()
 
+        self.apply(init_weights)
+
     def q(self, encoded):
-        unrolled = encoded.view(-1, self.feature_volume)
+        unrolled = encoded.view(len(encoded), -1)
+        # u2 = self.enc2(unrolled)
         return self.q_mean(unrolled), self.q_logvar(unrolled), self.log_q_y(unrolled)
 
     def forward(self, data_sample, **kwargs):
@@ -376,57 +437,80 @@ class M2(CNN):
             return self.forward_labelled(data, labels, **kwargs)
         return self.forward_unlabelled(data, **kwargs)
 
-    def forward_labelled(self, x, one_hot_labels, **kwargs):
+    def forward_labelled(self, x, labels, **kwargs):
 
+        # unrolled = x.view(len(x), -1)
         encoded = self.encoder(x)
         (q_mu, q_logvar, log_p_y) = self.q(encoded)
         pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
 
         z = self.reparameterize(q_mu, q_logvar)
-        Ws = self.softplus(self.proj_y(one_hot_labels)).unsqueeze(1) * self.eye
-        h1 = self.relu(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1))
 
+        Wz = torch.sqrt(self.softplus(self.proj_y(labels)))
+        Wyy = self.Wy(labels)
+        h1 = self.relu(Wyy + Wz * z)
+        # h1 = torch.cat((z, labels), dim=1)
+
+        # Ws = self.softplus(Wy)
+        #
+        # h1 = self.relu(Ws * z)
+
+        # import pdb
+        # pdb.set_trace()
+        # h1 = torch.cat((z, one_hot_labels), dim=1)
+        # h1 = torch.cat((z, one_hot_labels), dim=1)
         z_projected = self.project(h1).view(
             -1, self.kernel_num,
             self.feature_size,
             self.feature_size,
         )
         x_reconstructed = self.decoder(z_projected)
+# /
+#         x_reconstructed = self.decoder(z_projected).view(len(x), self.channel_num, self.image_size, self.image_size)
 
         return {"reconstructed": [x_reconstructed],
                 "latent_samples": [z],
                 "q_vals": [q_mu, q_logvar, pred_label_sm_log],
-                "labels": [one_hot_labels]}
+                "labels": [labels]}
 
     def forward_unlabelled(self, x, **kwargs):
 
         encoded = self.encoder(x)
-        (q_mu, q_logvar, log_p_y) = self.q(encoded)
-        pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
+        (q_mu, q_logvar, log_q_y) = self.q(encoded)
+        log_q_ys = log_q_y - torch.logsumexp(log_q_y, dim=1).unsqueeze(1)
 
         z = self.reparameterize(q_mu, q_logvar)
 
         reconstructions = []
 
         for cat in range(self.num_categories):
-            labels = torch.zeros_like(pred_label_sm_log)
+
+            labels = torch.zeros_like(log_q_ys)
             labels[:, cat] = 1
 
             z = self.reparameterize(q_mu, q_logvar)
-            Ws = self.softplus(self.proj_y(labels)).unsqueeze(1) * self.eye
-            h1 = self.relu(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1))
+            # h1 = torch.cat((z, labels), dim=1)
+            Wz = torch.sqrt(self.softplus(self.proj_y(labels)))
+            Wyy = self.Wy(labels)
+            h1 = self.relu(Wyy + Wz * z)
+            # Ws = self.softplus(self.proj_y(labels)).unsqueeze(1) * self.eye
+            # h1 = self.relu(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1))
 
+            # h1 = torch.cat((z, labels), dim=1)
             z_projected = self.project(h1).view(
                 -1, self.kernel_num,
                 self.feature_size,
                 self.feature_size,
             )
+            x_reconstructed = self.decoder(z_projected)
+            # x_reconstructed = self.decoder(h1).view(len(x), self.channel_num, self.image_size, self.image_size)
 
-            reconstructions.append(self.decoder(z_projected))
+
+            reconstructions.append(x_reconstructed)
 
         return {"reconstructed": reconstructions,
                 "latent_samples": [z],
-                "q_vals": [q_mu, q_logvar, pred_label_sm_log]}
+                "q_vals": [q_mu, q_logvar, log_q_ys]}
 
     def sample_labelled(self, labels):
         n_samps = len(labels)
@@ -436,8 +520,13 @@ class M2(CNN):
         #             + base_dist.sample((n_samps,)).unsqueeze(dim=1).repeat(1,self.NUM_CATEGORIES,1))).sum(dim=1)
 
         # z = self.base_dist.sample((n_samps,))
-        Ws = self.softplus(self.proj_y(labels)).unsqueeze(1) * self.eye
-        h1 = self.relu(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1))
+        # Ws = self.softplus(self.proj_y(labels)).unsqueeze(1) * self.eye
+        # h1 = self.relu(torch.matmul(Ws, z.unsqueeze(2)).squeeze(-1))
+        # h1 = torch.cat((z, labels), dim=1)
+
+        Wz = torch.sqrt(self.softplus(self.proj_y(labels)))
+        Wyy = self.Wy(labels)
+        h1 = self.relu(Wyy + Wz * z)
 
         z_projected = self.project(h1).view(
             -1, self.kernel_num,
@@ -446,6 +535,7 @@ class M2(CNN):
         )
 
         return self.decoder(z_projected)
+        # return self.decoder(z_projected).view(n_samps, self.channel_num, self.image_size, self.image_size)
 
     def to(self, *args, **kwargs):
         self = super().to(*args, **kwargs)

@@ -156,6 +156,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             log_q_y = log_pred_label_sm[:, cat]
             q_y = torch.exp(log_q_y)
 
+
             # TODO: going to cause an issue as vector is not on target device
             ones_vector = torch.ones_like(q_y).long()
             one_hot_u = one_hot_func(num_categories=num_categories, labels=cat*ones_vector)

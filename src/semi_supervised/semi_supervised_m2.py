@@ -94,11 +94,10 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         q_mu, q_logvar, log_q_y = q_vals
         true_y = labels[0]
 
-        BCE = F.binary_cross_entropy(
-            torch.sigmoid(data_recon), data, reduction="sum"
-        )
+        BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 
         KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
+
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
         return BCE + KLD_cont.sum() + discriminator_loss
