@@ -119,6 +119,12 @@ class VAE(nn.Module):
 
         return y, sldj
 
+    def to(self, *args, **kwargs):
+        self = super().to(*args, **kwargs)
+        self.eye = self.eye.to(*args, **kwargs)
+        self.zeros = self.zeros.to(*args, **kwargs)
+        return self
+
 class VAE_Gaussian(VAE):
     def __init__(self, data_dim, hidden_dim, condition=False, num_condition=0, **kwargs):
         super().__init__(data_dim, hidden_dim, condition=condition, num_condition=num_condition, **kwargs)
