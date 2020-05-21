@@ -412,7 +412,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
 
         base_dist = MultivariateNormal(self.zeros, self.eye)
 
-        return base_dist.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
+        return base_dist.log_prob((q_mus - q_global_means)/(1 + q_sigs + q_global_sigs))
 
     def forward(self, data_sample, **kwargs):
 
