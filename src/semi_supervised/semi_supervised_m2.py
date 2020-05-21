@@ -83,15 +83,28 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         self.main()
 
     @staticmethod
-    def labeled_loss(data, labels, reconstructed, latent_samples, q_vals):
+    def labeled_loss(data, labels, net, reconstructed, latent_samples, q_vals):
         """
         Loss for the labeled data
         """
         data_recon = reconstructed[0]
-        z = latent_samples[0]
+        z, pred_means = latent_samples
 
         q_mu, q_logvar, log_q_y = q_vals
         true_y = labels
+
+        ################# SEMANTIC LOSS #####################
+        hidden_dim = pred_means.size(1)
+        num_cats = log_q_y.size(1)
+        means_expanded = pred_means.unsqueeze(1).repeat(1, num_cats, 1)
+        labels_expanded = torch.exp(log_q_y).unsqueeze(-1).repeat(1, 1, hidden_dim)
+        inf_means = (means_expanded*labels_expanded).mean(dim=0)
+        n_cat = net.num_categories
+        h_dim = net.hidden_dim
+        base_dist = MultivariateNormal(net.zeros, net.eye)
+        means = inf_means.repeat(1, n_cat).view(-1, h_dim) - inf_means.repeat(n_cat, 1)
+        log_probs = base_dist.log_prob(means)
+        ################# SEMANTIC LOSS #####################
 
         BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 
@@ -99,17 +112,30 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
-        return BCE + KLD_cont.sum() + discriminator_loss
+        return BCE + KLD_cont.sum() + discriminator_loss + log_probs[log_probs>-20].sum()
 
     @staticmethod
-    def unlabeled_loss(data, reconstructed, latent_samples, q_vals):
+    def unlabeled_loss(data, net, reconstructed, latent_samples, q_vals):
         """
         Loss for the unlabeled data
         """
-        z = latent_samples[0]
+        z, pred_means = latent_samples
 
         q_mu, q_logvar, log_q_ys = q_vals
         KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
+
+        ################# SEMANTIC LOSS #####################
+        hidden_dim = pred_means.size(1)
+        num_cats = log_q_ys.size(1)
+        means_expanded = pred_means.unsqueeze(1).repeat(1, num_cats, 1)
+        labels_expanded = torch.exp(log_q_ys).unsqueeze(-1).repeat(1, 1, hidden_dim)
+        inf_means = (means_expanded * labels_expanded).mean(dim=0)
+        n_cat = net.num_categories
+        h_dim = net.hidden_dim
+        base_dist = MultivariateNormal(net.zeros, net.eye)
+        means = inf_means.repeat(1, n_cat).view(-1, h_dim) - inf_means.repeat(n_cat, 1)
+        log_probs = base_dist.log_prob(means)
+        ################# SEMANTIC LOSS #####################
 
         loss_u = 0
         for cat in range(len(reconstructed)):
@@ -122,12 +148,14 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
 
             loss_u += torch.sum(q_y*BCE + q_y*log_q_y)
 
-        return loss_u + KLD_cont
+        return loss_u + KLD_cont + log_probs[log_probs>-20].sum()
 
 
     def sample_examples(self, epoch, net):
         labels = torch.zeros(64, self.num_categories).to(self.device)
         labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
+
         img_sample = net.sample_labelled(labels)
         img_sample = torch.sigmoid(img_sample)
+
         save_image(img_sample, f'{self.figure_path}/sample_' + str(epoch) + '.png')

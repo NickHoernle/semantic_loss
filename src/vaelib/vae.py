@@ -309,7 +309,7 @@ class VAE_Categorical_Base(VAE):
         n_samps = len(labels)
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
-        x_reconstructed = self.decoder(z, labels)
+        x_reconstructed, _ = self.decoder(z, labels)
         return x_reconstructed
 
 
@@ -342,11 +342,12 @@ class M2(VAE_Categorical_Base, CNN):
 
         Wz = torch.sqrt(self.softplus(self.proj_y(labels)))
         Wyy = self.Wy(labels)
-        h1 = self.relu(Wyy + Wz * z)
+        MG = Wyy + Wz * z
 
+        h1 = self.relu(MG)
         rolled = self.project(h1).view(len(h1), -1, self.feature_size, self.feature_size)
         rolled = self.decoder_cnn(rolled)
-        return rolled
+        return rolled, MG
 
     def forward_labelled(self, x, labels, **kwargs):
 
@@ -355,10 +356,10 @@ class M2(VAE_Categorical_Base, CNN):
         pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
 
         z = self.reparameterize(q_mu, q_logvar)
-        x_reconstructed = self.decoder(z, labels)
+        x_reconstructed, pred_means = self.decoder(z, labels)
 
         return {"reconstructed": [x_reconstructed],
-                "latent_samples": [z],
+                "latent_samples": [z, pred_means],
                 "q_vals": [q_mu, q_logvar, pred_label_sm_log]}
 
     def forward_unlabelled(self, x, **kwargs):
@@ -377,12 +378,12 @@ class M2(VAE_Categorical_Base, CNN):
             labels[:, cat] = 1
 
             z = self.reparameterize(q_mu, q_logvar)
-            x_reconstructed = self.decoder(z, labels)
+            x_reconstructed, pred_means = self.decoder(z, labels)
 
             reconstructions.append(x_reconstructed)
 
         return {"reconstructed": reconstructions,
-                "latent_samples": [z],
+                "latent_samples": [z, pred_means],
                 "q_vals": [q_mu, q_logvar, log_q_ys]}
 
 

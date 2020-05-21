@@ -115,12 +115,12 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 ############## Labeled step ################
                 labeled_results = net((data_l, one_hot))
-                loss_l = self.labeled_loss(data_l, one_hot, **labeled_results)
+                loss_l = self.labeled_loss(data_l, one_hot, net, **labeled_results)
 
                 ############## Unlabeled step ##############
                 loss_u = 0
                 unlabeled_results = net((data_u, None))
-                loss_u = self.unlabeled_loss(data_u, **unlabeled_results)
+                loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
 
                 ############# Semantic Loss ################
                 loss_s = self.semantic_loss(epoch, net)
@@ -193,7 +193,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     save_image(data, f'{self.figure_path}/true_{epoch}.png')
                     saved = True
 
-                loss = self.unlabeled_loss(data, **net_args)
+                loss = self.unlabeled_loss(data, net, **net_args)
                 # loss = self.labeled_loss(data, *net_args)
 
                 loss_meter.update(loss.item(), data.size(0))

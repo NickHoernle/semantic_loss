@@ -98,7 +98,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             {"params": base_params}], lr=self.lr)
 
     @staticmethod
-    def labeled_loss(data, labels, reconstructed, latent_samples, q_vals):
+    def labeled_loss(data, labels, net, reconstructed, latent_samples, q_vals):
         """
         Loss for the labeled data
         """
@@ -126,7 +126,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         return BCE + KLD_cont.sum() + KLD_cont_main + discriminator_loss
 
     @staticmethod
-    def unlabeled_loss(data, reconstructed, latent_samples, q_vals):
+    def unlabeled_loss(data, net, reconstructed, latent_samples, q_vals):
         """
         Loss for the unlabeled data
         """
