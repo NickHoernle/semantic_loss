@@ -112,7 +112,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
-        return BCE + KLD_cont.sum() + discriminator_loss + log_probs[log_probs>-20].sum()
+        return BCE + KLD_cont.sum() + discriminator_loss + log_probs[log_probs > -20].sum()
 
     @staticmethod
     def unlabeled_loss(data, net, reconstructed, latent_samples, q_vals):
@@ -148,7 +148,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
 
             loss_u += torch.sum(q_y*BCE + q_y*log_q_y)
 
-        return loss_u + KLD_cont + log_probs[log_probs>-20].sum()
+        return loss_u + KLD_cont + log_probs[log_probs > -20].sum()
 
 
     def sample_examples(self, epoch, net):
