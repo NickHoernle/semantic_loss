@@ -149,7 +149,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             q_means = z_global[cat].unsqueeze(0).repeat(len(q_mu), 1, )
             KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - q_means).pow(2) - q_logvar.exp()).sum(dim=1)
 
-            loss_u += (q_y*(q_y + log_q_y)).sum()
+            loss_u += (q_y*(KLD_cont + log_q_y)).sum()
 
         KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
                                          (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
