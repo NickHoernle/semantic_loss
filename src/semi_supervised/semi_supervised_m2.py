@@ -45,7 +45,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         additional_model_config_args=['hidden_dim', 'num_labeled_data_per_class', 'lr2'],
         num_loader_workers=8,
         num_labeled_data_per_class=100,
-        name="vae-semi-supervised",
+        name="m2",
     ):
         model_parameters = {
             "data_dim": 32,
