@@ -113,29 +113,19 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 optimizer.zero_grad()
 
-                if epoch < 2:
-                    unlabeled_results = net((data_u, None))
-                    loss = self.simple_loss(data_u, **unlabeled_results)
+                ############## Labeled step ################
+                labeled_results = net((data_l, one_hot))
+                loss_l = self.labeled_loss(data_l, one_hot, **labeled_results)
 
-                elif epoch < 3:
-                    labeled_results = net((data_l, one_hot))
-                    loss = self.labeled_loss(data_l, one_hot, **labeled_results)
+                ############## Unlabeled step ##############
+                loss_u = 0
+                unlabeled_results = net((data_u, None))
+                loss_u = self.unlabeled_loss(data_u, **unlabeled_results)
 
-                else:
+                ############# Semantic Loss ################
+                loss_s = self.semantic_loss(epoch, net)
 
-                    ############## Labeled step ################
-                    labeled_results = net((data_l, one_hot))
-                    loss_l = self.labeled_loss(data_l, one_hot, **labeled_results)
-
-                    ############## Unlabeled step ##############
-                    loss_u = 0
-                    unlabeled_results = net((data_u, None))
-                    loss_u = self.unlabeled_loss(data_u, **unlabeled_results)
-
-                    ############# Semantic Loss ################
-                    loss_s = self.semantic_loss(epoch, net)
-
-                    loss = loss_l + loss_u + loss_s
+                loss = loss_l + loss_u + loss_s
                 loss.backward()
 
                 if self.max_grad_norm > 0:

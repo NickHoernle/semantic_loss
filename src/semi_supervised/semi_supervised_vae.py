@@ -163,11 +163,15 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         """
         Semantic loss applied to latent space
         """
-        if epoch < 10:
+        if epoch < -1:
             return 0
-        # import pdb
-        # pdb.set_trace()
-        return 0
+
+        n_cat = net.num_categories
+        h_dim = net.hidden_dim
+        base_dist = MultivariateNormal(net.zeros, net.eye)
+        means = net.q_global_means.repeat(1, n_cat).view(-1, h_dim) - net.q_global_means.repeat(n_cat, 1)
+        log_probs = base_dist.log_prob(means)
+        return log_probs[log_probs > -7].sum()
 
     @staticmethod
     def simple_loss(data, reconstructed, latent_samples, q_vals):
