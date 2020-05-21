@@ -110,7 +110,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         num_categories = len(log_q_y[0])
 
         # get the means that z should be associated with
-        q_means = q_mu - (true_y.unsqueeze(-1) * z_global.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+        q_means = q_mu - (true_y.unsqueeze(-1) * q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
         # reconstruction loss
         BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
@@ -146,7 +146,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             log_q_y = log_q_ys[:, cat]
             q_y = torch.exp(log_q_y)
 
-            q_means = z_global[cat].unsqueeze(0).repeat(len(q_mu), 1, )
+            q_means = q_global_means[cat].unsqueeze(0).repeat(len(q_mu), 1, )
             KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - q_means).pow(2) - q_logvar.exp()).sum(dim=1)
 
             loss_u += (q_y*(q_y + log_q_y)).sum()
@@ -163,7 +163,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         """
         Semantic loss applied to latent space
         """
-        if epoch < -1:
+        if epoch < 10:
             return 0
 
         n_cat = net.num_categories
@@ -171,7 +171,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         base_dist = MultivariateNormal(net.zeros, net.eye)
         means = net.q_global_means.repeat(1, n_cat).view(-1, h_dim) - net.q_global_means.repeat(n_cat, 1)
         log_probs = base_dist.log_prob(means)
-        return log_probs[log_probs > -7].sum()
+
+        return log_probs[log_probs>-20].sum()
 
     @staticmethod
     def simple_loss(data, reconstructed, latent_samples, q_vals):
