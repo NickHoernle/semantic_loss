@@ -170,6 +170,26 @@ class CNN(VAE):
         self.kernel_num = kernel_num
         self.z_size = hidden_dim
 
+        self.encoder = nn.Sequential(
+            nn.Conv2d(3,  12, 4, stride=2, padding=1),  # [batch, 12, 16, 16]
+            nn.ReLU(),
+            nn.Conv2d(12, 24, 4, stride=2, padding=1), # [batch, 24, 8, 8]
+            nn.ReLU(),
+            nn.Conv2d(24, 48, 4, stride=2, padding=1), # [batch, 48, 4, 4]
+            nn.ReLU(),
+        )
+
+        self.decoder = nn.Sequential(
+            #             nn.ConvTranspose2d(96, 48, 4, stride=2, padding=1),  # [batch, 48, 4, 4]
+            #             nn.ReLU(),
+            nn.ConvTranspose2d(48, 24, 4, stride=2, padding=1),  # [batch, 24, 8, 8]
+            nn.ReLU(),
+            nn.ConvTranspose2d(24, 12, 4, stride=2, padding=1),  # [batch, 12, 16, 16]
+            nn.ReLU(),
+            nn.ConvTranspose2d(12,  3, 4, stride=2, padding=1),  # [batch, 3, 32, 32]
+            nn.Sigmoid(),
+        )
+
         # encoding layers
         self.encoder = nn.Sequential(
             self._conv(channel_num, kernel_num // 4),
@@ -178,7 +198,7 @@ class CNN(VAE):
         )
 
         # encoded feature's size and volume
-        self.feature_size = self.image_size // 8
+        self.feature_size = self.image_size // (2**3)
         self.feature_volume = kernel_num * (self.feature_size ** 2)
 
         # q
@@ -416,11 +436,68 @@ class M2(LinearVAE):
         super().__init__(data_dim=data_dim, hidden_dim=hidden_dim, channel_num=channel_num, kernel_num=kernel_num)
 
         # self.enc2 = self._linear(self.feature_volume, self.feature_volume, relu=True)
-        mid_dim = 500
+        self.encoding_cnn = nn.Sequential(
+            nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//4, 16, 16]
+            nn.ReLU(),
+            nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
+            nn.ReLU(),
+            nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num, 4, 4]
+            nn.ReLU(),
+        )
+
+        self.feature_size = self.image_size // (2 ** 3)
+        self.feature_volume = kernel_num * self.feature_size * self.feature_size
+
+        self.encoder_linear = nn.Sequential(
+            nn.Linear(self.feature_volume, self.feature_volume),
+            nn.ReLU(),
+            nn.Linear(self.feature_volume, self.feature_volume),
+            nn.ReLU(),
+        )
+
+        self.q_mean = nn.Sequential(
+            nn.Linear(self.feature_volume, self.feature_volume//2),
+            nn.ReLU(True),
+            nn.Linear(self.feature_volume//2, hidden_dim)
+        )
+        self.q_logvar = nn.Sequential(
+            nn.Linear(self.feature_volume, self.feature_volume//2),
+            nn.ReLU(True),
+            nn.Linear(self.feature_volume//2, hidden_dim)
+        )
+
         self.log_q_y = nn.Sequential(
+            nn.Linear(self.feature_volume, self.feature_volume // 2),
+            nn.ReLU(True),
+            nn.Linear(self.feature_volume // 2, NUM_CATEGORIES)
+        )
+
+        # self.decoder = nn.Sequential(
+        #     #             nn.ConvTranspose2d(96, 48, 4, stride=2, padding=1),  # [batch, 48, 4, 4]
+        #     #             nn.ReLU(),
+        #     nn.ConvTranspose2d(48, 24, 4, stride=2, padding=1),  # [batch, 24, 8, 8]
+        #     nn.ReLU(),
+        #     nn.ConvTranspose2d(24, 12, 4, stride=2, padding=1),  # [batch, 12, 16, 16]
+        #     nn.ReLU(),
+        #     nn.ConvTranspose2d(12, 3, 4, stride=2, padding=1),  # [batch, 3, 32, 32]
+        #     nn.Sigmoid(),
+        # )
+
+        # projection
+        self.project = nn.Sequential(
+            nn.Linear(hidden_dim, self.feature_volume // 2),
+            nn.ReLU(True),
+            nn.Linear(self.feature_volume // 2, self.feature_volume),
+            nn.ReLU(True)
+        )
+
+        mid_dim = 500
+        self.decoder = nn.Sequential(
+            nn.Linear(self.feature_volume, mid_dim),
+            nn.ReLU(True),
             nn.Linear(mid_dim, mid_dim),
             nn.ReLU(True),
-            nn.Linear(mid_dim, NUM_CATEGORIES)
+            nn.Linear(mid_dim, channel_num*data_dim * data_dim),
         )
 
         self.proj_y = nn.Sequential(nn.Linear(NUM_CATEGORIES, hidden_dim))
@@ -432,16 +509,15 @@ class M2(LinearVAE):
         self.softplus = nn.Softplus()
         self.relu = nn.ReLU()
 
-        self.project = nn.Sequential(
-            nn.Linear(hidden_dim, mid_dim),
-            nn.ReLU(True)
-        )
-
         self.apply(init_weights)
+
+    def encoder(self, x):
+        unrolled = self.encoding_cnn(x).view(len(x), -1)
+        unrolled = self.encoder_linear(unrolled)
+        return unrolled
 
     def q(self, encoded):
         unrolled = encoded.view(len(encoded), -1)
-        # u2 = self.enc2(unrolled)
         return self.q_mean(unrolled), self.q_logvar(unrolled), self.log_q_y(unrolled)
 
     def forward(self, data_sample, **kwargs):
@@ -453,8 +529,8 @@ class M2(LinearVAE):
 
     def forward_labelled(self, x, labels, **kwargs):
 
-        unrolled = x.view(len(x), -1)
-        encoded = self.encoder(unrolled)
+        # unrolled = x.view(len(x), -1)
+        encoded = self.encoder(x)
         # encoded = self.encoder(x)
         (q_mu, q_logvar, log_p_y) = self.q(encoded)
         pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
@@ -474,8 +550,7 @@ class M2(LinearVAE):
 
     def forward_unlabelled(self, x, **kwargs):
 
-        unrolled = x.view(len(x), -1)
-        encoded = self.encoder(unrolled)
+        encoded = self.encoder(x)
         # encoded = self.encoder(x)
         (q_mu, q_logvar, log_p_y) = self.q(encoded)
         log_q_ys = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
