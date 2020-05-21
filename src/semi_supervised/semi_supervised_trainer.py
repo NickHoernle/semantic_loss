@@ -214,8 +214,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 total += len(labels)
 
         print(f"===============> Epoch {epoch}; Accuracy: {correct/total}; NLL: {loss.item()}")
-        print(net.q_global_means)
-        print(net.q_global_log_var)
+        # print(net.q_global_means)
+        # print(net.q_global_log_var)
         if return_accuracy:
             return loss_meter.avg, correct/total
         return loss_meter.avg
