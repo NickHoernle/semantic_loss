@@ -20,6 +20,11 @@ from torchvision.utils import save_image
 
 from torch.nn import functional as F
 
+params = {
+    "MNIST":{"num_categories": 10, "channel_num": 1},
+    "CIFAR10":{"num_categories": 10, "channel_num": 3},
+    "CIFAR100":{"num_categories": 100, "channel_num": 3},
+}
 
 class SemiSupervisedTrainer(GenerativeTrainer):
     """
@@ -50,6 +55,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
     ):
         self.num_labeled_data_per_class = num_labeled_data_per_class
         self.dataset = dataset
+        model_parameters = {**model_parameters, **params[dataset]}
         super().__init__(
             model_builder,
             model_parameters,
@@ -109,14 +115,17 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 ############## Labeled step ################
                 labeled_results = net((data_l, one_hot))
-                loss_l = self.labeled_loss(data_l, **labeled_results)
+                loss_l = self.labeled_loss(data_l, one_hot, **labeled_results)
 
-                ############## Unlabeled step ################
+                ############## Unlabeled step ##############
                 loss_u = 0
                 unlabeled_results = net((data_u, None))
                 loss_u = self.unlabeled_loss(data_u, **unlabeled_results)
 
-                loss = loss_l + loss_u # + sloss
+                ############# Semantic Loss ################
+                loss_s = self.semantic_loss(epoch, net)
+
+                loss = loss_l + loss_u + loss_s
                 loss.backward()
 
                 if self.max_grad_norm > 0:
@@ -177,7 +186,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 # net_args = net((data, None))
                 net_args = net((data, one_hot))
-                loss = self.labeled_loss(data, **net_args)
+                loss = self.labeled_loss(data, one_hot, **net_args)
 
                 if not saved:
                     save_image(torch.sigmoid(net_args["reconstructed"][0]), f'{self.figure_path}/recon_{epoch}.png')
@@ -214,6 +223,13 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         Loss for the unlabeled data
         """
         raise NotImplementedError("Not implemented unlabeled loss")
+
+    @staticmethod
+    def semantic_loss(*args, **kwargs):
+        """
+        Loss for the unlabeled data
+        """
+        return 0
 
     def get_datasets(self):
         """

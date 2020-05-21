@@ -14,14 +14,14 @@ from vaelib.vae import M2
 from semi_supervised.semi_supervised_trainer import SemiSupervisedTrainer
 
 
-def build_model(data_dim=10, hidden_dim=10, num_categories=10, kernel_num=50):
+def build_model(data_dim=10, hidden_dim=10, num_categories=10, kernel_num=50, channel_num=1):
     return M2(
         data_dim=data_dim,
         hidden_dim=hidden_dim,
         NUM_CATEGORIES=num_categories,
-        kernel_num=kernel_num
+        kernel_num=kernel_num,
+        channel_num=channel_num
     )
-
 
 class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
     def __init__(
@@ -50,7 +50,6 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         model_parameters = {
             "data_dim": 32,
             "hidden_dim": hidden_dim,
-            "num_categories": 10,
             "kernel_num": kernel_num,
         }
         self.lr2 = lr2
@@ -84,7 +83,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         self.main()
 
     @staticmethod
-    def labeled_loss(data, reconstructed, latent_samples, q_vals, labels):
+    def labeled_loss(data, labels, reconstructed, latent_samples, q_vals):
         """
         Loss for the labeled data
         """
@@ -92,7 +91,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         z = latent_samples[0]
 
         q_mu, q_logvar, log_q_y = q_vals
-        true_y = labels[0]
+        true_y = labels
 
         BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 

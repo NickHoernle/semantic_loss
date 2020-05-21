@@ -10,13 +10,17 @@ from torch import optim
 from torchvision.utils import save_image
 from torch.distributions import MultivariateNormal
 
-from vaelib.vae import VAE_Categorical
+from vaelib.vae import GMM_VAE
 from semi_supervised.semi_supervised_trainer import SemiSupervisedTrainer
 
 
-def build_model(data_dim=10, hidden_dim=10, num_categories=10):
-    return VAE_Categorical(
-        data_dim=data_dim, hidden_dim=hidden_dim, NUM_CATEGORIES=num_categories
+def build_model(data_dim=10, hidden_dim=10, num_categories=10, kernel_num=50, channel_num=1):
+    return GMM_VAE(
+        data_dim=data_dim,
+        hidden_dim=hidden_dim,
+        NUM_CATEGORIES=num_categories,
+        kernel_num=kernel_num,
+        channel_num=channel_num
     )
 
 
@@ -29,6 +33,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         max_grad_norm=1,
         hidden_dim=10,
         num_epochs=100,
+        kernel_num=50,
         batch_size=256,
         lr2=1e-2,
         lr=1e-3,
@@ -46,8 +51,9 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         model_parameters = {
             "data_dim": 32,
             "hidden_dim": hidden_dim,
-            "num_categories": 10
+            "kernel_num": kernel_num,
         }
+
         self.lr2 = lr2
         self.hidden_dim = hidden_dim
         super().__init__(
@@ -79,6 +85,9 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         self.main()
 
     def get_optimizer(self, net):
+        """
+        This allows for different learning rates for means params vs other params
+        """
         params_ = ['means', "q_log_var"]
         params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in params_, net.named_parameters()))))
         base_params = list(
@@ -88,91 +97,64 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             {"params": params, "lr": self.lr2},
             {"params": base_params}], lr=self.lr)
 
-    def get_means(self, results):
-
-        recon_data, samps, latent_params, labels = results
-        zs = latent_params[0]
-
-        counts = (labels).sum(dim=0)
-
-        return (labels.unsqueeze(-1).repeat(1, 1, zs.size(1)) * zs.unsqueeze(1).repeat(1, self.num_categories, 1)).sum(dim=0), counts
-
-    def get_means_param(self, net):
-        return [net.means]
-
-    def get_not_means_param(self, net):
-        for name, param in net.named_parameters():
-            if name not in ["means"]:
-                yield param
-
-    def get_decoder_params(self, net):
-        for name, param in net.named_parameters():
-            if 'decoder' in name:
-                yield param
-
-    def get_pred(self, net_args):
-        return torch.argmax(net_args[2][-1], dim=1)
-
     @staticmethod
-    def labeled_loss(data, data_reconstructed, latent_samples, latent_params, true_label):
+    def labeled_loss(data, labels, reconstructed, latent_samples, q_vals):
         """
         Loss for the labeled data
         """
+        data_recon = reconstructed[0]
+        z, z_global = latent_samples
 
-        BCE = F.binary_cross_entropy(
-            torch.sigmoid(data_reconstructed), data, reduction="sum"
-        )
+        q_mu, q_logvar, q_global_means, q_global_log_var, log_q_y = q_vals
+        true_y = labels
 
-        z, z_means = latent_samples
-        q_mu, q_logvar, q_main_mu, q_main_logvar, q_label_logprob = latent_params
+        # get the means that z should be associated with
+        q_means = q_mu - (true_y.unsqueeze(-1) * q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
-        z_means_ = (true_label.unsqueeze(-1) * z_means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+        # reconstruction loss
+        BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 
-        KLD_cont = -0.5 * ((1 + q_logvar - (q_mu-z_means_).pow(2) - q_logvar.exp()).sum(dim=1)).sum()
-        # can perform full posterior inference over the means as well not just ML on these parameters.
-        KLD_cont_main = -0.5 * torch.sum(1 + q_main_logvar - np.log(100) - (q_main_logvar.exp() + q_main_mu.pow(2))/100)
+        # KLD for Z2
+        KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
 
-        discriminator_loss = -(true_label*(q_label_logprob)).sum(dim=1).sum()
+        # KLD_cont_main = -0.5 * torch.sum(
+            # 1 + q_main_logvar - np.log(100) - (q_main_logvar.exp() + q_main_mu.pow(2)) / 100)
 
-        # Amazingly we don't even need the discriminator loss here
-        # return BCE + KLD_cont.sum() + discriminator_loss
+        discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
-        return BCE + KLD_cont.sum() + KLD_cont_main.sum() + discriminator_loss
-        # return BCE + KLD_cont.sum() + discriminator_loss
+        return BCE + KLD_cont.sum() + discriminator_loss
 
     @staticmethod
-    def unlabeled_loss(data, data_reconstructed, latent_samples, latent_params, num_categories, one_hot_func):
+    def unlabeled_loss(data, reconstructed, latent_samples, q_vals):
         """
         Loss for the unlabeled data
         """
-        BCE = F.binary_cross_entropy(torch.sigmoid(data_reconstructed), data, reduction="sum")
+        data_recon = reconstructed[0]
+        z, z_global = latent_samples
 
-        q_mu, q_logvar, net_means, net_q_log_var, log_pred_label_sm = latent_params
-        z, means = latent_samples
+        q_mu, q_logvar, q_global_means, q_global_log_var, log_q_ys = q_vals
+        num_categories = len(log_q_ys[0])
 
+        # reconstruction loss
+        BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+
+        # latent unlabeled loss
         loss_u = 0
         for cat in range(num_categories):
 
-            log_q_y = log_pred_label_sm[:, cat]
+            log_q_y = log_q_ys[:, cat]
             q_y = torch.exp(log_q_y)
 
+            q_means = q_global_means[cat].unsqueeze(0).repeat(len(q_mu), 1, )
+            KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - q_means).pow(2) - q_logvar.exp()).sum(dim=1)
 
-            # TODO: going to cause an issue as vector is not on target device
-            ones_vector = torch.ones_like(q_y).long()
-            one_hot_u = one_hot_func(num_categories=num_categories, labels=cat*ones_vector)
+            loss_u += (q_y*(q_y + log_q_y)).sum()
 
-            # TODO: don't need the one hot. Can rather just index here.
-            z_means_ = (one_hot_u.unsqueeze(-1) * means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
-            KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - z_means_).pow(2) - q_logvar.exp()).sum(dim=1)
-
-            # loss_u += ((q_y * KLD_cont).mean() - (q_y * log_q_y + (1 - q_y) * torch.log(1 - q_y + 1e-10)).sum())
-            loss_u += ((q_y * KLD_cont).sum() + (q_y * log_q_y).sum())
-
-        KLD_cont_main = -0.5 * torch.sum(1 + net_q_log_var - np.log(100) - (net_q_log_var.exp() + net_means.pow(2)) / 100)
+        # KLD_cont_main = -0.5 * torch.sum(1 + net_q_log_var - np.log(100) - (net_q_log_var.exp() + net_means.pow(2)) / 100)
         #
         # loss_u += BCE
 
-        return BCE + loss_u + KLD_cont_main
+        return BCE + loss_u #+ KLD_cont_main
 
     def sample_examples(self, epoch, net):
         labels = torch.zeros(64, self.num_categories).to(self.device)

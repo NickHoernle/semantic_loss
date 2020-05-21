@@ -9,6 +9,7 @@ from torchvision import datasets, transforms
 from torchvision.utils import save_image
 from torch.distributions import MultivariateNormal, Uniform, \
     TransformedDistribution, SigmoidTransform, Normal, Categorical
+import math
 
 def init_weights(m):
     if type(m) == nn.Linear:
@@ -170,79 +171,61 @@ class CNN(VAE):
         self.kernel_num = kernel_num
         self.z_size = hidden_dim
 
-        self.encoder = nn.Sequential(
-            nn.Conv2d(3,  12, 4, stride=2, padding=1),  # [batch, 12, 16, 16]
-            nn.ReLU(),
-            nn.Conv2d(12, 24, 4, stride=2, padding=1), # [batch, 24, 8, 8]
-            nn.ReLU(),
-            nn.Conv2d(24, 48, 4, stride=2, padding=1), # [batch, 48, 4, 4]
-            nn.ReLU(),
+        self.encoding_cnn = nn.Sequential(
+            nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
+            nn.LeakyReLU(.01),
+            nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
+            nn.LeakyReLU(.01),
+            nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
+            nn.LeakyReLU(.01),
         )
 
-        self.decoder = nn.Sequential(
-            #             nn.ConvTranspose2d(96, 48, 4, stride=2, padding=1),  # [batch, 48, 4, 4]
-            #             nn.ReLU(),
-            nn.ConvTranspose2d(48, 24, 4, stride=2, padding=1),  # [batch, 24, 8, 8]
-            nn.ReLU(),
-            nn.ConvTranspose2d(24, 12, 4, stride=2, padding=1),  # [batch, 12, 16, 16]
-            nn.ReLU(),
-            nn.ConvTranspose2d(12,  3, 4, stride=2, padding=1),  # [batch, 3, 32, 32]
-            nn.Sigmoid(),
+        self.feature_size = self.image_size // (2 ** 3)
+        self.feature_volume = kernel_num * self.feature_size * self.feature_size
+
+        self.encoder_linear = nn.Sequential(
+            nn.Linear(self.feature_volume, self.feature_volume),
+            nn.LeakyReLU(.01),
+            nn.Linear(self.feature_volume, self.feature_volume),
+            nn.LeakyReLU(.01),
         )
 
-        # encoding layers
-        self.encoder = nn.Sequential(
-            self._conv(channel_num, kernel_num // 4),
-            self._conv(kernel_num // 4, kernel_num // 2),
-            self._conv(kernel_num // 2, kernel_num, last=True),
+        self.q_mean = nn.Sequential(
+            nn.Linear(self.feature_volume, self.feature_volume//2),
+            nn.LeakyReLU(.01),
+            nn.Linear(self.feature_volume//2, hidden_dim)
+        )
+        self.q_logvar = nn.Sequential(
+            nn.Linear(self.feature_volume, self.feature_volume//2),
+            nn.LeakyReLU(.01),
+            nn.Linear(self.feature_volume//2, hidden_dim)
         )
 
-        # encoded feature's size and volume
-        self.feature_size = self.image_size // (2**3)
-        self.feature_volume = kernel_num * (self.feature_size ** 2)
-
-        # q
-        self.q_mean = self._linear(self.feature_volume, hidden_dim, relu=False)
-        self.q_logvar = self._linear(self.feature_volume, hidden_dim, relu=False)
+        self.decoder_cnn = nn.Sequential(
+            nn.ConvTranspose2d(kernel_num, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, K/2, 8, 8]
+            nn.LeakyReLU(.01),
+            nn.ConvTranspose2d(kernel_num//2, kernel_num//4, kernel_size=4, stride=2, padding=1),  # [batch, K/4, 16, 16]
+            nn.LeakyReLU(.01),
+            nn.ConvTranspose2d(kernel_num//4, channel_num, kernel_size=4, stride=2, padding=1),  # [batch, channel_num, 32, 32]?
+        )
 
         # projection
-        self.project = self._linear(hidden_dim, self.feature_volume, relu=False)
-
-        # decoder
-        self.decoder = nn.Sequential(
-            self._deconv(kernel_num, kernel_num // 2),
-            self._deconv(kernel_num // 2, kernel_num // 4),
-            self._deconv(kernel_num // 4, channel_num, last=True),
+        self.project = nn.Sequential(
+            nn.Linear(hidden_dim, self.feature_volume // 2),
+            nn.LeakyReLU(.01),
+            nn.Linear(self.feature_volume // 2, self.feature_volume),
+            nn.LeakyReLU(.01),
         )
 
-    ##########  LAYERS  ###########
-    def _conv(self, channel_size, kernel_num, last=False):
-        conv = nn.Conv2d(
-                channel_size, kernel_num,
-                kernel_size=3, stride=2, padding=1,
-        )
-        return conv if last else nn.Sequential(
-            conv,
-            nn.BatchNorm2d(kernel_num),
-            nn.ReLU(),
-        )
+    def encoder(self, x):
+        unrolled = self.encoding_cnn(x).view(len(x), -1)
+        unrolled = self.encoder_linear(unrolled)
+        return unrolled
 
-    def _deconv(self, channel_num, kernel_num, last=False):
-        deconv = nn.ConvTranspose2d(
-            channel_num, kernel_num,
-            kernel_size=4, stride=2, padding=1,
-        )
-        return deconv if last else nn.Sequential(
-            deconv,
-            nn.BatchNorm2d(kernel_num),
-            nn.ReLU(),
-        )
-
-    def _linear(self, in_size, out_size, relu=True):
-        return nn.Sequential(
-            nn.Linear(in_size, out_size),
-            nn.ReLU(),
-        ) if relu else nn.Linear(in_size, out_size)
+    def decoder(self, z):
+        rolled = self.project(z).view(len(z), -1, self.feature_size, self.feature_size)
+        rolled = self.decoder_cnn(rolled)
+        return rolled
 
     def q(self, encoded):
         unrolled = encoded.view(-1, self.feature_volume)
@@ -268,11 +251,11 @@ class LinearVAE(VAE):
         # encoding layers
         self.encoder = nn.Sequential(
             nn.Linear(data_dim*data_dim*channel_num, mid_dim),
-            nn.ReLU(True),
+            nn.LeakyReLU(.01),
             nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(True),
+            nn.LeakyReLU(.01),
             nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(True),
+            nn.LeakyReLU(.01),
         )
 
         # encoded feature's size and volume
@@ -282,27 +265,27 @@ class LinearVAE(VAE):
         # q
         self.q_mean = nn.Sequential(
             nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(True),
+            nn.LeakyReLU(.01),
             nn.Linear(mid_dim, hidden_dim)
         )
         self.q_logvar = nn.Sequential(
             nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(True),
+            nn.LeakyReLU(.01),
             nn.Linear(mid_dim, hidden_dim)
         )
 
         # projection
         self.project = nn.Sequential(
             nn.Linear(hidden_dim, mid_dim),
-            nn.ReLU(True)
+            nn.LeakyReLU(.01),
         )
 
         # decoder
         self.decoder = nn.Sequential(
             nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(True),
+            nn.LeakyReLU(.01),
             nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(True),
+            nn.LeakyReLU(.01),
             nn.Linear(mid_dim, data_dim*data_dim*channel_num),
         )
 
@@ -310,37 +293,10 @@ class LinearVAE(VAE):
         return self.q_mean(encoded), self.q_logvar(encoded)
 
 
-class VAE_Categorical(CNN):
-    def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150, condition=False, num_condition=0):
-        super().__init__(data_dim=data_dim, hidden_dim=hidden_dim, channel_num=channel_num,
-                         kernel_num=kernel_num, condition=condition, num_condition=num_condition)
-
-        self.NUM_CATEGORIES = NUM_CATEGORIES
-        self.category_prior = 1
-
-        self.means = nn.Parameter(torch.rand(NUM_CATEGORIES, hidden_dim))
-        self.q_log_var = nn.Parameter(torch.ones(NUM_CATEGORIES, hidden_dim))
-
-        self.prior = torch.zeros(hidden_dim)
-        self.post_cov = torch.eye(hidden_dim)
-        self.eye = torch.eye(hidden_dim)
-
-        self.tau = 2.
-        self.reparameterize_means()
-
-        self.apply(init_weights)
-
-    def discriminator(self, z_means, q_mu, q_logvar):
-
-        qs = q_mu.unsqueeze(1).repeat(1, self.NUM_CATEGORIES, 1)
-        sigs = torch.exp(q_logvar).unsqueeze(1).repeat(1, self.NUM_CATEGORIES, 1)
-
-        ms = z_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
-        ms_sigs = torch.exp(self.q_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
-
-        base_dist = MultivariateNormal(self.prior, self.eye)
-
-        return base_dist.log_prob((qs - ms)/(sigs + ms_sigs))
+class VAE_Categorical_Base(VAE):
+    def __init__(self, NUM_CATEGORIES, **kwargs):
+        super().__init__(**kwargs)
+        self.num_categories = NUM_CATEGORIES
 
     def forward(self, data_sample, **kwargs):
 
@@ -349,209 +305,65 @@ class VAE_Categorical(CNN):
             return self.forward_labelled(data, labels, **kwargs)
         return self.forward_unlabelled(data, **kwargs)
 
-    def forward_unlabelled(self, x, **kwargs):
-
-        encoded = self.encoder(x)
-        (q_mu, q_logvar) = self.q(encoded)
-
-        z = self.reparameterize(q_mu, q_logvar)
-        z_means = self.reparameterize(self.means, self.q_log_var)
-
-        z_projected = self.project(z).view(
-            -1, self.kernel_num,
-            self.feature_size,
-            self.feature_size,
-        )
-
-        # reconstruct x from z
-        x_reconstructed = self.decoder(z_projected)
-
-        label_log_prob = self.discriminator(self.means, q_mu, q_logvar)
-        pred_label_sm_log = label_log_prob - torch.logsumexp(label_log_prob, dim=1).unsqueeze(1)
-
-        return x_reconstructed, (z, z_means), (q_mu, q_logvar, self.means, self.q_log_var, pred_label_sm_log)
-
-    def forward_labelled(self, x, one_hot_labels, **kwargs):
-
-        # encode x
-        encoded = self.encoder(x)
-        (q_mu, q_logvar) = self.q(encoded)
-
-        z = self.reparameterize(q_mu, q_logvar)
-
-        z_projected = self.project(z).view(
-            -1, self.kernel_num,
-            self.feature_size,
-            self.feature_size,
-        )
-
-        # reconstruct x from z
-        x_reconstructed = self.decoder(z_projected)
-
-        z_means = self.reparameterize(self.means, self.q_log_var)
-
-        label_log_prob = self.discriminator(self.means, q_mu, q_logvar)
-        pred_label_sm_log = label_log_prob - torch.logsumexp(label_log_prob, dim=1).unsqueeze(1)
-
-        return x_reconstructed, (z, z_means), (q_mu, q_logvar, self.means, self.q_log_var, pred_label_sm_log), one_hot_labels
-
-    def sample(self, num_samples, **kwargs):
-        num_test_samples = num_samples * self.NUM_CATEGORIES
-        labels = torch.zeros(num_test_samples, self.NUM_CATEGORIES).to(kwargs['device'])
-        labels[torch.arange(num_test_samples), torch.arange( self.NUM_CATEGORIES).repeat(num_test_samples // self.NUM_CATEGORIES)] = 1
-        return self.sample_labelled(labels)
-
     def sample_labelled(self, labels):
         n_samps = len(labels)
-        base_dist = MultivariateNormal(self.prior, self.eye)
-        latent = (labels.unsqueeze(dim=2)*(self.means.repeat(n_samps, 1, 1)
-                    + base_dist.sample((n_samps,)).unsqueeze(dim=1).repeat(1,self.NUM_CATEGORIES,1))).sum(dim=1)
-
-        # z = self.base_dist.sample((n_samps,))
-        # latent = torch.cat((z, labels), -1)
-
-        z_projected = self.project(latent).view(
-            -1, self.kernel_num,
-            self.feature_size,
-            self.feature_size,
-        )
-
-        return self.decoder(z_projected)
-
-    @torch.no_grad()
-    def update_means(self, sum_means, n, annealing):
-        new_means = (sum_means/n.view(-1,1))
-        self.means.copy_((1-annealing)*self.means + annealing*new_means)
-
-    def to(self, *args, **kwargs):
-        self = super().to(*args, **kwargs)
-        self.prior = self.prior.to(*args, **kwargs)
-        self.post_cov = self.post_cov.to(*args, **kwargs)
-        self.eye = self.eye.to(*args, **kwargs)
-        return self
+        base_dist = MultivariateNormal(self.zeros, self.eye)
+        z = base_dist.sample((n_samps,))
+        x_reconstructed = self.decoder(z, labels)
+        return x_reconstructed
 
 
-class M2(LinearVAE):
+class M2(VAE_Categorical_Base, CNN):
     def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):
-        super().__init__(data_dim=data_dim, hidden_dim=hidden_dim, channel_num=channel_num, kernel_num=kernel_num)
-
-        # self.enc2 = self._linear(self.feature_volume, self.feature_volume, relu=True)
-        self.encoding_cnn = nn.Sequential(
-            nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//4, 16, 16]
-            nn.ReLU(),
-            nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
-            nn.ReLU(),
-            nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num, 4, 4]
-            nn.ReLU(),
-        )
-
-        self.feature_size = self.image_size // (2 ** 3)
-        self.feature_volume = kernel_num * self.feature_size * self.feature_size
-
-        self.encoder_linear = nn.Sequential(
-            nn.Linear(self.feature_volume, self.feature_volume),
-            nn.ReLU(),
-            nn.Linear(self.feature_volume, self.feature_volume),
-            nn.ReLU(),
-        )
-
-        self.q_mean = nn.Sequential(
-            nn.Linear(self.feature_volume, self.feature_volume//2),
-            nn.ReLU(True),
-            nn.Linear(self.feature_volume//2, hidden_dim)
-        )
-        self.q_logvar = nn.Sequential(
-            nn.Linear(self.feature_volume, self.feature_volume//2),
-            nn.ReLU(True),
-            nn.Linear(self.feature_volume//2, hidden_dim)
-        )
+        super().__init__(data_dim=data_dim,
+                         hidden_dim=hidden_dim,
+                         NUM_CATEGORIES=NUM_CATEGORIES,
+                         channel_num=channel_num,
+                         kernel_num=kernel_num)
 
         self.log_q_y = nn.Sequential(
             nn.Linear(self.feature_volume, self.feature_volume // 2),
-            nn.ReLU(True),
+            nn.LeakyReLU(.01),
             nn.Linear(self.feature_volume // 2, NUM_CATEGORIES)
         )
-
-        # self.decoder = nn.Sequential(
-        #     #             nn.ConvTranspose2d(96, 48, 4, stride=2, padding=1),  # [batch, 48, 4, 4]
-        #     #             nn.ReLU(),
-        #     nn.ConvTranspose2d(48, 24, 4, stride=2, padding=1),  # [batch, 24, 8, 8]
-        #     nn.ReLU(),
-        #     nn.ConvTranspose2d(24, 12, 4, stride=2, padding=1),  # [batch, 12, 16, 16]
-        #     nn.ReLU(),
-        #     nn.ConvTranspose2d(12, 3, 4, stride=2, padding=1),  # [batch, 3, 32, 32]
-        #     nn.Sigmoid(),
-        # )
-
-        # projection
-        self.project = nn.Sequential(
-            nn.Linear(hidden_dim, self.feature_volume // 2),
-            nn.ReLU(True),
-            nn.Linear(self.feature_volume // 2, self.feature_volume),
-            nn.ReLU(True)
-        )
-
-        mid_dim = 500
-        self.decoder = nn.Sequential(
-            nn.Linear(self.feature_volume, mid_dim),
-            nn.ReLU(True),
-            nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(True),
-            nn.Linear(mid_dim, channel_num*data_dim * data_dim),
-        )
-
         self.proj_y = nn.Sequential(nn.Linear(NUM_CATEGORIES, hidden_dim))
         self.Wy = nn.Sequential(nn.Linear(NUM_CATEGORIES, hidden_dim))
 
-        self.num_categories = NUM_CATEGORIES
-        self.eye = torch.eye(hidden_dim)
-
         self.softplus = nn.Softplus()
-        self.relu = nn.ReLU()
+        self.relu = nn.LeakyReLU(.01)
 
         self.apply(init_weights)
-
-    def encoder(self, x):
-        unrolled = self.encoding_cnn(x).view(len(x), -1)
-        unrolled = self.encoder_linear(unrolled)
-        return unrolled
 
     def q(self, encoded):
         unrolled = encoded.view(len(encoded), -1)
         return self.q_mean(unrolled), self.q_logvar(unrolled), self.log_q_y(unrolled)
 
-    def forward(self, data_sample, **kwargs):
-
-        (data, labels) = data_sample
-        if type(labels) != type(None):
-            return self.forward_labelled(data, labels, **kwargs)
-        return self.forward_unlabelled(data, **kwargs)
-
-    def forward_labelled(self, x, labels, **kwargs):
-
-        # unrolled = x.view(len(x), -1)
-        encoded = self.encoder(x)
-        # encoded = self.encoder(x)
-        (q_mu, q_logvar, log_p_y) = self.q(encoded)
-        pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
-
-        z = self.reparameterize(q_mu, q_logvar)
+    def decoder(self, z, labels):
 
         Wz = torch.sqrt(self.softplus(self.proj_y(labels)))
         Wyy = self.Wy(labels)
         h1 = self.relu(Wyy + Wz * z)
 
-        z_projected = self.project(h1)
-        x_reconstructed = self.decoder(z_projected).view(len(x), self.channel_num, self.image_size, self.image_size)
+        rolled = self.project(h1).view(len(h1), -1, self.feature_size, self.feature_size)
+        rolled = self.decoder_cnn(rolled)
+        return rolled
+
+    def forward_labelled(self, x, labels, **kwargs):
+
+        encoded = self.encoder(x)
+        (q_mu, q_logvar, log_p_y) = self.q(encoded)
+        pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
+
+        z = self.reparameterize(q_mu, q_logvar)
+        x_reconstructed = self.decoder(z, labels)
+
         return {"reconstructed": [x_reconstructed],
                 "latent_samples": [z],
-                "q_vals": [q_mu, q_logvar, pred_label_sm_log],
-                "labels": [labels]}
+                "q_vals": [q_mu, q_logvar, pred_label_sm_log]}
 
     def forward_unlabelled(self, x, **kwargs):
 
         encoded = self.encoder(x)
-        # encoded = self.encoder(x)
         (q_mu, q_logvar, log_p_y) = self.q(encoded)
         log_q_ys = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
 
@@ -565,14 +377,7 @@ class M2(LinearVAE):
             labels[:, cat] = 1
 
             z = self.reparameterize(q_mu, q_logvar)
-
-            Wz = torch.sqrt(self.softplus(self.proj_y(labels)))
-            Wyy = self.Wy(labels)
-            h1 = self.relu(Wyy + Wz * z)
-
-            z_projected = self.project(h1)
-            x_reconstructed = self.decoder(z_projected).view(len(x), self.channel_num, self.image_size, self.image_size)
-
+            x_reconstructed = self.decoder(z, labels)
 
             reconstructions.append(x_reconstructed)
 
@@ -580,19 +385,62 @@ class M2(LinearVAE):
                 "latent_samples": [z],
                 "q_vals": [q_mu, q_logvar, log_q_ys]}
 
+
+class GMM_VAE(VAE_Categorical_Base, CNN):
+    def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):
+        super().__init__(data_dim=data_dim,
+                         hidden_dim=hidden_dim,
+                         NUM_CATEGORIES=NUM_CATEGORIES,
+                         channel_num=channel_num,
+                         kernel_num=kernel_num)
+
+        self.q_global_means = nn.Parameter(self.num_categories*torch.rand(self.num_categories, self.hidden_dim))
+        init_var = (math.log(self.num_categories**2))
+        self.q_global_log_var = nn.Parameter(init_var*torch.ones(self.num_categories, self.hidden_dim))
+
+    def q(self, encoded):
+        unrolled = encoded.view(len(encoded), -1)
+        return self.q_mean(unrolled), self.q_logvar(unrolled)
+
+    def discriminator(self, q_mu, q_logvar):
+
+        q_mus = q_mu.unsqueeze(1).repeat(1, self.num_categories, 1)
+        q_sigs = torch.exp(q_logvar).unsqueeze(1).repeat(1, self.num_categories, 1)
+
+        q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
+        q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
+
+        base_dist = MultivariateNormal(self.zeros, self.eye)
+
+        return base_dist.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
+
+    def forward(self, data_sample, **kwargs):
+
+        (data, labels) = data_sample
+        return self.forward_unlabelled(data)
+
+    def forward_unlabelled(self, x):
+
+        encoded = self.encoder(x)
+        (q_mu, q_logvar) = self.q(encoded)
+        logp_ys = self.discriminator(q_mu, q_logvar)
+
+        pred_label_sm_log = logp_ys - torch.logsumexp(logp_ys, dim=1).unsqueeze(1)
+
+        z = self.reparameterize(q_mu, q_logvar)
+        z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
+
+        x_reconstructed = self.decoder(z)
+
+        return {"reconstructed": [x_reconstructed],
+                "latent_samples": [z, z_global],
+                "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, pred_label_sm_log]}
+
     def sample_labelled(self, labels):
         n_samps = len(labels)
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
-
-        Wz = torch.sqrt(self.softplus(self.proj_y(labels)))
-        Wyy = self.Wy(labels)
-        h1 = self.relu(Wyy + Wz * z)
-
-        z_projected = self.project(h1)
-        return self.decoder(z_projected).view(n_samps, self.channel_num, self.image_size, self.image_size)
-
-    def to(self, *args, **kwargs):
-        self = super().to(*args, **kwargs)
-        self.eye = self.eye.to(*args, **kwargs)
-        return self
+        g_means = (self.q_global_means.repeat(n_samps, 1, 1) + z.unsqueeze(dim=1).repeat(1, self.num_categories, 1))
+        latent = (labels.unsqueeze(dim=2) * g_means).sum(dim=1)
+        x_reconstructed = self.decoder(latent)
+        return x_reconstructed
