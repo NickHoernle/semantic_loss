@@ -394,9 +394,8 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
                          channel_num=channel_num,
                          kernel_num=kernel_num)
 
-        self.q_global_means = nn.Parameter(self.num_categories*torch.rand(self.num_categories, self.hidden_dim))
-        init_var = (math.log(self.num_categories**2))
-        self.q_global_log_var = nn.Parameter(init_var*torch.ones(self.num_categories, self.hidden_dim))
+        self.q_global_means = nn.Parameter(torch.rand(self.num_categories, self.hidden_dim))
+        self.q_global_log_var = nn.Parameter(torch.zeros(self.num_categories, self.hidden_dim))
 
     def q(self, encoded):
         unrolled = encoded.view(len(encoded), -1)
@@ -412,12 +411,28 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
 
         base_dist = MultivariateNormal(self.zeros, self.eye)
 
-        return base_dist.log_prob((q_mus - q_global_means)/(1 + q_sigs + q_global_sigs))
+        return base_dist.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
 
     def forward(self, data_sample, **kwargs):
 
         (data, labels) = data_sample
         return self.forward_unlabelled(data)
+
+    def sufficient_statistics(self, samples, soft_assignments):
+
+        n = len(samples)
+        samples = samples.unsqueeze(1).repeat(1, self.num_categories, 1)
+        soft_assignments = torch.exp(soft_assignments).unsqueeze(-1).repeat(1, 1, self.hidden_dim)
+
+        mean_samp = (samples * soft_assignments).mean(dim=0)
+        variance_samp = (samples * soft_assignments).var(dim=0)
+
+        sig2 = torch.exp(self.q_global_log_var)
+
+        variance_post = 1 / (1 / sig2 + n / variance_samp)
+        mean_post = variance_post * (self.q_global_means/sig2 + mean_samp/variance_samp)
+
+        return mean_post, variance_post
 
     def forward_unlabelled(self, x):
 
@@ -428,6 +443,9 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         pred_label_sm_log = logp_ys - torch.logsumexp(logp_ys, dim=1).unsqueeze(1)
 
         z = self.reparameterize(q_mu, q_logvar)
+
+        # get sufficient statistics from sampled data
+        # mean_post, variance_post = self.sufficient_statistics(z, pred_label_sm_log)
         z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
 
         x_reconstructed = self.decoder(z)

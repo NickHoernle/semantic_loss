@@ -113,19 +113,29 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 optimizer.zero_grad()
 
-                ############## Labeled step ################
-                labeled_results = net((data_l, one_hot))
-                loss_l = self.labeled_loss(data_l, one_hot, **labeled_results)
+                if epoch < 2:
+                    unlabeled_results = net((data_u, None))
+                    loss = self.simple_loss(data_u, **unlabeled_results)
 
-                ############## Unlabeled step ##############
-                loss_u = 0
-                unlabeled_results = net((data_u, None))
-                loss_u = self.unlabeled_loss(data_u, **unlabeled_results)
+                elif epoch < 3:
+                    labeled_results = net((data_l, one_hot))
+                    loss = self.labeled_loss(data_l, one_hot, **labeled_results)
 
-                ############# Semantic Loss ################
-                loss_s = self.semantic_loss(epoch, net)
+                else:
 
-                loss = loss_l + loss_u + loss_s
+                    ############## Labeled step ################
+                    labeled_results = net((data_l, one_hot))
+                    loss_l = self.labeled_loss(data_l, one_hot, **labeled_results)
+
+                    ############## Unlabeled step ##############
+                    loss_u = 0
+                    unlabeled_results = net((data_u, None))
+                    loss_u = self.unlabeled_loss(data_u, **unlabeled_results)
+
+                    ############# Semantic Loss ################
+                    loss_s = self.semantic_loss(epoch, net)
+
+                    loss = loss_l + loss_u + loss_s
                 loss.backward()
 
                 if self.max_grad_norm > 0:
@@ -204,11 +214,18 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 total += len(labels)
 
         print(f"===============> Epoch {epoch}; Accuracy: {correct/total}; NLL: {loss.item()}")
-        # print(net.means)
-        # print(net.q_log_var)
+        print(net.q_global_means)
+        print(net.q_global_log_var)
         if return_accuracy:
             return loss_meter.avg, correct/total
         return loss_meter.avg
+
+    @staticmethod
+    def simple_loss(*args, **kwargs):
+        """
+        Loss for the labeled data
+        """
+        raise NotImplementedError("Not implemented labeled loss")
 
     @staticmethod
     def labeled_loss(*args, **kwargs):

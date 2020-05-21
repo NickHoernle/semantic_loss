@@ -107,9 +107,10 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         q_mu, q_logvar, q_global_means, q_global_log_var, log_q_y = q_vals
         true_y = labels
+        num_categories = len(log_q_y[0])
 
         # get the means that z should be associated with
-        q_means = q_mu - (true_y.unsqueeze(-1) * q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+        q_means = q_mu - (true_y.unsqueeze(-1) * z_global.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
         # reconstruction loss
         BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
@@ -117,12 +118,12 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         # KLD for Z2
         KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
 
-        # KLD_cont_main = -0.5 * torch.sum(
-            # 1 + q_main_logvar - np.log(100) - (q_main_logvar.exp() + q_main_mu.pow(2)) / 100)
+        KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories**2) -
+                                         (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories**2))
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
-        return BCE + KLD_cont.sum() + discriminator_loss
+        return BCE + KLD_cont.sum() + KLD_cont_main + discriminator_loss
 
     @staticmethod
     def unlabeled_loss(data, reconstructed, latent_samples, q_vals):
@@ -145,16 +146,36 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             log_q_y = log_q_ys[:, cat]
             q_y = torch.exp(log_q_y)
 
-            q_means = q_global_means[cat].unsqueeze(0).repeat(len(q_mu), 1, )
+            q_means = z_global[cat].unsqueeze(0).repeat(len(q_mu), 1, )
             KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - q_means).pow(2) - q_logvar.exp()).sum(dim=1)
 
             loss_u += (q_y*(q_y + log_q_y)).sum()
 
-        # KLD_cont_main = -0.5 * torch.sum(1 + net_q_log_var - np.log(100) - (net_q_log_var.exp() + net_means.pow(2)) / 100)
+        KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
+                                         (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
         #
         # loss_u += BCE
 
-        return BCE + loss_u #+ KLD_cont_main
+        return BCE + loss_u + KLD_cont_main
+
+    @staticmethod
+    def semantic_loss(epoch, net):
+        """
+        Semantic loss applied to latent space
+        """
+        if epoch < 10:
+            return 0
+        # import pdb
+        # pdb.set_trace()
+        return 0
+
+    @staticmethod
+    def simple_loss(data, reconstructed, latent_samples, q_vals):
+        data_recon = reconstructed[0]
+        q_mu, q_logvar, q_global_means, q_global_log_var, log_q_ys = q_vals
+        BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        KLD_cont = - 0.5 * (1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum()
+        return BCE + KLD_cont
 
     def sample_examples(self, epoch, net):
         labels = torch.zeros(64, self.num_categories).to(self.device)
