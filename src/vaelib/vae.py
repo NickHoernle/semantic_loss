@@ -422,8 +422,9 @@ class GMM_VAE(M2):
         pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
 
         z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
+        # z_global = self.q_global_means
         z_mean_expanded = (labels.unsqueeze(-1) * (z_global.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
-        z = self.reparameterize(q_mu-z_mean_expanded, q_logvar)
+        z = self.reparameterize(q_mu - z_mean_expanded, q_logvar)
 
         x_reconstructed, _ = self.decoder(z, labels)
 
@@ -439,6 +440,7 @@ class GMM_VAE(M2):
         log_q_ys = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
 
         z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
+        # z_global = self.q_global_means
 
         reconstructions = []
 

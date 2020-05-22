@@ -116,10 +116,10 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 
         # KLD for Z2
-        KLD_cont = - 0.5 * ((1 + q_logvar - (q_mu - q_means).pow(2) - q_logvar.exp()).sum(dim=1)).sum()
+        KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
 
         KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories**2) -
-                                         (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories**2))
+                                          (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories**2))
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
@@ -140,7 +140,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         for cat in range(num_categories):
 
             # reconstruction loss
-            BCE = F.binary_cross_entropy(torch.sigmoid(reconstructed[cat]), data, reduction="none").sum(dim=(1,2,3))
+            BCE = F.binary_cross_entropy(torch.sigmoid(reconstructed[cat]), data, reduction="none").sum(dim=(1, 2, 3))
 
             log_q_y = log_q_ys[:, cat]
             q_y = torch.exp(log_q_y)
