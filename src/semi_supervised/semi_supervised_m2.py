@@ -131,26 +131,27 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
 
     def semantic_loss(self, epoch, net, labeled_results, unlabeled_results, labels, *args, **kwargs):
 
-        if not self.s_loss:
-            return torch.tensor(0)
-        # if epoch < 5:
+        return 0
+        # if not self.s_loss:
         #     return torch.tensor(0)
-
-        num_cats = net.num_categories
-        idxs = np.arange(net.num_categories)
-
-        pred_means = labeled_results['latent_samples'][1]
-
-        means = labels.unsqueeze(-1)*pred_means.unsqueeze(1).repeat(1, num_cats, 1)
-        means = means.sum(dim=0) / labels.sum(dim=0).unsqueeze(1)
-
-        loss_s_l = 0
-        for j in range(num_cats):
-            distances = torch.sqrt(torch.square(means[j] - means[idxs[idxs != j]]).sum(dim=1))
-            loss_s_l += torch.where(distances < 10, 10 - distances, torch.zeros_like(distances)).sum()
-            idxs = idxs[1:]
-
-        return loss_s_l
+        # # if epoch < 5:
+        # #     return torch.tensor(0)
+        #
+        # num_cats = net.num_categories
+        # idxs = np.arange(net.num_categories)
+        #
+        # pred_means = labeled_results['latent_samples'][1]
+        #
+        # means = labels.unsqueeze(-1)*pred_means.unsqueeze(1).repeat(1, num_cats, 1)
+        # means = means.sum(dim=0) / labels.sum(dim=0).unsqueeze(1)
+        #
+        # loss_s_l = 0
+        # for j in range(num_cats):
+        #     distances = torch.sqrt(torch.square(means[j] - means[idxs[idxs != j]]).sum(dim=1))
+        #     loss_s_l += torch.where(distances < 10, 10 - distances, torch.zeros_like(distances)).sum()
+        #     idxs = idxs[1:]
+        #
+        # return loss_s_l
         # import pdb
         # pdb.set_trace()
         #
