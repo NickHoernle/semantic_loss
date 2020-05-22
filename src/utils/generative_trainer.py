@@ -47,6 +47,7 @@ class GenerativeTrainer:
         additional_model_config_args=[],
         num_loader_workers=8,
         data_shuffle=True,
+        disable_tqdm_print=True,
         name="base-model",
     ):
 
@@ -87,7 +88,7 @@ class GenerativeTrainer:
 
         self.device_loaded = False
         self.device = init_device(use_cuda)
-        self.tqdm_print = use_cuda
+        self.tqdm_print = disable_tqdm_print
 
         # init loaders
         self.loader_params = {

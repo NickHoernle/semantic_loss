@@ -52,6 +52,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         num_loader_workers=8,
         num_labeled_data_per_class=100,
         name="base-model",
+        disable_tqdm_print=True,
     ):
         self.num_labeled_data_per_class = num_labeled_data_per_class
         self.dataset = dataset
@@ -75,6 +76,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             num_loader_workers=num_loader_workers,
             data_shuffle=False,
             name=name,
+            disable_tqdm_print=disable_tqdm_print,
         )
         self.data_dims = model_parameters['data_dim']
         self.num_categories = model_parameters['num_categories']
