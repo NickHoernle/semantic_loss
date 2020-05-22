@@ -7,7 +7,7 @@ from semi_supervised.semi_supervised_m2_gumbel_smax import M2GSMSemiSupervisedTr
 
 if __name__ == '__main__':
     fire.Fire({
-        "nick": VAESemiSupervisedTrainer,
+        "gmm": VAESemiSupervisedTrainer,
         "m2": M2SemiSupervisedTrainer,
         "gsm": M2GSMSemiSupervisedTrainer
     })
