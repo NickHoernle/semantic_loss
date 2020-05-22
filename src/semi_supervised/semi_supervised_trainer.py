@@ -123,7 +123,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
 
                 ############# Semantic Loss ################
-                loss_s = self.semantic_loss(epoch, net)
+                loss_s = self.semantic_loss(epoch, net, labeled_results, unlabeled_results)
 
                 loss = loss_l + loss_u + loss_s
                 loss.backward()
