@@ -125,29 +125,35 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         return loss_u + KLD_cont
 
     @staticmethod
-    def semantic_loss(data, net, labeled_results, unlabeled_results, *args, **kwargs):
-        pred_means = labeled_results['latent_samples'][1]
-        log_q_y = labeled_results['q_vals'][-1]
+    def semantic_loss(epoch, net, labeled_results, unlabeled_results, labels, *args, **kwargs):
 
-        loss_s_l = calculate_semantic_loss(pred_means,
-                                           log_q_y,
-                                           hidden_dim=pred_means.size(1),
-                                           num_cats=log_q_y.size(1),
-                                           net=net)
+        # if epoch < 1:
+        #     return torch.tensor(0)
+
+        num_cats = net.num_categories
+        idxs = np.arange(net.num_categories)
+
+        pred_means = labeled_results['latent_samples'][1]
+        means = labels.unsqueeze(-1)*pred_means.unsqueeze(1).repeat(1, num_cats, 1)
+        means = means.sum(dim=0) / labels.sum(dim=0).unsqueeze(1)
+
+        loss_s_l = 0
+        for j in range(num_cats):
+            distances = torch.sqrt(torch.square(means[j] - means[idxs[idxs != j]]).sum(dim=1))
+            loss_s_l += torch.where(distances < 20, 20 - distances, torch.zeros_like(distances))
+
+        log_q_y = unlabeled_results['q_vals'][-1].unsqueeze(-1)
+        q_y = torch.exp(log_q_y)
+        pred_means = torch.cat([m.unsqueeze(1) for m in unlabeled_results['latent_samples'][1]], dim=1)
+        weighted_means = q_y * pred_means
+        weighted_means = weighted_means.sum(dim=0) / q_y.sum(dim=0).unsqueeze(1)
 
         loss_s_u = 0
-        for cat, pred_means in enumerate(unlabeled_results['latent_samples'][1]):
+        for j in range(num_cats):
+            distances = torch.sqrt(torch.square(weighted_means[j] - weighted_means[idxs[idxs != j]]).sum(dim=1))
+            loss_s_u += torch.where(distances < 20, 20 - distances, torch.zeros_like(distances))
 
-            log_q_y = unlabeled_results['q_vals'][-1]
-
-            means_dist = calculate_semantic_loss(pred_means,
-                                               log_q_y,
-                                               hidden_dim=pred_means.size(1),
-                                               num_cats=log_q_y.size(1),
-                                               net=net)
-            loss_s_u += torch.exp(log_q_y[:, cat])*means_dist
-
-        return loss_s_l[loss_s_l > -10].sum() + loss_s_u[loss_s_u > -10].sum()
+        return (loss_s_l.sum() + loss_s_u.sum())
 
 
 def calculate_semantic_loss(pred_means, pred_labels, hidden_dim, num_cats, net):

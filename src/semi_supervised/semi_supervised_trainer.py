@@ -89,13 +89,14 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
         net.train()
         loss_meter = AverageMeter()
+        sloss_meter = AverageMeter()
 
         (train_loader_labelled_, train_loader) = loaders
         train_loader_labelled = iter(train_loader_labelled_)
 
         # anneal the tau parameter
         # net.tau = np.max((0.5, net.tau * np.exp(-5e-3 * (epoch))))
-
+        slosses = 0
         with tqdm(total=len(train_loader.sampler), disable=self.tqdm_print) as progress_bar:
             for i, (data_u, labels_u) in enumerate(train_loader):
 
@@ -123,7 +124,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
 
                 ############# Semantic Loss ################
-                loss_s = self.semantic_loss(epoch, net, labeled_results, unlabeled_results)
+                loss_s = self.semantic_loss(epoch, net, labeled_results, unlabeled_results, labels=one_hot)
 
                 loss = loss_l + loss_u + loss_s
                 loss.backward()
@@ -134,7 +135,9 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 optimizer.step()
 
                 loss_meter.update(loss.item(), data_u.size(0))
-                progress_bar.set_postfix(nll=loss_meter.avg)
+                sloss_meter.update(loss_s.item(), data_u.size(0))
+
+                progress_bar.set_postfix(nll=loss_meter.avg, sloss=sloss_meter.avg)
                 progress_bar.update(data_u.size(0))
 
                 self.global_step += data_u.size(0)
