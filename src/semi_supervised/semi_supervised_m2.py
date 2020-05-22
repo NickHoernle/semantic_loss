@@ -158,7 +158,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
             loss_s_u += torch.where(distances < 20, 20 - distances, torch.zeros_like(distances))
 
         if epoch < 10:
-            return epoch/100 * (loss_s_l.sum() + loss_s_u.sum())
+            return epoch/1000 * (loss_s_l.sum() + loss_s_u.sum())
         return (loss_s_l.sum() + loss_s_u.sum())
 
 
