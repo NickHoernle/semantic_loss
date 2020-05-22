@@ -147,10 +147,10 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         loss_s_l = 0
         for j in range(num_cats):
             distances = torch.sqrt(torch.square(means[j] - means[idxs[idxs != j]]).sum(dim=1))
-            loss_s_l += torch.where(distances < 10, 10 - distances, torch.zeros_like(distances))
+            loss_s_l += torch.where(distances < 10, 10 - distances, torch.zeros_like(distances)).sum()
             idxs = idxs[1:]
 
-        return loss_s_l.mean()
+        return loss_s_l
         # import pdb
         # pdb.set_trace()
         #
