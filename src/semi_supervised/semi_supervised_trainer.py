@@ -287,7 +287,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             TEST_DATASETS = {
                 'CIFAR100': datasets.CIFAR100(
                 self.input_data, train=True, download=True,
-                transform=transforms.Compose(_CIFAR_TRAIN_TRANSFORMS)
+                transform=transforms.Compose(_CIFAR_TEST_TRANSFORMS)
             )}
 
         DATASET_CONFIGS = {

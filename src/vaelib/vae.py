@@ -398,9 +398,23 @@ class GMM_VAE(M2):
         self.q_global_means = nn.Parameter(torch.rand(self.num_categories, self.hidden_dim))
         self.q_global_log_var = nn.Parameter(torch.zeros(self.num_categories, self.hidden_dim))
 
+        # override unnecessary params
+        self.log_q_y = None
+        self.Wy = None
+        self.proj_y = nn.Sequential(
+            nn.Linear(NUM_CATEGORIES+hidden_dim, hidden_dim),
+            nn.LeakyReLU(0.01)
+        )
+
     def q(self, encoded):
         unrolled = encoded.view(len(encoded), -1)
         return self.q_mean(unrolled), self.q_logvar(unrolled)
+
+    def decoder(self, z, labels):
+        h1 = self.proj_y(torch.cat((z, labels), dim=1))
+        rolled = self.project(h1).view(len(h1), -1, self.feature_size, self.feature_size)
+        rolled = self.decoder_cnn(rolled)
+        return rolled, None
 
     def discriminator(self, q_mu, q_logvar):
 
