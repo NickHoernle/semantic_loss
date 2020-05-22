@@ -462,18 +462,6 @@ class GMM_VAE(M2):
                 "latent_samples": [z, z_global],
                 "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, log_q_ys]}
 
-    def sample_labelled(self, labels):
-        n_samps = len(labels)
-        base_dist = MultivariateNormal(self.zeros, self.eye)
-
-        z = base_dist.sample((n_samps,))
-        # g_means = (self.q_global_means.repeat(n_samps, 1, 1) + z.unsqueeze(dim=1).repeat(1, self.num_categories, 1))
-        # latent = (labels.unsqueeze(dim=2) * g_means).sum(dim=1)
-
-        x_reconstructed = self.decoder(z, labels)
-
-        return x_reconstructed
-
 
 class M2_Gumbel(M2):
     def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):
