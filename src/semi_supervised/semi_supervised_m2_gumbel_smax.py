@@ -10,12 +10,12 @@ from torch import optim
 from torchvision.utils import save_image
 from torch.distributions import MultivariateNormal
 
-from vaelib.vae import M2
+from vaelib.vae import M2_Gumbel
 from semi_supervised.semi_supervised_trainer import SemiSupervisedTrainer
 
 
 def build_model(data_dim=10, hidden_dim=10, num_categories=10, kernel_num=50, channel_num=1):
-    return M2(
+    return M2_Gumbel(
         data_dim=data_dim,
         hidden_dim=hidden_dim,
         NUM_CATEGORIES=num_categories,
@@ -23,7 +23,7 @@ def build_model(data_dim=10, hidden_dim=10, num_categories=10, kernel_num=50, ch
         channel_num=channel_num
     )
 
-class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
+class M2GSMSemiSupervisedTrainer(SemiSupervisedTrainer):
     def __init__(
         self,
         input_data,
@@ -94,16 +94,16 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         true_y = labels
 
         ################# SEMANTIC LOSS #####################
-        hidden_dim = pred_means.size(1)
-        num_cats = log_q_y.size(1)
-        means_expanded = pred_means.unsqueeze(1).repeat(1, num_cats, 1)
-        labels_expanded = torch.exp(log_q_y).unsqueeze(-1).repeat(1, 1, hidden_dim)
-        inf_means = (means_expanded*labels_expanded).mean(dim=0)
-        n_cat = net.num_categories
-        h_dim = net.hidden_dim
-        base_dist = MultivariateNormal(net.zeros, net.eye)
-        means = inf_means.repeat(1, n_cat).view(-1, h_dim) - inf_means.repeat(n_cat, 1)
-        log_probs = base_dist.log_prob(means)
+        # hidden_dim = pred_means.size(1)
+        # num_cats = log_q_y.size(1)
+        # means_expanded = pred_means.unsqueeze(1).repeat(1, num_cats, 1)
+        # labels_expanded = torch.exp(log_q_y).unsqueeze(-1).repeat(1, 1, hidden_dim)
+        # inf_means = (means_expanded*labels_expanded).mean(dim=0)
+        # n_cat = net.num_categories
+        # h_dim = net.hidden_dim
+        # base_dist = MultivariateNormal(net.zeros, net.eye)
+        # means = inf_means.repeat(1, n_cat).view(-1, h_dim) - inf_means.repeat(n_cat, 1)
+        # log_probs = base_dist.log_prob(means)
         ################# SEMANTIC LOSS #####################
 
         BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
@@ -112,43 +112,37 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
-        return BCE + KLD_cont.sum() + discriminator_loss + log_probs[log_probs>-20].sum()
+        return BCE + KLD_cont.sum() + discriminator_loss #+ log_probs[log_probs>-10].sum()
 
     @staticmethod
     def unlabeled_loss(data, net, reconstructed, latent_samples, q_vals):
         """
         Loss for the unlabeled data
         """
-        z, pred_means = latent_samples
+        data_recon = reconstructed[0]
+        z, pred_means, pred_label = latent_samples
 
         q_mu, q_logvar, log_q_ys = q_vals
         KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
 
         ################# SEMANTIC LOSS #####################
-        hidden_dim = pred_means.size(1)
-        num_cats = log_q_ys.size(1)
-        means_expanded = pred_means.unsqueeze(1).repeat(1, num_cats, 1)
-        labels_expanded = torch.exp(log_q_ys).unsqueeze(-1).repeat(1, 1, hidden_dim)
-        inf_means = (means_expanded * labels_expanded).mean(dim=0)
-        n_cat = net.num_categories
-        h_dim = net.hidden_dim
-        base_dist = MultivariateNormal(net.zeros, net.eye)
-        means = inf_means.repeat(1, n_cat).view(-1, h_dim) - inf_means.repeat(n_cat, 1)
-        log_probs = base_dist.log_prob(means)
+        # hidden_dim = pred_means.size(1)
+        # num_cats = log_q_ys.size(1)
+        # means_expanded = pred_means.unsqueeze(1).repeat(1, num_cats, 1)
+        # labels_expanded = torch.exp(log_q_ys).unsqueeze(-1).repeat(1, 1, hidden_dim)
+        # inf_means = (means_expanded * labels_expanded).mean(dim=0)
+        # n_cat = net.num_categories
+        # h_dim = net.hidden_dim
+        # base_dist = MultivariateNormal(net.zeros, net.eye)
+        # means = inf_means.repeat(1, n_cat).view(-1, h_dim) - inf_means.repeat(n_cat, 1)
+        # log_probs = base_dist.log_prob(means)
         ################# SEMANTIC LOSS #####################
 
-        loss_u = 0
-        for cat in range(len(reconstructed)):
-            pred = torch.sigmoid(reconstructed[cat]).view(len(data), -1)
-            true = data.view(len(data), -1)
+        BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="none").sum(dim=1)
 
-            BCE = F.binary_cross_entropy(pred, true, reduction="none").sum(dim=1)
-            log_q_y = log_q_ys[:, cat]
-            q_y = torch.exp(log_q_y)
+        KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
 
-            loss_u += torch.sum(q_y*BCE + q_y*log_q_y)
-
-        return loss_u + KLD_cont + log_probs[log_probs>-20].sum()
+        return loss_u + KLD_cont + log_probs[log_probs>-10].sum()
 
 
     def sample_examples(self, epoch, net):
