@@ -171,24 +171,24 @@ class CNN(VAE):
         self.kernel_num = kernel_num
         self.z_size = hidden_dim
 
-        self.encoding_cnn = nn.Sequential(
+        self.encoding_cnn = [
             nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
             nn.LeakyReLU(.01),
             nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
             nn.LeakyReLU(.01),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.LeakyReLU(.01),
-        )
+        ]
 
         self.feature_size = self.image_size // (2 ** 3)
         self.feature_volume = kernel_num * self.feature_size * self.feature_size
 
-        self.encoder_linear = nn.Sequential(
+        self.encoder_linear = [
             nn.Linear(self.feature_volume, self.feature_volume),
             nn.LeakyReLU(.01),
             nn.Linear(self.feature_volume, self.feature_volume),
             nn.LeakyReLU(.01),
-        )
+        ]
 
         self.q_mean = nn.Sequential(
             nn.Linear(self.feature_volume, self.feature_volume//2),
@@ -217,10 +217,16 @@ class CNN(VAE):
             nn.LeakyReLU(.01),
         )
 
-    def encoder(self, x):
-        unrolled = self.encoding_cnn(x).view(len(x), -1)
-        unrolled = self.encoder_linear(unrolled)
-        return unrolled
+        self.encoder = nn.Sequential(
+            *self.encoding_cnn,
+            Flatten(),
+            *self.encoder_linear
+        )
+
+    # def encoder(self, x):
+    #     unrolled = self.encoding_cnn(x).view(len(x), -1)
+    #     unrolled = self.encoder_linear(unrolled)
+    #     return unrolled
 
     def decoder(self, z):
         rolled = self.project(z).view(len(z), -1, self.feature_size, self.feature_size)
@@ -242,6 +248,7 @@ class LinearVAE(VAE):
         hidden_dim = kwargs.get("hidden_dim", 100)
 
         mid_dim = 500
+        self.mid_dim = mid_dim
 
         self.image_size = data_dim
         self.channel_num = channel_num
@@ -250,7 +257,7 @@ class LinearVAE(VAE):
 
         # encoding layers
         self.encoder = nn.Sequential(
-            nn.Linear(data_dim*data_dim*channel_num, mid_dim),
+            nn.Linear(data_dim, mid_dim),
             nn.LeakyReLU(.01),
             nn.Linear(mid_dim, mid_dim),
             nn.LeakyReLU(.01),
@@ -281,13 +288,15 @@ class LinearVAE(VAE):
         )
 
         # decoder
-        self.decoder = nn.Sequential(
+        self.decoder_linear = nn.Sequential(
             nn.Linear(mid_dim, mid_dim),
             nn.LeakyReLU(.01),
             nn.Linear(mid_dim, mid_dim),
             nn.LeakyReLU(.01),
             nn.Linear(mid_dim, data_dim*data_dim*channel_num),
         )
+
+        self.decoder = self.decoder_linear
 
     def q(self, encoded):
         return self.q_mean(encoded), self.q_logvar(encoded)
@@ -330,7 +339,7 @@ class M2(VAE_Categorical_Base, CNN):
         self.Wy = nn.Sequential(nn.Linear(NUM_CATEGORIES, hidden_dim))
 
         self.softplus = nn.Softplus()
-        self.relu = nn.LeakyReLU(.01)
+        self.relu = nn.Tanh()
 
         self.apply(init_weights)
 
@@ -387,6 +396,35 @@ class M2(VAE_Categorical_Base, CNN):
         return {"reconstructed": reconstructions,
                 "latent_samples": [z, pred_means],
                 "q_vals": [q_mu, q_logvar, log_q_ys]}
+
+
+class M2_Linear(LinearVAE, M2):
+
+    def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES):
+
+        super().__init__(data_dim=data_dim,
+                         hidden_dim=hidden_dim,
+                         NUM_CATEGORIES=NUM_CATEGORIES)
+        self.log_q_y = nn.Sequential(
+            nn.Linear(self.mid_dim, self.feature_volume // 2),
+            nn.LeakyReLU(.01),
+            nn.Linear(self.feature_volume // 2, NUM_CATEGORIES)
+        )
+
+    def decoder(self, z, labels):
+
+        Wz = torch.sqrt(self.softplus(self.proj_y(labels)))
+        Wyy = self.Wy(labels)
+        MG = Wyy + Wz * z
+
+        h1 = self.relu(MG)
+        rolled = self.project(h1)
+        rolled = self.decoder_linear(rolled)
+        return rolled, MG
+
+    def q(self, encoded):
+        unrolled = encoded.view(len(encoded), -1)
+        return self.q_mean(unrolled), self.q_logvar(unrolled), self.log_q_y(unrolled)
 
 
 class GMM_VAE(M2):
@@ -504,3 +542,9 @@ class M2_Gumbel(M2):
         return {"reconstructed": [x_reconstructed],
                 "latent_samples": [z, pred_means, sampled_label],
                 "q_vals": [q_mu, q_logvar, log_q_ys]}
+
+
+class Flatten(torch.nn.Module):
+    def forward(self, x):
+        batch_size = x.shape[0]
+        return x.view(batch_size, -1)

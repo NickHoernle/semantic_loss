@@ -140,6 +140,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         idxs = np.arange(net.num_categories)
 
         pred_means = labeled_results['latent_samples'][1]
+
         means = labels.unsqueeze(-1)*pred_means.unsqueeze(1).repeat(1, num_cats, 1)
         means = means.sum(dim=0) / labels.sum(dim=0).unsqueeze(1)
 
