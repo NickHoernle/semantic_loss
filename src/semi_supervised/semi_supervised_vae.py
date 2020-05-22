@@ -36,6 +36,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         kernel_num=50,
         batch_size=256,
         lr2=1e-2,
+        s_loss=False,
         lr=1e-3,
         use_cuda=True,
         num_test_samples=256,
@@ -55,6 +56,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             "kernel_num": kernel_num,
         }
 
+        self.s_loss = s_loss
         self.lr2 = lr2
         self.hidden_dim = hidden_dim
         super().__init__(
@@ -157,16 +159,19 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         return loss_u + KLD_cont.sum() #+ KLD_cont_main
 
-    @staticmethod
-    def semantic_loss(epoch, net, *args, **kwargs):
+    def semantic_loss(self, epoch, net, *args, **kwargs):
         """
         Semantic loss applied to latent space
         """
+
+        if not self.s_loss:
+            return torch.tensor(0)
+
         # if epoch < 10:
         #     return 0
 
-        # n_cat = net.num_categories
-        # h_dim = net.hidden_dim
+        n_cat = net.num_categories
+        h_dim = net.hidden_dim
         # base_dist = MultivariateNormal(net.zeros, net.eye)
         # means = net.q_global_means.repeat(1, n_cat).view(-1, h_dim) - net.q_global_means.repeat(n_cat, 1)
         # log_probs = base_dist.log_prob(means)
@@ -180,15 +185,15 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         # sloss = 0
         # # if epoch > 5:
         # #     optimizer.zero_grad()
-        # #     sloss = 0
-        # idxs = np.arange(net.num_categories)
-        # for j in range(net.num_categories):
-        #     distances = torch.sqrt(torch.square(net.q_global_means[j] - net.q_global_means[idxs[idxs != j]]).sum(dim=1))
-        #     sloss += 1e1*torch.where(distances < 20, 20 - distances, torch.zeros_like(distances)).sum()
+        sloss = 0
+        idxs = np.arange(net.num_categories)
+        for j in range(net.num_categories):
+            distances = torch.sqrt(torch.square(net.q_global_means[j] - net.q_global_means[idxs[idxs != j]]).sum(dim=1))
+            sloss += torch.where(distances < 20, 20 - distances, torch.zeros_like(distances)).sum()
         #
         #     sloss.backward()
         #     optimizer.step()
-        return torch.tensor(0)
+        return sloss
 
     @staticmethod
     def simple_loss(data, reconstructed, latent_samples, q_vals):
