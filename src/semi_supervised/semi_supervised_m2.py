@@ -144,22 +144,29 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         loss_s_l = 0
         for j in range(num_cats):
             distances = torch.sqrt(torch.square(means[j] - means[idxs[idxs != j]]).sum(dim=1))
-            loss_s_l += torch.where(distances < 20, 20 - distances, torch.zeros_like(distances))
+            loss_s_l += torch.where(distances < 10, 10 - distances, torch.zeros_like(distances))
 
-        log_q_y = unlabeled_results['q_vals'][-1].unsqueeze(-1)
-        q_y = torch.exp(log_q_y)
-        pred_means = torch.cat([m.unsqueeze(1) for m in unlabeled_results['latent_samples'][1]], dim=1)
-        weighted_means = q_y * pred_means
-        weighted_means = weighted_means.sum(dim=0) / q_y.sum(dim=0).unsqueeze(1)
+        return loss_s_l.sum()
+        # import pdb
+        # pdb.set_trace()
+        #
+        # log_q_y = unlabeled_results['q_vals'][-1].unsqueeze(-1)
+        # q_y = torch.exp(log_q_y)
+        # pred_means = torch.cat([m.unsqueeze(1) for m in unlabeled_results['latent_samples'][1]], dim=1)
+        # weighted_means = q_y * pred_means
+        # weighted_means = weighted_means.sum(dim=0) / q_y.sum(dim=0).unsqueeze(1)
+        #
+        # loss_s_u = 0
+        # for j in range(num_cats):
+        #     distances = torch.sqrt(torch.square(weighted_means[j] - weighted_means[idxs[idxs != j]]).sum(dim=1))
+        #     loss_s_u += torch.where(distances < 10, 10 - distances, torch.zeros_like(distances))
+        #
+        # import pdb
+        # pdb.set_trace()
 
-        loss_s_u = 0
-        for j in range(num_cats):
-            distances = torch.sqrt(torch.square(weighted_means[j] - weighted_means[idxs[idxs != j]]).sum(dim=1))
-            loss_s_u += torch.where(distances < 20, 20 - distances, torch.zeros_like(distances))
-
-        if epoch < 10:
-            return epoch/1000 * (loss_s_l.sum() + loss_s_u.sum())
-        return (loss_s_l.sum() + loss_s_u.sum())
+        # if epoch < 10:
+        #     return epoch/1000 * (loss_s_l.sum() + loss_s_u.sum())
+        # return (loss_s_l.sum() + loss_s_u.sum())
 
 
 def calculate_semantic_loss(pred_means, pred_labels, hidden_dim, num_cats, net):
