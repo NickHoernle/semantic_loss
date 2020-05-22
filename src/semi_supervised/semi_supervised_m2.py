@@ -56,7 +56,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         self.lr2 = lr2
         self.hidden_dim = hidden_dim
         self.s_loss = s_loss
-        
+
         super().__init__(
             build_model,
             model_parameters,
@@ -131,8 +131,8 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
 
         if not self.s_loss:
             return torch.tensor(0)
-        if epoch < 5:
-            return torch.tensor(0)
+        # if epoch < 5:
+        #     return torch.tensor(0)
 
         num_cats = net.num_categories
         idxs = np.arange(net.num_categories)
