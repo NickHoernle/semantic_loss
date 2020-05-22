@@ -139,22 +139,6 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 self.global_step += data_u.size(0)
 
-                # if i > 100:
-                #     break
-                # TODO: penalize the means for being too close to one another....
-                ############## Semantic Loss Step ################
-                # sloss = 0
-                # if epoch > 5:
-                #     optimizer.zero_grad()
-                #     sloss = 0
-                #     idxs = np.arange(self.num_categories)
-                #     for j in range(self.num_categories):
-                #         distances = torch.sqrt(torch.square(net.means[j] - net.means[idxs[idxs != j]]).sum(dim=1))
-                #         sloss += 1e1*torch.where(distances < 20, 20 - distances, torch.zeros_like(distances)).sum()
-                #
-                #     sloss.backward()
-                #     optimizer.step()
-
         return loss_meter.avg
 
     @torch.no_grad()
