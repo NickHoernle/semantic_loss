@@ -127,5 +127,4 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
     @staticmethod
     def semantic_loss(*args, **kwargs):
         return 0
-
-
+    

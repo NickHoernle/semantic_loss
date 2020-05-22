@@ -237,7 +237,6 @@ class GenerativeTrainer:
 
             if self.num_test_samples > 0:
                 with torch.no_grad():
-                    # pass
                     self.sample_examples(epoch, net)
 
         self.log_fh.close()

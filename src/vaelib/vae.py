@@ -414,11 +414,6 @@ class GMM_VAE(M2):
 
         return base_dist.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
 
-    # def decoder(self, z):
-    #     rolled = self.project(z).view(z.size(0), -1, self.feature_size, self.feature_size)
-    #     rolled = self.decoder_cnn(rolled)
-    #     return rolled
-
     def forward_labelled(self, x, labels, **kwargs):
 
         encoded = self.encoder(x)
