@@ -141,7 +141,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 progress_bar.update(data_u.size(0))
 
                 self.global_step += data_u.size(0)
-
+        print(f"=====> Epoch {epoch}; SLoss: {sloss_meter.avg}")
         return loss_meter.avg
 
     @torch.no_grad()
