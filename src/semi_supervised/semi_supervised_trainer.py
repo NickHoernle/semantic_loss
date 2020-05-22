@@ -325,3 +325,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         one_hot = torch.FloatTensor(len(labels), num_categories).zero_().to(self.device)
         one_hot.scatter_(1, labels, 1)
         return one_hot
+
+    def sample_examples(self, epoch, net):
+        labels = torch.zeros(64, self.num_categories).to(self.device)
+        labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
+        img_sample = net.sample_labelled(labels)
+        img_sample = torch.sigmoid(img_sample)
+        save_image(img_sample, f'{self.figure_path}/sample_' + str(epoch) + '.png')
