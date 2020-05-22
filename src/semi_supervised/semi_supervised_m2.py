@@ -127,8 +127,8 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
     @staticmethod
     def semantic_loss(epoch, net, labeled_results, unlabeled_results, labels, *args, **kwargs):
 
-        # if epoch < 1:
-        #     return torch.tensor(0)
+        if epoch < 5:
+            return torch.tensor(0)
 
         num_cats = net.num_categories
         idxs = np.arange(net.num_categories)
