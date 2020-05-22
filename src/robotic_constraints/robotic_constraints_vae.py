@@ -17,9 +17,15 @@ from vaelib.vae import VAE
 
 mdl_name = 'maf'
 
-def build_model(data_dim=10, hidden_dim=10, num_categories=10):
-    return VAE(data_dim=data_dim, hidden_dim=hidden_dim)
+from vaelib.vae import M2_Linear
 
+
+def build_model(data_dim=10, hidden_dim=10, num_categories=10):
+    return M2_Linear(
+        data_dim=data_dim,
+        hidden_dim=hidden_dim,
+        NUM_CATEGORIES=num_categories,
+    )
 
 class RC_VAE(RCTrainer):
     """
@@ -50,7 +56,6 @@ class RC_VAE(RCTrainer):
         model_parameters = {
             "data_dim": data_dims,
             "hidden_dim": hidden_dim,
-            "num_categories": 1
         }
         self.hidden_dim = hidden_dim
         super().__init__(

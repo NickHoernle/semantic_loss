@@ -387,7 +387,7 @@ class M2(VAE_Categorical_Base, CNN):
                 "q_vals": [q_mu, q_logvar, log_q_ys]}
 
 
-class GMM_VAE(VAE_Categorical_Base, CNN):
+class GMM_VAE(M2):
     def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):
         super().__init__(data_dim=data_dim,
                          hidden_dim=hidden_dim,
@@ -412,54 +412,86 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
 
         base_dist = MultivariateNormal(self.zeros, self.eye)
 
-        return base_dist.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
+        return base_dist.log_prob((q_mus - q_global_means)/(q_sigs))
 
-    def forward(self, data_sample, **kwargs):
+    def forward_labelled(self, x, labels, **kwargs):
 
-        (data, labels) = data_sample
-        return self.forward_unlabelled(data)
+        encoded = self.encoder(x)
+        (q_mu, q_logvar) = self.q(encoded)
 
-    def sufficient_statistics(self, samples, soft_assignments):
+        logp_y = self.discriminator(q_mu, q_logvar)
+        logp_ys = logp_y - torch.logsumexp(logp_y, dim=1).unsqueeze(1)
 
-        n = len(samples)
-        samples = samples.unsqueeze(1).repeat(1, self.num_categories, 1)
-        soft_assignments = torch.exp(soft_assignments).unsqueeze(-1).repeat(1, 1, self.hidden_dim)
+        # z_means = self.reparameterize(self.q_global_means, self.q_global_log_var)
 
-        mean_samp = (samples * soft_assignments).mean(dim=0)
-        variance_samp = (samples * soft_assignments).var(dim=0)
+        z_means_expanded = (labels.unsqueeze(-1) * self.q_global_means.unsqueeze(0).repeat(len(x), 1, 1)).sum(dim=1)
+        z = self.reparameterize(q_mu - z_means_expanded, q_logvar)
 
-        sig2 = torch.exp(self.q_global_log_var)
+        x_reconstructed, pred_means = self.decoder(z, labels)
 
-        variance_post = 1 / (1 / sig2 + n / variance_samp)
-        mean_post = variance_post * (self.q_global_means/sig2 + mean_samp/variance_samp)
-
-        return mean_post, variance_post
+        return {"reconstructed": [x_reconstructed],
+                "latent_samples": [z, self.q_global_means],
+                "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, logp_ys]}
 
     def forward_unlabelled(self, x):
 
         encoded = self.encoder(x)
         (q_mu, q_logvar) = self.q(encoded)
-        logp_ys = self.discriminator(q_mu, q_logvar)
 
-        pred_label_sm_log = logp_ys - torch.logsumexp(logp_ys, dim=1).unsqueeze(1)
+        logp_y = self.discriminator(q_mu, q_logvar)
+        logp_ys = logp_y - torch.logsumexp(logp_y, dim=1).unsqueeze(1)
 
-        z = self.reparameterize(q_mu, q_logvar)
+        # z_means = self.reparameterize(self.q_global_means, self.q_global_log_var)
 
-        # get sufficient statistics from sampled data
-        # mean_post, variance_post = self.sufficient_statistics(z, pred_label_sm_log)
-        z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
+        reconstructions = []
 
-        x_reconstructed = self.decoder(z)
+        for cat in range(self.num_categories):
+            labels = torch.zeros_like(logp_ys)
+            labels[:, cat] = 1
 
-        return {"reconstructed": [x_reconstructed],
-                "latent_samples": [z, z_global],
-                "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, pred_label_sm_log]}
+            z_means_expanded = (labels.unsqueeze(-1) * self.q_global_means.unsqueeze(0).repeat(len(x), 1, 1)).sum(dim=1)
+
+            z = self.reparameterize(q_mu - z_means_expanded, q_logvar)
+            x_reconstructed, pred_means = self.decoder(z, labels)
+
+            reconstructions.append(x_reconstructed)
+
+        return {"reconstructed": reconstructions,
+                "latent_samples": [z, self.q_global_means],
+                "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, logp_ys]}
 
     def sample_labelled(self, labels):
         n_samps = len(labels)
         base_dist = MultivariateNormal(self.zeros, self.eye)
+
         z = base_dist.sample((n_samps,))
-        g_means = (self.q_global_means.repeat(n_samps, 1, 1) + z.unsqueeze(dim=1).repeat(1, self.num_categories, 1))
-        latent = (labels.unsqueeze(dim=2) * g_means).sum(dim=1)
-        x_reconstructed = self.decoder(latent)
+        # g_means = (self.q_global_means.repeat(n_samps, 1, 1) + z.unsqueeze(dim=1).repeat(1, self.num_categories, 1))
+        # latent = (labels.unsqueeze(dim=2) * g_means).sum(dim=1)
+        x_reconstructed, _ = self.decoder(z, labels)
+
         return x_reconstructed
+
+
+class M2_Gumbel(M2):
+    def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):
+        super().__init__(data_dim=data_dim,
+                         hidden_dim=hidden_dim,
+                         NUM_CATEGORIES=NUM_CATEGORIES,
+                         channel_num=channel_num,
+                         kernel_num=kernel_num)
+        self.tau = 2
+
+    def forward_unlabelled(self, x, **kwargs):
+        encoded = self.encoder(x)
+        (q_mu, q_logvar, log_p_y) = self.q(encoded)
+        log_q_ys = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
+
+        z = self.reparameterize(q_mu, q_logvar)
+
+        # rather sample from the gumbel softmax here
+        sampled_label = F.gumbel_softmax(log_p_y, tau=self.tau, hard=False)
+        x_reconstructed, pred_means = self.decoder(z, sampled_label)
+
+        return {"reconstructed": [x_reconstructed],
+                "latent_samples": [z, pred_means, sampled_label],
+                "q_vals": [q_mu, q_logvar, log_q_ys]}
