@@ -131,7 +131,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
 
     def semantic_loss(self, epoch, net, labeled_results, unlabeled_results, labels, *args, **kwargs):
 
-        return 0
+        return torch.tensor(0)
         # if not self.s_loss:
         #     return torch.tensor(0)
         # # if epoch < 5:

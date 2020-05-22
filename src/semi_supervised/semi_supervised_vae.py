@@ -186,7 +186,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         #
         #     sloss.backward()
         #     optimizer.step()
-        return 0
+        return torch.tensor(0)
 
     @staticmethod
     def simple_loss(data, reconstructed, latent_samples, q_vals):
