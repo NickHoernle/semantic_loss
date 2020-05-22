@@ -55,6 +55,8 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         }
         self.lr2 = lr2
         self.hidden_dim = hidden_dim
+        self.s_loss = s_loss
+        
         super().__init__(
             build_model,
             model_parameters,
