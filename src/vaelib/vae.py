@@ -435,7 +435,7 @@ class GMM_VAE(M2):
                          channel_num=channel_num,
                          kernel_num=kernel_num)
 
-        self.q_global_means = nn.Parameter(self.num_categories*torch.rand(self.num_categories, self.hidden_dim))
+        self.q_global_means = nn.Parameter(torch.rand(self.num_categories, self.hidden_dim))
         self.q_global_log_var = nn.Parameter(torch.zeros(self.num_categories, self.hidden_dim))
 
         # override unnecessary params

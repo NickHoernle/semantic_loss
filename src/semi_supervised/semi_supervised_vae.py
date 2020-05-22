@@ -163,7 +163,6 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         """
         Semantic loss applied to latent space
         """
-
         if not self.s_loss:
             return torch.tensor(0)
 
@@ -190,9 +189,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         for j in range(net.num_categories):
             distances = torch.sqrt(torch.square(net.q_global_means[j] - net.q_global_means[idxs[idxs != j]]).sum(dim=1))
             sloss += torch.where(distances < 20, 20 - distances, torch.zeros_like(distances)).sum()
-        #
-        #     sloss.backward()
-        #     optimizer.step()
+
         return sloss
 
     @staticmethod
