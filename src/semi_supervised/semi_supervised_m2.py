@@ -125,6 +125,37 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         return loss_u + KLD_cont
 
     @staticmethod
-    def semantic_loss(*args, **kwargs):
-        return 0
-    
+    def semantic_loss(data, net, labeled_results, unlabeled_results, *args, **kwargs):
+        pred_means = labeled_results['latent_samples'][1]
+        log_q_y = labeled_results['q_vals'][-1]
+
+        loss_s_l = calculate_semantic_loss(pred_means,
+                                           log_q_y,
+                                           hidden_dim=pred_means.size(1),
+                                           num_cats=log_q_y.size(1),
+                                           net=net)
+
+        loss_s_u = 0
+        for cat, pred_means in enumerate(unlabeled_results['latent_samples'][1]):
+
+            log_q_y = unlabeled_results['q_vals'][-1]
+
+            means_dist = calculate_semantic_loss(pred_means,
+                                               log_q_y,
+                                               hidden_dim=pred_means.size(1),
+                                               num_cats=log_q_y.size(1),
+                                               net=net)
+            loss_s_u += torch.exp(log_q_y[:, cat])*means_dist
+
+        return loss_s_l[loss_s_l > -10].sum() + loss_s_u[loss_s_u > -10].sum()
+
+
+def calculate_semantic_loss(pred_means, pred_labels, hidden_dim, num_cats, net):
+
+    means_expanded = pred_means.unsqueeze(1).repeat(1, num_cats, 1)
+    labels_expanded = torch.exp(pred_labels).unsqueeze(-1).repeat(1, 1, hidden_dim)
+    inf_means = (means_expanded * labels_expanded).mean(dim=0)
+
+    base_dist = MultivariateNormal(net.zeros, net.eye)
+    means = inf_means.repeat(1, num_cats).view(-1, hidden_dim) - inf_means.repeat(num_cats, 1)
+    return base_dist.log_prob(means)

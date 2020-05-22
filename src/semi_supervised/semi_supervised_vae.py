@@ -46,7 +46,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         additional_model_config_args=['hidden_dim', 'num_labeled_data_per_class', 'lr2'],
         num_loader_workers=8,
         num_labeled_data_per_class=100,
-        name="vae-semi-supervised",
+        name="gmm",
     ):
         model_parameters = {
             "data_dim": 32,
@@ -205,32 +205,4 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
     #
     #     if epoch < 5:
     #         return 0
-    #     pred_means = labeled_results['latent_samples'][1]
-    #     log_q_y = labeled_results['q_vals'][-1]
     #
-    #     loss_s_l = calculate_semantic_loss(pred_means,
-    #                                        log_q_y,
-    #                                        hidden_dim=pred_means.size(1),
-    #                                        num_cats=log_q_y.size(1),
-    #                                        net=net)
-    #
-    #     pred_means = unlabeled_results['latent_samples'][1]
-    #     log_q_y = unlabeled_results['q_vals'][-1]
-    #
-    #     loss_s_u = calculate_semantic_loss(pred_means,
-    #                                        log_q_y,
-    #                                        hidden_dim=pred_means.size(1),
-    #                                        num_cats=log_q_y.size(1),
-    #                                        net=net)
-    #     return loss_s_l[loss_s_l > -10].sum() + loss_s_u[loss_s_u > -10].sum()
-    #
-# def calculate_semantic_loss(pred_means, pred_labels, hidden_dim, num_cats, net):
-#
-#     means_expanded = pred_means.unsqueeze(1).repeat(1, num_cats, 1)
-#     labels_expanded = torch.exp(pred_labels).unsqueeze(-1).repeat(1, 1, hidden_dim)
-#     inf_means = (means_expanded * labels_expanded).mean(dim=0)
-#
-#     base_dist = MultivariateNormal(net.zeros, net.eye)
-#     means = inf_means.repeat(1, num_cats).view(-1, hidden_dim) - inf_means.repeat(num_cats, 1)
-#     log_probs = base_dist.log_prob(means)
-#     return log_probs[log_probs > -20].sum()

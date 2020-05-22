@@ -369,6 +369,7 @@ class M2(VAE_Categorical_Base, CNN):
         log_q_ys = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
 
         z = self.reparameterize(q_mu, q_logvar)
+        pred_means = []
 
         reconstructions = []
 
@@ -378,8 +379,9 @@ class M2(VAE_Categorical_Base, CNN):
             labels[:, cat] = 1
 
             z = self.reparameterize(q_mu, q_logvar)
-            x_reconstructed, pred_means = self.decoder(z, labels)
+            x_reconstructed, pred_means_ = self.decoder(z, labels)
 
+            pred_means.append(pred_means_)
             reconstructions.append(x_reconstructed)
 
         return {"reconstructed": reconstructions,
