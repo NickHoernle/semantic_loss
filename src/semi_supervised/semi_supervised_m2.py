@@ -125,46 +125,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         return loss_u + KLD_cont
 
     @staticmethod
-    def semantic_loss(epoch, net, labeled_results, unlabeled_results):
-        if epoch < 5:
-            return 0
-        pred_means = labeled_results['latent_samples'][1]
-        log_q_y = labeled_results['q_vals'][-1]
+    def semantic_loss(*args, **kwargs):
+        return 0
 
-        loss_s_l = calculate_semantic_loss(pred_means,
-                                         log_q_y,
-                                         hidden_dim=pred_means.size(1),
-                                         num_cats=log_q_y.size(1),
-                                         net=net)
-
-        pred_means = unlabeled_results['latent_samples'][1]
-        log_q_y = unlabeled_results['q_vals'][-1]
-
-        loss_s_u = calculate_semantic_loss(pred_means,
-                                           log_q_y,
-                                           hidden_dim=pred_means.size(1),
-                                           num_cats=log_q_y.size(1),
-                                           net=net)
-        return loss_s_l[loss_s_l > -10].sum() + loss_s_u[loss_s_u > -10].sum()
-
-    def sample_examples(self, epoch, net):
-        labels = torch.zeros(64, self.num_categories).to(self.device)
-        labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
-
-        img_sample = net.sample_labelled(labels)
-        img_sample = torch.sigmoid(img_sample)
-
-        save_image(img_sample, f'{self.figure_path}/sample_' + str(epoch) + '.png')
-
-
-def calculate_semantic_loss(pred_means, pred_labels, hidden_dim, num_cats, net):
-
-    means_expanded = pred_means.unsqueeze(1).repeat(1, num_cats, 1)
-    labels_expanded = torch.exp(pred_labels).unsqueeze(-1).repeat(1, 1, hidden_dim)
-    inf_means = (means_expanded * labels_expanded).mean(dim=0)
-
-    base_dist = MultivariateNormal(net.zeros, net.eye)
-    means = inf_means.repeat(1, num_cats).view(-1, hidden_dim) - inf_means.repeat(num_cats, 1)
-    log_probs = base_dist.log_prob(means)
-    return log_probs[log_probs > -20].sum()
 

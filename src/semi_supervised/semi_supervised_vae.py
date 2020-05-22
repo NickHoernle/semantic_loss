@@ -110,20 +110,20 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         num_categories = len(log_q_y[0])
 
         # get the means that z should be associated with
-        # q_means = q_mu - (true_y.unsqueeze(-1) * z_global.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+        q_means = q_mu - (true_y.unsqueeze(-1) * z_global.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
         # reconstruction loss
         BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 
         # KLD for Z2
-        KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
+        KLD_cont = - 0.5 * ((1 + q_logvar - (q_mu - q_means).pow(2) - q_logvar.exp()).sum(dim=1)).sum()
 
-        # KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories**2) -
-        #                                  (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories**2))
+        KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories**2) -
+                                         (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories**2))
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
-        return BCE + KLD_cont.sum() + discriminator_loss #+ KLD_cont_main
+        return BCE + KLD_cont.sum() + discriminator_loss + KLD_cont_main
 
     @staticmethod
     def unlabeled_loss(data, net, reconstructed, latent_samples, q_vals):
@@ -140,25 +140,25 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         for cat in range(num_categories):
 
             # reconstruction loss
-            BCE = F.binary_cross_entropy(torch.sigmoid(reconstructed[cat]), data, reduction="sum")
+            BCE = F.binary_cross_entropy(torch.sigmoid(reconstructed[cat]), data, reduction="none").sum(dim=(1,2,3))
 
             log_q_y = log_q_ys[:, cat]
             q_y = torch.exp(log_q_y)
 
-            # q_means = z_global[cat].unsqueeze(0).repeat(len(q_mu), 1, )
-            KLD_cont = - 0.5 * (1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)
+            q_means = z_global[cat].unsqueeze(0).repeat(len(q_mu), 1, )
+            KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - q_means).pow(2) - q_logvar.exp()).sum(dim=1)
 
             loss_u += (q_y*(KLD_cont + BCE + log_q_y)).sum()
 
-        # KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
-        #                                  (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
+        KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
+                                         (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
         #
         # loss_u += BCE
 
-        return BCE + loss_u #+ KLD_cont_main
+        return loss_u + KLD_cont_main
 
     @staticmethod
-    def semantic_loss(epoch, net):
+    def semantic_loss(epoch, net, *args, **kwargs):
         """
         Semantic loss applied to latent space
         """
@@ -181,9 +181,41 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         KLD_cont = - 0.5 * (1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum()
         return BCE + KLD_cont
 
-    def sample_examples(self, epoch, net):
-        labels = torch.zeros(64, self.num_categories).to(self.device)
-        labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
-        img_sample = net.sample_labelled(labels)
-        img_sample = torch.sigmoid(img_sample)
-        save_image(img_sample, f'{self.figure_path}/sample_' + str(epoch) + '.png')
+    # def sample_examples(self, epoch, net):
+    #     labels = torch.zeros(64, self.num_categories).to(self.device)
+    #     labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
+    #     img_sample = net.sample_labelled(labels)
+    #     img_sample = torch.sigmoid(img_sample)
+    #     save_image(img_sample, f'{self.figure_path}/sample_' + str(epoch) + '.png')
+    #
+    #     if epoch < 5:
+    #         return 0
+    #     pred_means = labeled_results['latent_samples'][1]
+    #     log_q_y = labeled_results['q_vals'][-1]
+    #
+    #     loss_s_l = calculate_semantic_loss(pred_means,
+    #                                        log_q_y,
+    #                                        hidden_dim=pred_means.size(1),
+    #                                        num_cats=log_q_y.size(1),
+    #                                        net=net)
+    #
+    #     pred_means = unlabeled_results['latent_samples'][1]
+    #     log_q_y = unlabeled_results['q_vals'][-1]
+    #
+    #     loss_s_u = calculate_semantic_loss(pred_means,
+    #                                        log_q_y,
+    #                                        hidden_dim=pred_means.size(1),
+    #                                        num_cats=log_q_y.size(1),
+    #                                        net=net)
+    #     return loss_s_l[loss_s_l > -10].sum() + loss_s_u[loss_s_u > -10].sum()
+    #
+# def calculate_semantic_loss(pred_means, pred_labels, hidden_dim, num_cats, net):
+#
+#     means_expanded = pred_means.unsqueeze(1).repeat(1, num_cats, 1)
+#     labels_expanded = torch.exp(pred_labels).unsqueeze(-1).repeat(1, 1, hidden_dim)
+#     inf_means = (means_expanded * labels_expanded).mean(dim=0)
+#
+#     base_dist = MultivariateNormal(net.zeros, net.eye)
+#     means = inf_means.repeat(1, num_cats).view(-1, hidden_dim) - inf_means.repeat(num_cats, 1)
+#     log_probs = base_dist.log_prob(means)
+#     return log_probs[log_probs > -20].sum()
