@@ -47,6 +47,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         num_loader_workers=8,
         num_labeled_data_per_class=100,
         name="gmm",
+        disable_tqdm_print=True,
     ):
         model_parameters = {
             "data_dim": 32,
@@ -76,6 +77,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             num_loader_workers=num_loader_workers,
             num_labeled_data_per_class=num_labeled_data_per_class,
             name=name,
+            disable_tqdm_print=disable_tqdm_print
         )
 
     def run(self):
