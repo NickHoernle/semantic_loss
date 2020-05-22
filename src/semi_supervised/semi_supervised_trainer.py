@@ -141,7 +141,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 progress_bar.update(data_u.size(0))
 
                 self.global_step += data_u.size(0)
-        print(f"=====> Epoch {epoch}; SLoss: {sloss_meter.avg}")
+        print(f"===============> Epoch {epoch}; SLoss: {sloss_meter.avg}; NLL: {loss_meter.avg}")
         return loss_meter.avg
 
     @torch.no_grad()
@@ -190,7 +190,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 correct += (torch.argmax(net_args['q_vals'][-1], dim=1) == labels).sum().float()
                 total += len(labels)
 
-        print(f"===============> Epoch {epoch}; Accuracy: {correct/total}; NLL: {loss.item()}")
+        print(f"===============> Epoch {epoch}; Accuracy: {correct/total}; NLL: {loss_meter.avg}")
         # print(net.q_global_means)
         # print(net.q_global_log_var)
         if return_accuracy:
@@ -218,8 +218,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         """
         raise NotImplementedError("Not implemented unlabeled loss")
 
-    @staticmethod
-    def semantic_loss(*args, **kwargs):
+    def semantic_loss(self, *args, **kwargs):
         """
         Loss for the unlabeled data
         """

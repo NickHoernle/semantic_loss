@@ -33,6 +33,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         hidden_dim=10,
         kernel_num=50,
         num_epochs=100,
+        s_loss=False,
         batch_size=256,
         lr2=1e-2,
         lr=1e-3,
@@ -124,9 +125,10 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
 
         return loss_u + KLD_cont
 
-    @staticmethod
-    def semantic_loss(epoch, net, labeled_results, unlabeled_results, labels, *args, **kwargs):
+    def semantic_loss(self, epoch, net, labeled_results, unlabeled_results, labels, *args, **kwargs):
 
+        if not self.s_loss:
+            return torch.tensor(0)
         if epoch < 5:
             return torch.tensor(0)
 
