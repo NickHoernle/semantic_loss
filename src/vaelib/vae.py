@@ -402,7 +402,7 @@ class GMM_VAE(M2):
         self.log_q_y = None
         self.Wy = None
         self.proj_y = nn.Sequential(
-            nn.Linear(NUM_CATEGORIES+hidden_dim, hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.LeakyReLU(0.01)
         )
 
@@ -410,8 +410,8 @@ class GMM_VAE(M2):
         unrolled = encoded.view(len(encoded), -1)
         return self.q_mean(unrolled), self.q_logvar(unrolled)
 
-    def decoder(self, z, labels):
-        h1 = self.proj_y(torch.cat((z, labels), dim=1))
+    def decoder(self, z):
+        h1 = self.proj_y(z)
         rolled = self.project(h1).view(len(h1), -1, self.feature_size, self.feature_size)
         rolled = self.decoder_cnn(rolled)
         return rolled, None
@@ -436,11 +436,12 @@ class GMM_VAE(M2):
         pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
 
         z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
-        # z_global = self.q_global_means
-        z_mean_expanded = (labels.unsqueeze(-1) * (z_global.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
-        z = self.reparameterize(q_mu - z_mean_expanded, q_logvar)
+        q_mean_expanded = (labels.unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
 
-        x_reconstructed, _ = self.decoder(z, labels)
+        z = self.reparameterize(q_mu - q_mean_expanded, q_logvar)
+        z_mean_expanded = (labels.unsqueeze(-1) * (z_global.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
+
+        x_reconstructed, _ = self.decoder(z + z_mean_expanded)
 
         return {"reconstructed": [x_reconstructed],
                 "latent_samples": [z, z_global],
@@ -454,18 +455,19 @@ class GMM_VAE(M2):
         log_q_ys = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
 
         z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
-        # z_global = self.q_global_means
 
         reconstructions = []
 
         for cat in range(self.num_categories):
-            labels = torch.zeros_like(log_q_ys)
-            labels[:, cat] = 1
+            # labels = torch.zeros_like(log_q_ys)
+            # labels[:, cat] = 1
+
+            q_mean_expanded = self.q_global_means[cat].unsqueeze(0).repeat(len(x), 1)
+            z = self.reparameterize(q_mu - q_mean_expanded, q_logvar)
 
             z_mean_expanded = z_global[cat].unsqueeze(0).repeat(len(x), 1)
 
-            z = self.reparameterize(q_mu - z_mean_expanded, q_logvar)
-            x_reconstructed, _ = self.decoder(z, labels=labels)
+            x_reconstructed, _ = self.decoder(z + z_mean_expanded)
 
             reconstructions.append(x_reconstructed)
 
@@ -473,6 +475,13 @@ class GMM_VAE(M2):
                 "latent_samples": [z, z_global],
                 "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, log_q_ys]}
 
+    def sample_labelled(self, labels):
+        n_samps = len(labels)
+        base_dist = MultivariateNormal(self.zeros, self.eye)
+        z = base_dist.sample((n_samps,))
+        q_mean_expanded = (labels.unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(labels), 1, 1))).sum(dim=1)
+        x_reconstructed, _ = self.decoder(z + q_mean_expanded)
+        return x_reconstructed
 
 class M2_Gumbel(M2):
     def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):
