@@ -188,10 +188,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 net_args = net((data, one_hot))
                 loss = self.labeled_loss(data, one_hot, net, **net_args)
 
-                if not saved and not self.tqdm_print: #only save these if on local
-                    save_image(torch.sigmoid(net_args["reconstructed"][0]), f'{self.figure_path}/recon_{epoch}.png')
-                    save_image(data, f'{self.figure_path}/true_{epoch}.png')
-                    saved = True
+                # if not saved and not self.tqdm_print: #only save these if on local
+                #     save_image(torch.sigmoid(net_args["reconstructed"][0]), f'{self.figure_path}/recon_{epoch}.png')
+                #     save_image(data, f'{self.figure_path}/true_{epoch}.png')
+                #     saved = True
 
                 # loss = self.unlabeled_loss(data, net, **net_args)
                 # loss = self.labeled_loss(data, net, *net_args)
@@ -344,5 +344,5 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         labels = torch.zeros(64, self.num_categories).to(self.device)
         labels[torch.arange(64), torch.arange(8).repeat(8)] = 1
         img_sample = net.sample_labelled(labels)
-        img_sample = torch.sigmoid(img_sample)
+        # img_sample = torch.sigmoid(img_sample)
         save_image(img_sample, f'{self.figure_path}/sample_' + str(epoch) + '.png')

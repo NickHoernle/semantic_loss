@@ -4,7 +4,9 @@ import itertools
 import torch
 import torch.utils.data
 from torch import nn, optim
+from torch.autograd import Variable
 from torch.nn import functional as F
+from torch.nn.utils import weight_norm as wn
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 from torch.distributions import MultivariateNormal, Uniform, \
@@ -329,6 +331,7 @@ class VAE_Categorical_Base(VAE):
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
         x_reconstructed = self.decoder(z)
+        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 2)
         return x_reconstructed
 
 
@@ -353,6 +356,11 @@ class M2(VAE_Categorical_Base, CNN):
         self.softplus = nn.Softplus()
         self.relu = nn.Tanh()
 
+        # num_mix = 3 if channel_num == 1 else 10
+        num_mix = 10
+        nr_logistic_mix = 2
+        self.nin_out = nin(3, num_mix * nr_logistic_mix)
+
         self.apply(init_weights)
 
     def q(self, encoded):
@@ -368,7 +376,13 @@ class M2(VAE_Categorical_Base, CNN):
         h1 = self.relu(MG)
         rolled = self.project(h1).view(len(h1), -1, self.feature_size, self.feature_size)
         rolled = self.decoder_cnn(rolled)
-        return rolled, MG
+        # rolled = rolled.permute(0, 2, 3, 1)
+        # import pdb
+        # pdb.set_trace()
+        out_logits = self.nin_out(F.elu(rolled))
+        # import pdb
+        # pdb.set_trace()
+        return out_logits, MG
 
     def forward_labelled(self, x, labels, **kwargs):
 
@@ -559,3 +573,74 @@ def log_sum_exp(x):
     m, _  = torch.max(x, dim=axis)
     m2, _ = torch.max(x, dim=axis, keepdim=True)
     return m + torch.log(torch.sum(torch.exp(x - m2), dim=axis))
+
+
+class nin(nn.Module):
+    """
+    Borrowed from https://github.com/pclucas14/pixel-cnn-pp
+    """
+    def __init__(self, dim_in, dim_out):
+        super(nin, self).__init__()
+        self.lin_a = wn(nn.Linear(dim_in, dim_out))
+        self.dim_out = dim_out
+
+    def forward(self, x):
+        og_x = x
+        # assumes pytorch ordering
+        """ a network in network layer (1x1 CONV) """
+        x = x.permute(0, 2, 3, 1)
+        shp = [int(y) for y in x.size()]
+        out = self.lin_a(x.contiguous().view(shp[0] * shp[1] * shp[2], shp[3]))
+        shp[-1] = self.dim_out
+        out = out.view(shp)
+        return out.permute(0, 3, 1, 2)
+
+
+def sample_from_discretized_mix_logistic(l, nr_mix):
+    # Pytorch ordering
+    l = l.permute(0, 2, 3, 1)
+    ls = [int(y) for y in l.size()]
+    xs = ls[:-1] + [3]
+
+    # unpack parameters
+    logit_probs = l[:, :, :, :nr_mix]
+    l = l[:, :, :, nr_mix:].contiguous().view(xs + [nr_mix * 3])
+    # sample mixture indicator from softmax
+    temp = torch.FloatTensor(logit_probs.size())
+    if l.is_cuda: temp = temp.cuda()
+    temp.uniform_(1e-5, 1. - 1e-5)
+    temp = logit_probs.data - torch.log(- torch.log(temp))
+    _, argmax = temp.max(dim=3)
+
+    one_hot = to_one_hot(argmax, nr_mix)
+    sel = one_hot.view(xs[:-1] + [1, nr_mix])
+    # select logistic parameters
+    means = torch.sum(l[:, :, :, :, :nr_mix] * sel, dim=4)
+    log_scales = torch.clamp(torch.sum(
+        l[:, :, :, :, nr_mix:2 * nr_mix] * sel, dim=4), min=-7.)
+    coeffs = torch.sum(F.tanh(
+        l[:, :, :, :, 2 * nr_mix:3 * nr_mix]) * sel, dim=4)
+    # sample from logistic & clip to interval
+    # we don't actually round to the nearest 8bit value when sampling
+    u = torch.FloatTensor(means.size())
+    if l.is_cuda: u = u.cuda()
+    u.uniform_(1e-5, 1. - 1e-5)
+    u = Variable(u)
+    x = means + torch.exp(log_scales) * (torch.log(u) - torch.log(1. - u))
+    x0 = torch.clamp(torch.clamp(x[:, :, :, 0], min=-1.), max=1.)
+    x1 = torch.clamp(torch.clamp(
+        x[:, :, :, 1] + coeffs[:, :, :, 0] * x0, min=-1.), max=1.)
+    x2 = torch.clamp(torch.clamp(
+        x[:, :, :, 2] + coeffs[:, :, :, 1] * x0 + coeffs[:, :, :, 2] * x1, min=-1.), max=1.)
+
+    out = torch.cat([x0.view(xs[:-1] + [1]), x1.view(xs[:-1] + [1]), x2.view(xs[:-1] + [1])], dim=3)
+    # put back in Pytorch ordering
+    out = out.permute(0, 3, 1, 2)
+    return out
+
+def to_one_hot(tensor, n, fill_with=1.):
+    # we perform one hot encore with respect to the last axis
+    one_hot = torch.FloatTensor(tensor.size() + (n,)).zero_()
+    if tensor.is_cuda : one_hot = one_hot.cuda()
+    one_hot.scatter_(len(tensor.size()), tensor.unsqueeze(-1), fill_with)
+    return Variable(one_hot)
