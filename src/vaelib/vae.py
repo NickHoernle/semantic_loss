@@ -331,8 +331,8 @@ class VAE_Categorical_Base(VAE):
         n_samps = len(labels)
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
-        x_reconstructed = self.decoder(z)
-        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 5)
+        x_reconstructed, _ = self.decoder(z)
+        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 10)
         return x_reconstructed
 
 
