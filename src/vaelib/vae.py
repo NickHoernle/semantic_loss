@@ -376,6 +376,7 @@ class M2(VAE_Categorical_Base, CNN):
 
     def forward_labelled(self, x, labels, **kwargs):
 
+        x,_ = self.to_logits(x)
         encoded = self.encoder(x)
         (q_mu, q_logvar, log_p_y) = self.q(encoded)
         pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
@@ -389,6 +390,7 @@ class M2(VAE_Categorical_Base, CNN):
 
     def forward_unlabelled(self, x, **kwargs):
 
+        x, _ = self.to_logits(x)
         encoded = self.encoder(x)
         (q_mu, q_logvar, log_p_y) = self.q(encoded)
         log_q_ys = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
