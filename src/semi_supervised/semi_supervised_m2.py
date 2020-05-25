@@ -99,7 +99,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         q_mu, q_logvar, log_q_y = q_vals
         true_y = labels
 
-        BCE = nn.BCELoss(size_average=False)(torch.sigmoid(data_recon), data)/data.size(0)
+        BCE = nn.BCELoss(size_average=True)(torch.sigmoid(data_recon), data)
 
         KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).mean()
 
@@ -122,11 +122,11 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
             pred = torch.sigmoid(reconstructed[cat])
             true = data
 
-            BCE = F.binary_cross_entropy(pred, true, reduction="none").sum(dim=(1, 2, 3))
+            BCE = F.binary_cross_entropy(pred, true, reduction="none").mean(dim=(1, 2, 3))
             log_q_y = log_q_ys[:, cat]
             q_y = torch.exp(log_q_y)
 
-            loss_u += torch.sum(q_y*BCE + q_y*log_q_y)/data.size(0)
+            loss_u += torch.mean(q_y*BCE + q_y*log_q_y)
 
         return loss_u + KLD_cont
 
