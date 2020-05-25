@@ -211,12 +211,13 @@ class CNN(VAE):
             nn.Dropout(0.1),
         )
 
+        f_num = 5
         self.decoder_cnn = nn.Sequential(
             nn.ConvTranspose2d(kernel_num, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, K/2, 8, 8]
             nn.LeakyReLU(.01),
             nn.ConvTranspose2d(kernel_num//2, kernel_num//4, kernel_size=4, stride=2, padding=1),  # [batch, K/4, 16, 16]
             nn.LeakyReLU(.01),
-            nn.ConvTranspose2d(kernel_num//4, channel_num, kernel_size=4, stride=2, padding=1),  # [batch, channel_num, 32, 32]?
+            nn.ConvTranspose2d(kernel_num//4, channel_num*f_num, kernel_size=4, stride=2, padding=1),  # [batch, channel_num, 32, 32]?
         )
 
         # projection
@@ -359,7 +360,8 @@ class M2(VAE_Categorical_Base, CNN):
         # num_mix = 3 if channel_num == 1 else 10
         num_mix = 10
         nr_logistic_mix = 5
-        self.nin_out = nin(3, num_mix * nr_logistic_mix)
+        f_num = 5
+        self.nin_out = nin(3*f_num, num_mix * nr_logistic_mix)
 
         self.apply(init_weights)
 
