@@ -116,27 +116,27 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 optimizer.zero_grad()
 
-                if epoch == 0:
-                    ############## Warmup CNN ##################
-                    reconstruction = net.autoencoder(data_u)
-                    loss = self.autoencoder(data_u, reconstruction)
+                # if epoch == 0:
+                #     ############## Warmup CNN ##################
+                #     reconstruction = net.autoencoder(data_u)
+                #     loss = self.autoencoder(data_u, reconstruction)
+                #
+                # else:
+                labeled_results = net((data_l, one_hot))
+                unlabeled_results = net((data_u, None))
 
-                else:
-                    labeled_results = net((data_l, one_hot))
-                    unlabeled_results = net((data_u, None))
+                ############## Labeled step ################
+                loss_l = self.labeled_loss(data_l, one_hot, net, **labeled_results)
 
-                    ############## Labeled step ################
-                    loss_l = self.labeled_loss(data_l, one_hot, net, **labeled_results)
+                ############## Unlabeled step ##############
+                loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
 
-                    ############## Unlabeled step ##############
-                    loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
+                ############# Semantic Loss ################
+                loss_s = self.semantic_loss(epoch, net, labeled_results, unlabeled_results, labels=one_hot)
 
-                    ############# Semantic Loss ################
-                    loss_s = self.semantic_loss(epoch, net, labeled_results, unlabeled_results, labels=one_hot)
+                loss = loss_l + loss_u + loss_s
 
-                    loss = loss_l + loss_u + loss_s
-
-                    sloss_meter.update(loss_s.item(), data_u.size(0))
+                sloss_meter.update(loss_s.item(), data_u.size(0))
 
                 loss.backward()
 
