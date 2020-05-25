@@ -108,7 +108,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 # data_u = data_u.to(device)
                 # data_u = self.to_logits(data_u, device)
                 data_l = data_l.to(device)
-                data_l = self.to_logits(data_l, device)
+                # data_l = self.to_logits(data_l, device)
 
                 target_l = target_l.to(device)
 
@@ -177,7 +177,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             for data, labels in loaders:
 
                 data = data.to(device)
-                data = self.to_logits(data, device)
+                # data = self.to_logits(data, device)
                 labels = labels.to(device)
 
                 one_hot = self.convert_to_one_hot(
@@ -253,14 +253,14 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             transforms.RandomHorizontalFlip(),
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
-            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
         _CIFAR_TEST_TRANSFORMS = [
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
             # transforms.ToPILImage(),
-            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
         if self.dataset == "MNIST":
