@@ -293,7 +293,7 @@ class LinearVAE(VAE):
             nn.LeakyReLU(.01),
             nn.Linear(mid_dim, mid_dim),
             nn.LeakyReLU(.01),
-            nn.Linear(mid_dim, data_dim*data_dim*channel_num),
+            nn.Linear(mid_dim, data_dim),
         )
 
         self.decoder = self.decoder_linear
