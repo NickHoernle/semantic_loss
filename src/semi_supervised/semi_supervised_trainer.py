@@ -125,7 +125,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 #
                 # else:
                 labeled_results = net((data_l, one_hot))
-                unlabeled_results = net((data_u, None))
+                # unlabeled_results = net((data_u, None))
 
                 ############## Labeled step ################
                 loss_l = self.labeled_loss(data_l, one_hot, net, **labeled_results)
