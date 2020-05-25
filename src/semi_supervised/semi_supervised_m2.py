@@ -99,13 +99,17 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         q_mu, q_logvar, log_q_y = q_vals
         true_y = labels
 
-        BCE = nn.BCELoss(size_average=False)(torch.sigmoid(data_recon), data)/data.size(0)
+        recon_err = 1e1*torch.norm(data_recon - data)
+        # BCE = nn.BCELoss(size_average=False)(torch.sigmoid(data_recon), data)/data.size(0)
+        # TODO impoelemnt norm here
+        # import pdb
+        # pdb.set_trace()
 
         KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).mean()
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).mean()
 
-        return BCE + KLD_cont.sum() + discriminator_loss
+        return recon_err + KLD_cont + discriminator_loss
 
     @staticmethod
     def unlabeled_loss(data, net, reconstructed, latent_samples, q_vals):
@@ -119,10 +123,11 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
 
         loss_u = 0
         for cat in range(len(reconstructed)):
-            pred = torch.sigmoid(reconstructed[cat])
+            pred = reconstructed[cat]
             true = data
 
-            BCE = F.binary_cross_entropy(pred, true, reduction="none").sum(dim=(1, 2, 3))
+            # TODO impoelemnt norm here
+            # BCE = F.binary_cross_entropy(pred, true, reduction="none").sum(dim=(1, 2, 3))
             log_q_y = log_q_ys[:, cat]
             q_y = torch.exp(log_q_y)
 

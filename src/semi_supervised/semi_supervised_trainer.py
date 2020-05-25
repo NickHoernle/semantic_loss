@@ -105,8 +105,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 (data_l, target_l) = next(train_loader_labelled)
 
                 # prepare the data
-                data_u = data_u.to(device)
+                # data_u = data_u.to(device)
+                # data_u = self.to_logits(data_u, device)
                 data_l = data_l.to(device)
+                data_l = self.to_logits(data_l, device)
 
                 target_l = target_l.to(device)
 
@@ -129,14 +131,14 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 loss_l = self.labeled_loss(data_l, one_hot, net, **labeled_results)
 
                 ############## Unlabeled step ##############
-                loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
+                # loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
 
                 ############# Semantic Loss ################
-                loss_s = self.semantic_loss(epoch, net, labeled_results, unlabeled_results, labels=one_hot)
+                # loss_s = self.semantic_loss(epoch, net, labeled_results, unlabeled_results, labels=one_hot)
 
-                loss = loss_l + loss_u + loss_s
+                loss = loss_l #+ loss_u + loss_s
 
-                sloss_meter.update(loss_s.item(), data_u.size(0))
+                # sloss_meter.update(loss_s.item(), data_u.size(0))
 
                 loss.backward()
 
@@ -175,23 +177,24 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             for data, labels in loaders:
 
                 data = data.to(device)
+                data = self.to_logits(data, device)
                 labels = labels.to(device)
 
                 one_hot = self.convert_to_one_hot(
                     num_categories=self.num_categories, labels=labels
                 ).to(device)
 
-                net_args = net((data, None))
-                # net_args = net((data, one_hot))
-                # loss = self.labeled_loss(data, one_hot, **net_args)
+                # net_args = net((data, None))
+                net_args = net((data, one_hot))
+                loss = self.labeled_loss(data, one_hot, net, **net_args)
 
                 if not saved and not self.tqdm_print: #only save these if on local
                     save_image(torch.sigmoid(net_args["reconstructed"][0]), f'{self.figure_path}/recon_{epoch}.png')
                     save_image(data, f'{self.figure_path}/true_{epoch}.png')
                     saved = True
 
-                loss = self.unlabeled_loss(data, net, **net_args)
-                # loss = self.labeled_loss(data, *net_args)
+                # loss = self.unlabeled_loss(data, net, **net_args)
+                # loss = self.labeled_loss(data, net, *net_args)
 
                 loss_meter.update(loss.item(), data.size(0))
                 progress_bar.set_postfix(nll=loss_meter.avg)
@@ -329,6 +332,15 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         one_hot = torch.FloatTensor(len(labels), num_categories).zero_().to(self.device)
         one_hot.scatter_(1, labels, 1)
         return one_hot
+
+    def to_logits(self, x, device):
+
+        bounds = torch.tensor([0.9], dtype=torch.float32).to(device)
+        y = (2 * x - 1) * bounds
+        y = (y + 1) / 2
+        y = y.log() - (1. - y).log()
+
+        return y
 
     def sample_examples(self, epoch, net):
         labels = torch.zeros(64, self.num_categories).to(self.device)
