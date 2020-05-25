@@ -53,6 +53,7 @@ class VAE(nn.Module):
         self.zeros = torch.zeros(hidden_dim)
         self.eye = torch.eye(hidden_dim)
         self.base = MultivariateNormal(self.zeros, self.eye)
+        self.bounds = torch.tensor([0.9], dtype=torch.float32)
 
         self.apply(init_weights)
 
@@ -92,8 +93,7 @@ class VAE(nn.Module):
         z = torch.randn((num_samples, self.hidden_dim))
         return self.decode(z)
 
-    @classmethod
-    def to_logits(cls, x):
+    def to_logits(self, x):
         """Convert the input image `x` to logits.
 
         Args:
@@ -107,14 +107,13 @@ class VAE(nn.Module):
             - Dequantization: https://arxiv.org/abs/1511.01844, Section 3.1
             - Modeling logits: https://arxiv.org/abs/1605.08803, Section 4.1
         """
-        bounds = torch.tensor([0.9], dtype=torch.float32)
-        y = (2 * x - 1) * bounds
+        y = (2 * x - 1) * self.bounds
         y = (y + 1) / 2
         y = y.log() - (1. - y).log()
 
         # Save log-determinant of Jacobian of initial transform
         ldj = F.softplus(y) + F.softplus(-y) \
-              - F.softplus((1. - bounds).log() - bounds.log())
+              - F.softplus((1. - self.bounds).log() - self.bounds.log())
         sldj = ldj.flatten(1).sum(-1)
 
         return y, sldj
@@ -123,6 +122,7 @@ class VAE(nn.Module):
         self = super().to(*args, **kwargs)
         self.eye = self.eye.to(*args, **kwargs)
         self.zeros = self.zeros.to(*args, **kwargs)
+        self.bounds = self.bounds.to(*args, **kwargs)
         return self
 
 class VAE_Gaussian(VAE):
