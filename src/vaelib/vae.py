@@ -178,27 +178,30 @@ class CNN(VAE):
             nn.LeakyReLU(.01),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.LeakyReLU(.01),
+            nn.MaxPool2d(2, 2)
         )
 
         self.feature_size = self.image_size // (2 ** 3)
         self.feature_volume = kernel_num * self.feature_size * self.feature_size
 
-        self.encoder_linear = [
-            nn.Linear(self.feature_volume, self.feature_volume),
+        self.encoder_linear = nn.Sequential(
+            nn.Linear(self.feature_volume//4, self.feature_volume//2),
+            nn.Dropout(0.1),
             nn.LeakyReLU(.01),
-            nn.Linear(self.feature_volume, self.feature_volume),
+            nn.Linear(self.feature_volume//2, self.feature_volume//4),
+            nn.Dropout(0.1),
             nn.LeakyReLU(.01),
-        ]
+        )
 
         self.q_mean = nn.Sequential(
-            nn.Linear(self.feature_volume, self.feature_volume//2),
+            nn.Linear(self.feature_volume//4, self.feature_volume//2),
             nn.Dropout(0.1),
             nn.LeakyReLU(.01),
             nn.Linear(self.feature_volume//2, hidden_dim),
             nn.Dropout(0.1),
         )
         self.q_logvar = nn.Sequential(
-            nn.Linear(self.feature_volume, self.feature_volume//2),
+            nn.Linear(self.feature_volume//4, self.feature_volume//2),
             nn.Dropout(0.1),
             nn.LeakyReLU(.01),
             nn.Linear(self.feature_volume//2, hidden_dim),
@@ -226,7 +229,7 @@ class CNN(VAE):
         self.encoder = nn.Sequential(
             self.encoding_cnn,
             Flatten(),
-            *self.encoder_linear
+            self.encoder_linear
         )
 
     # def encoder(self, x):
@@ -342,7 +345,7 @@ class M2(VAE_Categorical_Base, CNN):
                          kernel_num=kernel_num)
 
         self.log_q_y = nn.Sequential(
-            nn.Linear(self.feature_volume, self.feature_volume // 2),
+            nn.Linear(self.feature_volume//4, self.feature_volume // 2),
             nn.Dropout(0.1),
             nn.LeakyReLU(.01),
             nn.Linear(self.feature_volume // 2, NUM_CATEGORIES),
