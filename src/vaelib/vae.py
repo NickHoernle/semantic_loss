@@ -217,7 +217,7 @@ class CNN(VAE):
             nn.LeakyReLU(.01),
             nn.ConvTranspose2d(kernel_num//2, kernel_num//4, kernel_size=4, stride=2, padding=1),  # [batch, K/4, 16, 16]
             nn.LeakyReLU(.01),
-            nn.ConvTranspose2d(kernel_num//4, channel_num*f_num, kernel_size=4, stride=2, padding=1),  # [batch, channel_num, 32, 32]?
+            nn.ConvTranspose2d(kernel_num//4, channel_num*self.feature_volume//8, kernel_size=4, stride=2, padding=1),  # [batch, channel_num, 32, 32]?
         )
 
         # projection
@@ -359,8 +359,8 @@ class M2(VAE_Categorical_Base, CNN):
 
         # num_mix = 3 if channel_num == 1 else 10
         num_mix = 10
-        nr_logistic_mix = 5
-        f_num = 5
+        nr_logistic_mix = 10
+        f_num = self.feature_volume//8
         self.nin_out = nin(3*f_num, num_mix * nr_logistic_mix)
 
         self.apply(init_weights)
