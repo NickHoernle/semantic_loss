@@ -192,13 +192,17 @@ class CNN(VAE):
 
         self.q_mean = nn.Sequential(
             nn.Linear(self.feature_volume, self.feature_volume//2),
+            nn.Dropout(0.1),
             nn.LeakyReLU(.01),
-            nn.Linear(self.feature_volume//2, hidden_dim)
+            nn.Linear(self.feature_volume//2, hidden_dim),
+            nn.Dropout(0.1),
         )
         self.q_logvar = nn.Sequential(
             nn.Linear(self.feature_volume, self.feature_volume//2),
+            nn.Dropout(0.1),
             nn.LeakyReLU(.01),
-            nn.Linear(self.feature_volume//2, hidden_dim)
+            nn.Linear(self.feature_volume//2, hidden_dim),
+            nn.Dropout(0.1),
         )
 
         self.decoder_cnn = nn.Sequential(
@@ -212,8 +216,10 @@ class CNN(VAE):
         # projection
         self.project = nn.Sequential(
             nn.Linear(hidden_dim, self.feature_volume // 2),
+            nn.Dropout(0.1),
             nn.LeakyReLU(.01),
             nn.Linear(self.feature_volume // 2, self.feature_volume),
+            nn.Dropout(0.1),
             nn.LeakyReLU(.01),
         )
 
@@ -337,8 +343,10 @@ class M2(VAE_Categorical_Base, CNN):
 
         self.log_q_y = nn.Sequential(
             nn.Linear(self.feature_volume, self.feature_volume // 2),
+            nn.Dropout(0.1),
             nn.LeakyReLU(.01),
-            nn.Linear(self.feature_volume // 2, NUM_CATEGORIES)
+            nn.Linear(self.feature_volume // 2, NUM_CATEGORIES),
+            nn.Dropout(0.1),
         )
         self.proj_y = nn.Sequential(nn.Linear(NUM_CATEGORIES, hidden_dim))
         self.Wy = nn.Sequential(nn.Linear(NUM_CATEGORIES, hidden_dim))
