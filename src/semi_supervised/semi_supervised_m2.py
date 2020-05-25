@@ -118,10 +118,10 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
 
         loss_u = 0
         for cat in range(len(reconstructed)):
-            pred = torch.sigmoid(reconstructed[cat]).view(len(data), -1)
-            true = data.view(len(data), -1)
+            pred = torch.sigmoid(reconstructed[cat])
+            true = data
 
-            BCE = F.binary_cross_entropy(pred, true, reduction="none").sum(dim=1)
+            BCE = F.binary_cross_entropy(pred, true, reduction="none").sum(dim=(1, 2, 3))
             log_q_y = log_q_ys[:, cat]
             q_y = torch.exp(log_q_y)
 

@@ -137,7 +137,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     loss = loss_l + loss_u + loss_s
 
                     sloss_meter.update(loss_s.item(), data_u.size(0))
-                    
+
                 loss.backward()
 
                 if self.max_grad_norm > 0:
