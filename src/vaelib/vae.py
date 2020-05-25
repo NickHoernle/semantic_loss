@@ -331,7 +331,7 @@ class VAE_Categorical_Base(VAE):
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
         x_reconstructed = self.decoder(z)
-        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 2)
+        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 5)
         return x_reconstructed
 
 
@@ -358,7 +358,7 @@ class M2(VAE_Categorical_Base, CNN):
 
         # num_mix = 3 if channel_num == 1 else 10
         num_mix = 10
-        nr_logistic_mix = 2
+        nr_logistic_mix = 5
         self.nin_out = nin(3, num_mix * nr_logistic_mix)
 
         self.apply(init_weights)
