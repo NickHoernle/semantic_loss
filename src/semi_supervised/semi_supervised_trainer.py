@@ -22,8 +22,8 @@ from torch.nn import functional as F
 
 params = {
     "MNIST":{"num_categories": 10, "channel_num": 1},
-    "CIFAR10":{"num_categories": 10, "channel_num": 1},
-    "CIFAR100":{"num_categories": 100, "channel_num": 1},
+    "CIFAR10":{"num_categories": 10, "channel_num": 3},
+    "CIFAR100":{"num_categories": 100, "channel_num": 3},
 }
 
 class SemiSupervisedTrainer(GenerativeTrainer):
@@ -251,13 +251,11 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         _CIFAR_TRAIN_TRANSFORMS = [
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
-            transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
         _CIFAR_TEST_TRANSFORMS = [
-            transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
             # transforms.ToPILImage(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
