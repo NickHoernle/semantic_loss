@@ -5,6 +5,7 @@ Define semi-supervised class for training VAE models
 import numpy as np
 
 import torch
+from torch import nn
 from torch.nn import functional as F
 from torch import optim
 from torchvision.utils import save_image
@@ -98,11 +99,11 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         q_mu, q_logvar, log_q_y = q_vals
         true_y = labels
 
-        BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        BCE = nn.BCELoss(size_average=False)(torch.sigmoid(data_recon), data)/data.size(0)
 
-        KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
+        KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).mean()
 
-        discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
+        discriminator_loss = -(true_y * log_q_y).sum(dim=1).mean()
 
         return BCE + KLD_cont.sum() + discriminator_loss
 
@@ -114,7 +115,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
         # z, pred_means = latent_samples
 
         q_mu, q_logvar, log_q_ys = q_vals
-        KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
+        KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).mean()
 
         loss_u = 0
         for cat in range(len(reconstructed)):
@@ -125,7 +126,7 @@ class M2SemiSupervisedTrainer(SemiSupervisedTrainer):
             log_q_y = log_q_ys[:, cat]
             q_y = torch.exp(log_q_y)
 
-            loss_u += torch.sum(q_y*BCE + q_y*log_q_y)
+            loss_u += torch.sum(q_y*BCE + q_y*log_q_y)/data.size(0)
 
         return loss_u + KLD_cont
 
