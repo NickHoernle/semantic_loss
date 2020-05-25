@@ -116,19 +116,28 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 optimizer.zero_grad()
 
-                ############## Labeled step ################
-                labeled_results = net((data_l, one_hot))
-                loss_l = self.labeled_loss(data_l, one_hot, net, **labeled_results)
+                if epoch == 0:
+                    ############## Warmup CNN ##################
+                    reconstruction = net.autoencoder(data_u)
+                    loss = self.autoencoder(data_u, reconstruction)
 
-                ############## Unlabeled step ##############
-                loss_u = 0
-                unlabeled_results = net((data_u, None))
-                loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
+                else:
+                    labeled_results = net((data_l, one_hot))
+                    unlabeled_results = net((data_u, None))
 
-                ############# Semantic Loss ################
-                loss_s = self.semantic_loss(epoch, net, labeled_results, unlabeled_results, labels=one_hot)
+                    ############## Labeled step ################
+                    loss_l = self.labeled_loss(data_l, one_hot, net, **labeled_results)
 
-                loss = loss_l + loss_u + loss_s
+                    ############## Unlabeled step ##############
+                    loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
+
+                    ############# Semantic Loss ################
+                    loss_s = self.semantic_loss(epoch, net, labeled_results, unlabeled_results, labels=one_hot)
+
+                    loss = loss_l + loss_u + loss_s
+
+                    sloss_meter.update(loss_s.item(), data_u.size(0))
+                    
                 loss.backward()
 
                 if self.max_grad_norm > 0:
@@ -137,7 +146,6 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 optimizer.step()
 
                 loss_meter.update(loss.item(), data_u.size(0))
-                sloss_meter.update(loss_s.item(), data_u.size(0))
 
                 progress_bar.set_postfix(nll=loss_meter.avg, sloss=sloss_meter.avg)
                 progress_bar.update(data_u.size(0))
@@ -290,6 +298,9 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         num_categories = configs['size']
 
         return train_ds, valid_ds, num_categories
+
+    def autoencoder(self, data, reconstructions):
+        return F.binary_cross_entropy(torch.sigmoid(reconstructions), data, reduction="sum")
 
     def get_loaders(self, train_ds, valid_ds, num_categories):
         labelled_sampler, unlabelled_sampler = get_samplers(

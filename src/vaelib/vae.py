@@ -171,14 +171,14 @@ class CNN(VAE):
         self.kernel_num = kernel_num
         self.z_size = hidden_dim
 
-        self.encoding_cnn = [
+        self.encoding_cnn = nn.Sequential(
             nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
             nn.LeakyReLU(.01),
             nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
             nn.LeakyReLU(.01),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.LeakyReLU(.01),
-        ]
+        )
 
         self.feature_size = self.image_size // (2 ** 3)
         self.feature_volume = kernel_num * self.feature_size * self.feature_size
@@ -218,7 +218,7 @@ class CNN(VAE):
         )
 
         self.encoder = nn.Sequential(
-            *self.encoding_cnn,
+            self.encoding_cnn,
             Flatten(),
             *self.encoder_linear
         )
@@ -236,6 +236,11 @@ class CNN(VAE):
     def q(self, encoded):
         unrolled = encoded.view(-1, self.feature_volume)
         return self.q_mean(unrolled), self.q_logvar(unrolled)
+
+    def autoencoder(self, x):
+        encoded = self.encoding_cnn(x)
+        decoded = self.decoder_cnn(encoded)
+        return decoded
 
 
 class LinearVAE(VAE):
