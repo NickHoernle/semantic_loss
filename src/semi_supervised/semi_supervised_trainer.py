@@ -253,7 +253,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         ]
 
         _CIFAR_TEST_TRANSFORMS = [
-            transforms.ToTensor(),
+            transforms.ToPILImage(),
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
