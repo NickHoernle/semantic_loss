@@ -213,7 +213,7 @@ class CNN(VAE):
 
         f_num = 5
         self.decoder_cnn = nn.Sequential(
-            nn.ConvTranspose2d(kernel_num, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, K/2, 8, 8]
+            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, K/2, 8, 8]
             nn.ELU(),
             nin(kernel_num, kernel_num),
             nn.ELU(),
