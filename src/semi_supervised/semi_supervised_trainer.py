@@ -134,9 +134,9 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 # loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
 
                 ############# Semantic Loss ################
-                # loss_s = self.semantic_loss(epoch, net, labeled_results, unlabeled_results, labels=one_hot)
+                loss_s = self.semantic_loss(epoch, net, labeled_results, labeled_results, labels=one_hot)
 
-                loss = loss_l #+ loss_u + loss_s
+                loss = loss_l + loss_s#+ loss_u + loss_s
 
                 # sloss_meter.update(loss_s.item(), data_u.size(0))
 
