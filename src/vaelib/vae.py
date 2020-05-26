@@ -189,7 +189,7 @@ class CNN(VAE):
 
         self.encoder_linear = nn.Sequential(
             nn.Linear(self.feature_volume, self.feature_volume//2), # need the div 4 due to max pool
-            nn.Dropout(0.1),
+            # nn.Dropout(0.1),
             nn.LeakyReLU(.01),
             nn.Linear(self.feature_volume//2, self.feature_volume//4),
             nn.Dropout(0.1),
@@ -201,14 +201,14 @@ class CNN(VAE):
             nn.Dropout(0.1),
             nn.LeakyReLU(.01),
             nn.Linear(self.feature_volume//2, hidden_dim),
-            nn.Dropout(0.1),
+            # nn.Dropout(0.1),
         )
         self.q_logvar = nn.Sequential(
             nn.Linear(self.feature_volume//4, self.feature_volume//2),
             nn.Dropout(0.1),
             nn.LeakyReLU(.01),
             nn.Linear(self.feature_volume//2, hidden_dim),
-            nn.Dropout(0.1),
+            # nn.Dropout(0.1),
         )
 
         f_num = 5
@@ -488,7 +488,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
         q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
 
-        return self.base.log_prob((q_mus - q_global_means)/q_sigs)
+        return self.base.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
 
     def forward_labelled(self, x, labels, **kwargs):
 
