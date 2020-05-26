@@ -123,6 +123,7 @@ class VAE(nn.Module):
         self.eye = self.eye.to(*args, **kwargs)
         self.zeros = self.zeros.to(*args, **kwargs)
         self.bounds = self.bounds.to(*args, **kwargs)
+        self.base = MultivariateNormal(self.zeros, self.eye)
         return self
 
 class VAE_Gaussian(VAE):
