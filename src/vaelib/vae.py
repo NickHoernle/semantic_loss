@@ -175,13 +175,18 @@ class CNN(VAE):
         self.z_size = hidden_dim
 
         self.encoding_cnn = nn.Sequential(
-            nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
-            nn.LeakyReLU(.01),
-            nn.Conv2d(kernel_num//4, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
-            nn.LeakyReLU(.01),
-            nn.Conv2d(kernel_num, kernel_num*4, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
-            nn.LeakyReLU(.01),
-            nn.MaxPool2d(2, 2)
+            nn.Conv2d(channel_num, kernel_num, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
+            nn.ELU(),
+            nin(kernel_num, kernel_num),
+            nn.ELU(),
+            nn.Conv2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
+            nn.ELU(),
+            nin(kernel_num, kernel_num),
+            nn.ELU(),
+            nn.Conv2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
+            nn.ELU(),
+            nin(kernel_num, kernel_num),
+            nn.ELU(),
         )
 
         self.feature_size = self.image_size // (2 ** 3)
@@ -211,17 +216,22 @@ class CNN(VAE):
             # nn.Dropout(0.1),
         )
 
-        f_num = 5
+        # num_mix = 3 if channel_num == 1 else 10
+        num_mix = 10
+        nr_logistic_mix = 100
+
         self.decoder_cnn = nn.Sequential(
-            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, K/2, 8, 8]
+            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 8, 8]
             nn.ELU(),
             nin(kernel_num, kernel_num),
             nn.ELU(),
-            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, K/4, 16, 16]
+            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 16, 16]
             nn.ELU(),
             nin(kernel_num, kernel_num),
             nn.ELU(),
-            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, channel_num, 32, 32]?
+            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
+            nn.ELU(),
+            nin(kernel_num, num_mix * nr_logistic_mix),
         )
 
         # projection
@@ -240,16 +250,10 @@ class CNN(VAE):
             self.encoder_linear
         )
 
-        num_mix = 10
-        nr_logistic_mix = 100
-        f_num = kernel_num
-        self.nin_out = nin(f_num, num_mix * nr_logistic_mix)
-
     def decoder(self, z):
         rolled = self.project(z).view(len(z), -1, self.feature_size, self.feature_size)
         rolled = self.decoder_cnn(rolled)
-        out_logits = self.nin_out(F.elu(rolled))
-        return out_logits
+        return rolled
 
     def q(self, encoded):
         unrolled = encoded.view(len(encoded), -1)
@@ -365,13 +369,7 @@ class M2(VAE_Categorical_Base, CNN):
         self.Wy = nn.Sequential(nn.Linear(NUM_CATEGORIES, hidden_dim))
 
         self.softplus = nn.Softplus()
-        self.relu = nn.Tanh()
-
-        # num_mix = 3 if channel_num == 1 else 10
-        num_mix = 10
-        nr_logistic_mix = 100
-        f_num = self.feature_volume//8
-        self.nin_out = nin(3*f_num, num_mix * nr_logistic_mix)
+        self.elu = nn.ELU()
 
         self.apply(init_weights)
 
@@ -385,7 +383,7 @@ class M2(VAE_Categorical_Base, CNN):
         Wyy = self.Wy(labels)
         MG = Wyy + Wz * z
 
-        h1 = self.relu(MG)
+        h1 = self.elu(MG)
         rolled = self.project(h1).view(len(h1), -1, self.feature_size, self.feature_size)
         rolled = self.decoder_cnn(rolled)
         # rolled = rolled.permute(0, 2, 3, 1)
