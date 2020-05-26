@@ -174,9 +174,9 @@ class CNN(VAE):
         self.encoding_cnn = nn.Sequential(
             nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
             nn.LeakyReLU(.01),
-            nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
+            nn.Conv2d(kernel_num//4, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
             nn.LeakyReLU(.01),
-            nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
+            nn.Conv2d(kernel_num, kernel_num*4, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.LeakyReLU(.01),
             nn.MaxPool2d(2, 2)
         )
@@ -185,7 +185,7 @@ class CNN(VAE):
         self.feature_volume = kernel_num * self.feature_size * self.feature_size
 
         self.encoder_linear = nn.Sequential(
-            nn.Linear(self.feature_volume//4, self.feature_volume//2),
+            nn.Linear(self.feature_volume, self.feature_volume//2), # need the div 4 due to max pool
             nn.Dropout(0.1),
             nn.LeakyReLU(.01),
             nn.Linear(self.feature_volume//2, self.feature_volume//4),
@@ -232,18 +232,13 @@ class CNN(VAE):
             self.encoder_linear
         )
 
-    # def encoder(self, x):
-    #     unrolled = self.encoding_cnn(x).view(len(x), -1)
-    #     unrolled = self.encoder_linear(unrolled)
-    #     return unrolled
-
     def decoder(self, z):
         rolled = self.project(z).view(len(z), -1, self.feature_size, self.feature_size)
         rolled = self.decoder_cnn(rolled)
         return rolled
 
     def q(self, encoded):
-        unrolled = encoded.view(-1, self.feature_volume)
+        unrolled = encoded.view(len(encoded), -1)
         return self.q_mean(unrolled), self.q_logvar(unrolled)
 
     def autoencoder(self, x):
@@ -332,7 +327,7 @@ class VAE_Categorical_Base(VAE):
         n_samps = len(labels)
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
-        x_reconstructed, _ = self.decoder(z, labels)
+        x_reconstructed = self.decoder(z)
         return x_reconstructed
 
 
@@ -413,6 +408,13 @@ class M2(VAE_Categorical_Base, CNN):
                 "latent_samples": [z, pred_means],
                 "q_vals": [q_mu, q_logvar, log_q_ys]}
 
+    def sample_labelled(self, labels):
+        n_samps = len(labels)
+        base_dist = MultivariateNormal(self.zeros, self.eye)
+        z = base_dist.sample((n_samps,))
+        x_reconstructed, _ = self.decoder(z, labels)
+        return x_reconstructed
+
 
 class M2_Linear(LinearVAE, M2):
 
@@ -443,7 +445,7 @@ class M2_Linear(LinearVAE, M2):
         return self.q_mean(unrolled), self.q_logvar(unrolled), self.log_q_y(unrolled)
 
 
-class GMM_VAE(M2):
+class GMM_VAE(VAE_Categorical_Base, CNN):
     def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):
         super().__init__(data_dim=data_dim,
                          hidden_dim=hidden_dim,
@@ -454,50 +456,33 @@ class GMM_VAE(M2):
         self.q_global_means = nn.Parameter(torch.rand(self.num_categories, self.hidden_dim))
         self.q_global_log_var = nn.Parameter(torch.zeros(self.num_categories, self.hidden_dim))
 
-        # override unnecessary params
-        # self.log_q_y = None
-        self.Wy = None
-        self.proj_y = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.LeakyReLU(0.01)
-        )
+    def discriminator(self, q_mu, q_logvar):
 
-    # def q(self, encoded):
-    #     unrolled = encoded.view(len(encoded), -1)
-    #     return self.q_mean(unrolled), self.q_logvar(unrolled)
+        q_mus = q_mu.unsqueeze(1).repeat(1, self.num_categories, 1)
+        q_sigs = torch.exp(q_logvar).unsqueeze(1).repeat(1, self.num_categories, 1)
 
-    def decoder(self, z):
-        h1 = self.proj_y(z)
-        rolled = self.project(h1).view(len(h1), -1, self.feature_size, self.feature_size)
-        rolled = self.decoder_cnn(rolled)
-        return rolled, None
+        q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
+        q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
 
-    # def discriminator(self, q_mu, q_logvar):
-    #
-    #     q_mus = q_mu.unsqueeze(1).repeat(1, self.num_categories, 1)
-    #     q_sigs = torch.exp(q_logvar).unsqueeze(1).repeat(1, self.num_categories, 1)
-    #
-    #     q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
-    #     q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
-    #
-    #     base_dist = MultivariateNormal(self.zeros, self.eye)
-    #
-    #     return base_dist.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
+        return self.base.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
 
     def forward_labelled(self, x, labels, **kwargs):
 
         encoded = self.encoder(x)
-        (q_mu, q_logvar, log_p_y) = self.q(encoded)
-        pred_label_sm_log = log_p_y - torch.logsumexp(log_p_y, dim=1).unsqueeze(1)
 
-        # z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
-        z_mean_expanded = (labels.unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
+        (q_mu, q_logvar) = self.q(encoded)
+
+        log_p_y = self.discriminator(q_mu, q_logvar)
+        pred_label_sm_log = log_p_y - log_sum_exp(log_p_y).unsqueeze(1)
+
+        z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
+        # z_mean_expanded = (labels.unsqueeze(-1) * (z_global.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
         z = self.reparameterize(q_mu, q_logvar)
 
-        x_reconstructed, _ = self.decoder(z + z_mean_expanded)
+        x_reconstructed = self.decoder(z)
 
         return {"reconstructed": [x_reconstructed],
-                "latent_samples": [z, None],
+                "latent_samples": [z, z_global],
                 "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, pred_label_sm_log]}
 
     def forward_unlabelled(self, x, **kwargs):
@@ -532,7 +517,7 @@ class GMM_VAE(M2):
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
         q_mean_expanded = (labels.unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(labels), 1, 1))).sum(dim=1)
-        x_reconstructed, _ = self.decoder(z + q_mean_expanded)
+        x_reconstructed = self.decoder(z + q_mean_expanded)
         return x_reconstructed
 
 class M2_Gumbel(M2):
@@ -564,3 +549,12 @@ class Flatten(torch.nn.Module):
     def forward(self, x):
         batch_size = x.shape[0]
         return x.view(batch_size, -1)
+
+
+def log_sum_exp(x):
+    """ numerically stable log_sum_exp implementation that prevents overflow """
+    # TF ordering
+    axis  = len(x.size()) - 1
+    m, _  = torch.max(x, dim=axis)
+    m2, _ = torch.max(x, dim=axis, keepdim=True)
+    return m + torch.log(torch.sum(torch.exp(x - m2), dim=axis))
