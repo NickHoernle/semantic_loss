@@ -26,7 +26,7 @@ class Flatten(nn.Module):
         self.feature_volume = feature_volume
 
     def forward(self, x):
-        return x.view(-1, self.feature_volume)
+        return x.reshape(-1, self.feature_volume)
 
 
 class VAE(nn.Module):
