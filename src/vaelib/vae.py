@@ -209,13 +209,11 @@ class CNN(VAE):
             nn.Linear(self.feature_volume//4, hidden_dim),
             nn.ELU(),
             nn.Linear(hidden_dim, hidden_dim),
-            # nn.Dropout(0.1),
         )
         self.q_logvar = nn.Sequential(
             nn.Linear(self.feature_volume//4, hidden_dim),
             nn.ELU(),
             nn.Linear(hidden_dim, hidden_dim),
-            # nn.Dropout(0.1),
         )
 
         # num_mix = 3 if channel_num == 1 else 10
