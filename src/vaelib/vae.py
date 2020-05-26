@@ -365,7 +365,7 @@ class M2(VAE_Categorical_Base, CNN):
 
         # num_mix = 3 if channel_num == 1 else 10
         num_mix = 10
-        nr_logistic_mix = 10
+        nr_logistic_mix = 100
         f_num = self.feature_volume//8
         self.nin_out = nin(3*f_num, num_mix * nr_logistic_mix)
 
@@ -436,7 +436,7 @@ class M2(VAE_Categorical_Base, CNN):
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
         x_reconstructed, _ = self.decoder(z, labels)
-        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 10)
+        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 100)
         return x_reconstructed
 
 
@@ -542,7 +542,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         z = base_dist.sample((n_samps,))
         q_mean_expanded = (labels.unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(labels), 1, 1))).sum(dim=1)
         x_reconstructed = self.decoder(z + q_mean_expanded)
-        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 10)
+        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 100)
         return x_reconstructed
 
 class M2_Gumbel(M2):
