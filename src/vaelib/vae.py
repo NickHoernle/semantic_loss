@@ -197,6 +197,7 @@ class CNN(VAE):
 
         self.encoder_linear = nn.Sequential(
             nn.Linear(self.feature_volume, self.feature_volume//2), # need the div 4 due to max pool
+            nn.BatchNorm1d(self.feature_volume//2),
             nn.ELU(True),
             nn.Linear(self.feature_volume//2, self.feature_volume//4),
             nn.ELU(True),
@@ -210,11 +211,13 @@ class CNN(VAE):
 
         self.q_mean = nn.Sequential(
             nn.Linear(self.feature_volume//4, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
             nn.ELU(True),
             nn.Linear(hidden_dim, hidden_dim),
         )
         self.q_logvar = nn.Sequential(
             nn.Linear(self.feature_volume//4, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
             nn.ELU(True),
             nn.Linear(hidden_dim, hidden_dim),
         )
@@ -226,8 +229,10 @@ class CNN(VAE):
         # projection
         self.project = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
             nn.ELU(True),
             nn.Linear(hidden_dim, self.feature_volume),
+            nn.BatchNorm1d(self.feature_volume),
             nn.ELU(True),
         )
 
@@ -242,10 +247,11 @@ class CNN(VAE):
             nn.ELU(True),
             nin(kernel_num//4, kernel_num//4),
             nn.ELU(True),
-            nn.ConvTranspose2d(kernel_num//4, kernel_num//8, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
-            nn.ELU(True),
+            # nn.ConvTranspose2d(kernel_num//4, kernel_num//8, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
+            nn.ConvTranspose2d(kernel_num // 4, self.channel_num, kernel_size=4, stride=2, padding=1)
+            # nn.ELU(True),
             # nin(kernel_num//8, self.channel_num),
-            nin(kernel_num // 8, num_mix * self.nr_logistic_mix)
+            # nin(kernel_num // 8, num_mix * self.nr_logistic_mix)
         )
 
     def decoder(self, z):
@@ -542,8 +548,8 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         z = base_dist.sample((n_samps,))
         q_mean_expanded = (labels.unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(labels), 1, 1))).sum(dim=1)
         x_reconstructed = self.decoder(z + q_mean_expanded)
-        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, self.nr_logistic_mix)
-        return x_reconstructed
+        # x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, self.nr_logistic_mix)
+        return torch.sigmoid(x_reconstructed)
 
 class M2_Gumbel(M2):
     def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):

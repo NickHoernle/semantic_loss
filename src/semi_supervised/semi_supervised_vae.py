@@ -119,8 +119,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         q_means = q_mu - (true_y.unsqueeze(-1) * q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
         # reconstruction loss
-        recon_err = discretized_mix_logistic_loss(data, data_recon)
-        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        # recon_err = discretized_mix_logistic_loss(data, data_recon)
+        recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 
         # KLD for Z2
         KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()

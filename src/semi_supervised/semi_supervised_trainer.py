@@ -188,10 +188,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 net_args = net((data, one_hot))
                 loss = self.labeled_loss(data, one_hot, net, **net_args)
 
-                # if not saved and not self.tqdm_print: #only save these if on local
-                #     save_image(torch.sigmoid(net_args["reconstructed"][0]), f'{self.figure_path}/recon_{epoch}.png')
-                #     save_image(data, f'{self.figure_path}/true_{epoch}.png')
-                #     saved = True
+                if not saved and not self.tqdm_print: #only save these if on local
+                    save_image(torch.sigmoid(net_args["reconstructed"][0]), f'{self.figure_path}/recon_{epoch}.png')
+                    save_image(data, f'{self.figure_path}/true_{epoch}.png')
+                    saved = True
 
                 # loss = self.unlabeled_loss(data, net, **net_args)
                 # loss = self.labeled_loss(data, net, *net_args)
@@ -252,13 +252,13 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
         _CIFAR_TEST_TRANSFORMS = [
             transforms.ToTensor(),
             # transforms.ToPILImage(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
         if self.dataset == "MNIST":
