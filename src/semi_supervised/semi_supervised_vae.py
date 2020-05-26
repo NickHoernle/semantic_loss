@@ -193,7 +193,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             distances = torch.sqrt(torch.square(net.q_global_means[j] - net.q_global_means[idxs[idxs != j]]).sum(dim=1))
             sloss += torch.where(distances < 20, 20 - distances, torch.zeros_like(distances)).sum()
 
-        return sloss
+        return 1e2*sloss
 
     @staticmethod
     def simple_loss(data, reconstructed, latent_samples, q_vals):
