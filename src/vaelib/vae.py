@@ -430,6 +430,7 @@ class M2(VAE_Categorical_Base, CNN):
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
         x_reconstructed, _ = self.decoder(z, labels)
+        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 10)
         return x_reconstructed
 
 
@@ -535,6 +536,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         z = base_dist.sample((n_samps,))
         q_mean_expanded = (labels.unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(labels), 1, 1))).sum(dim=1)
         x_reconstructed = self.decoder(z + q_mean_expanded)
+        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 10)
         return x_reconstructed
 
 class M2_Gumbel(M2):
