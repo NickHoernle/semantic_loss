@@ -116,10 +116,11 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         num_categories = len(log_q_y[0])
 
         # get the means that z should be associated with
-        q_means = q_mu - (true_y.unsqueeze(-1) * z_global.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+        q_means = q_mu - (true_y.unsqueeze(-1) * q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
         # reconstruction loss
         recon_err = discretized_mix_logistic_loss(data, data_recon)
+        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 
         # KLD for Z2
         KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
@@ -127,9 +128,9 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         KLD_cont_main = - 0.5 * (1 + q_global_log_var - np.log(num_categories**2) -
                                           (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories**2)).sum()
 
-        # discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
+        discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
-        return recon_err + KLD_cont.sum() + KLD_cont_main #+ discriminator_loss
+        return recon_err + KLD_cont.sum() + KLD_cont_main + discriminator_loss
 
     @staticmethod
     def unlabeled_loss(data, net, reconstructed, latent_samples, q_vals):

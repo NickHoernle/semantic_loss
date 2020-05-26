@@ -178,15 +178,18 @@ class CNN(VAE):
 
         self.encoding_cnn = nn.Sequential(
             nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
-            nn.ELU(),
+            nn.BatchNorm2d(kernel_num//4),
+            nn.ELU(True),
             nin(kernel_num//4, kernel_num//4),
-            nn.ELU(),
+            nn.ELU(True),
             nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
-            nn.ELU(),
+            nn.BatchNorm2d(kernel_num//2),
+            nn.ELU(True),
             nin(kernel_num//2, kernel_num//2),
-            nn.ELU(),
+            nn.ELU(True),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
-            nn.ELU(),
+            nn.BatchNorm2d(kernel_num),
+            nn.ELU(True),
         )
 
         self.feature_size = self.image_size // (2 ** 3)
@@ -194,9 +197,9 @@ class CNN(VAE):
 
         self.encoder_linear = nn.Sequential(
             nn.Linear(self.feature_volume, self.feature_volume//2), # need the div 4 due to max pool
-            nn.ELU(),
+            nn.ELU(True),
             nn.Linear(self.feature_volume//2, self.feature_volume//4),
-            nn.ELU(),
+            nn.ELU(True),
         )
 
         self.encoder = nn.Sequential(
@@ -207,12 +210,12 @@ class CNN(VAE):
 
         self.q_mean = nn.Sequential(
             nn.Linear(self.feature_volume//4, hidden_dim),
-            nn.ELU(),
+            nn.ELU(True),
             nn.Linear(hidden_dim, hidden_dim),
         )
         self.q_logvar = nn.Sequential(
             nn.Linear(self.feature_volume//4, hidden_dim),
-            nn.ELU(),
+            nn.ELU(True),
             nn.Linear(hidden_dim, hidden_dim),
         )
 
@@ -223,23 +226,26 @@ class CNN(VAE):
         # projection
         self.project = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
-            nn.ELU(),
+            nn.ELU(True),
             nn.Linear(hidden_dim, self.feature_volume),
-            nn.ELU(),
+            nn.ELU(True),
         )
 
         self.decoder_cnn = nn.Sequential(
-            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 8, 8]
-            nn.ELU(),
-            nin(kernel_num, kernel_num),
-            nn.ELU(),
-            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 16, 16]
-            nn.ELU(),
-            nin(kernel_num, kernel_num),
-            nn.ELU(),
-            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
-            nn.ELU(),
-            nin(kernel_num, num_mix * self.nr_logistic_mix),
+            nn.ConvTranspose2d(kernel_num, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, ?, 8, 8]
+            nn.BatchNorm2d(kernel_num // 2),
+            nn.ELU(True),
+            nin(kernel_num//2, kernel_num//2),
+            nn.ELU(True),
+            nn.ConvTranspose2d(kernel_num//2, kernel_num//4, kernel_size=4, stride=2, padding=1),  # [batch, ?, 16, 16]
+            nn.BatchNorm2d(kernel_num // 4),
+            nn.ELU(True),
+            nin(kernel_num//4, kernel_num//4),
+            nn.ELU(True),
+            nn.ConvTranspose2d(kernel_num//4, kernel_num//8, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
+            nn.ELU(True),
+            # nin(kernel_num//8, self.channel_num),
+            nin(kernel_num // 8, num_mix * self.nr_logistic_mix)
         )
 
     def decoder(self, z):
