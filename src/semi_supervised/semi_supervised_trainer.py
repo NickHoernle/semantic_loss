@@ -105,7 +105,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 (data_l, target_l) = next(train_loader_labelled)
 
                 # prepare the data
-                # data_u = data_u.to(device)
+                data_u = data_u.to(device)
                 # data_u = self.to_logits(data_u, device)
                 data_l = data_l.to(device)
                 # data_l = self.to_logits(data_l, device)
