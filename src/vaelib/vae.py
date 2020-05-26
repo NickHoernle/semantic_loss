@@ -151,15 +151,6 @@ class VAE_Gaussian(VAE):
         return self.mu_dec(mid_var), self.sig_dec(mid_var)
 
 
-class Flatten(nn.Module):
-    def forward(self, input):
-        return input.view(input.size(0), -1)
-
-
-class UnFlatten(nn.Module):
-    def forward(self, input, size=1024):
-        return input.view(input.size(0), size, 1, 1)
-
 class CNN(VAE):
     def __init__(self, *args, **kwargs):
         super().__init__(**kwargs)
@@ -185,8 +176,6 @@ class CNN(VAE):
             nn.ELU(),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.ELU(),
-            nin(kernel_num, kernel_num),
-            nn.ELU(),
         )
 
         self.feature_size = self.image_size // (2 ** 3)
@@ -198,6 +187,12 @@ class CNN(VAE):
             nn.Linear(self.feature_volume//2, self.feature_volume//4),
             nn.Dropout(0.1),
             nn.ELU(),
+        )
+
+        self.encoder = nn.Sequential(
+            self.encoding_cnn,
+            Flatten(feature_volume=self.feature_volume),
+            self.encoder_linear
         )
 
         self.q_mean = nn.Sequential(
@@ -239,12 +234,6 @@ class CNN(VAE):
             nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
             nn.ELU(),
             nin(kernel_num, num_mix * nr_logistic_mix),
-        )
-
-        self.encoder = nn.Sequential(
-            self.encoding_cnn,
-            Flatten(),
-            self.encoder_linear
         )
 
     def decoder(self, z):
@@ -569,10 +558,14 @@ class M2_Gumbel(M2):
                 "q_vals": [q_mu, q_logvar, log_q_ys]}
 
 
-class Flatten(torch.nn.Module):
+class Flatten(nn.Module):
+
+    def __init__(self, feature_volume):
+        super().__init__()
+        self.feature_volume = feature_volume
+
     def forward(self, x):
-        batch_size = x.shape[0]
-        return x.view(batch_size, -1)
+        return x.view(-1, self.feature_volume)
 
 
 def log_sum_exp(x):
