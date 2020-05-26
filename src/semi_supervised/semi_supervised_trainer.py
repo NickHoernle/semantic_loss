@@ -125,20 +125,20 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 #
                 # else:
                 labeled_results = net((data_l, one_hot))
-                # unlabeled_results = net((data_u, None))
+                unlabeled_results = net((data_u, None))
 
                 ############## Labeled step ################
                 loss_l = self.labeled_loss(data_l, one_hot, net, **labeled_results)
 
                 ############## Unlabeled step ##############
-                # loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
+                loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
 
                 ############# Semantic Loss ################
                 loss_s = self.semantic_loss(epoch, net, labeled_results, labeled_results, labels=one_hot)
 
-                loss = loss_l + loss_s#+ loss_u + loss_s
+                loss = loss_l + loss_s + loss_u
 
-                # sloss_meter.update(loss_s.item(), data_u.size(0))
+                sloss_meter.update(loss_s.item(), data_u.size(0))
 
                 loss.backward()
 
@@ -188,10 +188,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 net_args = net((data, one_hot))
                 loss = self.labeled_loss(data, one_hot, net, **net_args)
 
-                if not saved and not self.tqdm_print: #only save these if on local
-                    save_image(torch.sigmoid(net_args["reconstructed"][0]), f'{self.figure_path}/recon_{epoch}.png')
-                    save_image(data, f'{self.figure_path}/true_{epoch}.png')
-                    saved = True
+                # if not saved and not self.tqdm_print: #only save these if on local
+                #     save_image(torch.sigmoid(net_args["reconstructed"][0]), f'{self.figure_path}/recon_{epoch}.png')
+                #     save_image(data, f'{self.figure_path}/true_{epoch}.png')
+                #     saved = True
 
                 # loss = self.unlabeled_loss(data, net, **net_args)
                 # loss = self.labeled_loss(data, net, *net_args)
