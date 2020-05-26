@@ -465,7 +465,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
         q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
 
-        return self.base.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
+        return self.base.log_prob((q_mus - q_global_means)/q_sigs)
 
     def forward_labelled(self, x, labels, **kwargs):
 
