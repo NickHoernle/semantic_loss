@@ -214,10 +214,14 @@ class CNN(VAE):
         f_num = 5
         self.decoder_cnn = nn.Sequential(
             nn.ConvTranspose2d(kernel_num, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, K/2, 8, 8]
-            nn.LeakyReLU(.01),
-            nn.ConvTranspose2d(kernel_num//2, kernel_num//4, kernel_size=4, stride=2, padding=1),  # [batch, K/4, 16, 16]
-            nn.LeakyReLU(.01),
-            nn.ConvTranspose2d(kernel_num//4, channel_num*self.feature_volume//8, kernel_size=4, stride=2, padding=1),  # [batch, channel_num, 32, 32]?
+            nn.ELU(),
+            nin(kernel_num, kernel_num),
+            nn.ELU(),
+            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, K/4, 16, 16]
+            nn.ELU(),
+            nin(kernel_num, kernel_num),
+            nn.ELU(),
+            nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, channel_num, 32, 32]?
         )
 
         # projection
@@ -238,8 +242,8 @@ class CNN(VAE):
 
         num_mix = 10
         nr_logistic_mix = 100
-        f_num = self.feature_volume // 8
-        self.nin_out = nin(3 * f_num, num_mix * nr_logistic_mix)
+        f_num = kernel_num
+        self.nin_out = nin(f_num, num_mix * nr_logistic_mix)
 
     def decoder(self, z):
         rolled = self.project(z).view(len(z), -1, self.feature_size, self.feature_size)
