@@ -185,7 +185,6 @@ class CNN(VAE):
             nn.Linear(self.feature_volume, self.feature_volume//2), # need the div 4 due to max pool
             nn.ELU(),
             nn.Linear(self.feature_volume//2, self.feature_volume//4),
-            nn.Dropout(0.1),
             nn.ELU(),
         )
 
@@ -197,14 +196,12 @@ class CNN(VAE):
 
         self.q_mean = nn.Sequential(
             nn.Linear(self.feature_volume//4, hidden_dim),
-            nn.Dropout(0.1),
             nn.ELU(),
             nn.Linear(hidden_dim, hidden_dim),
             # nn.Dropout(0.1),
         )
         self.q_logvar = nn.Sequential(
             nn.Linear(self.feature_volume//4, hidden_dim),
-            nn.Dropout(0.1),
             nn.ELU(),
             nn.Linear(hidden_dim, hidden_dim),
             # nn.Dropout(0.1),
