@@ -175,15 +175,15 @@ class CNN(VAE):
         self.z_size = hidden_dim
 
         self.encoding_cnn = nn.Sequential(
-            nn.Conv2d(channel_num, kernel_num, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
+            nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
             nn.ELU(),
-            nin(kernel_num, kernel_num),
+            nin(kernel_num//4, kernel_num//4),
             nn.ELU(),
-            nn.Conv2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
+            nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
             nn.ELU(),
-            nin(kernel_num, kernel_num),
+            nin(kernel_num//2, kernel_num//2),
             nn.ELU(),
-            nn.Conv2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
+            nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.ELU(),
             nin(kernel_num, kernel_num),
             nn.ELU(),
@@ -194,31 +194,38 @@ class CNN(VAE):
 
         self.encoder_linear = nn.Sequential(
             nn.Linear(self.feature_volume, self.feature_volume//2), # need the div 4 due to max pool
-            # nn.Dropout(0.1),
-            nn.LeakyReLU(.01),
+            nn.ELU(),
             nn.Linear(self.feature_volume//2, self.feature_volume//4),
             nn.Dropout(0.1),
-            nn.LeakyReLU(.01),
+            nn.ELU(),
         )
 
         self.q_mean = nn.Sequential(
-            nn.Linear(self.feature_volume//4, self.feature_volume//2),
+            nn.Linear(self.feature_volume//4, hidden_dim),
             nn.Dropout(0.1),
-            nn.LeakyReLU(.01),
-            nn.Linear(self.feature_volume//2, hidden_dim),
+            nn.ELU(),
+            nn.Linear(hidden_dim, hidden_dim),
             # nn.Dropout(0.1),
         )
         self.q_logvar = nn.Sequential(
-            nn.Linear(self.feature_volume//4, self.feature_volume//2),
+            nn.Linear(self.feature_volume//4, hidden_dim),
             nn.Dropout(0.1),
-            nn.LeakyReLU(.01),
-            nn.Linear(self.feature_volume//2, hidden_dim),
+            nn.ELU(),
+            nn.Linear(hidden_dim, hidden_dim),
             # nn.Dropout(0.1),
         )
 
         # num_mix = 3 if channel_num == 1 else 10
         num_mix = 10
         nr_logistic_mix = 100
+
+        # projection
+        self.project = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ELU(),
+            nn.Linear(hidden_dim, self.feature_volume),
+            nn.ELU(),
+        )
 
         self.decoder_cnn = nn.Sequential(
             nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 8, 8]
@@ -232,16 +239,6 @@ class CNN(VAE):
             nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
             nn.ELU(),
             nin(kernel_num, num_mix * nr_logistic_mix),
-        )
-
-        # projection
-        self.project = nn.Sequential(
-            nn.Linear(hidden_dim, self.feature_volume // 2),
-            nn.Dropout(0.1),
-            nn.LeakyReLU(.01),
-            nn.Linear(self.feature_volume // 2, self.feature_volume),
-            nn.Dropout(0.1),
-            nn.LeakyReLU(.01),
         )
 
         self.encoder = nn.Sequential(
