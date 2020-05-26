@@ -237,7 +237,7 @@ class CNN(VAE):
         )
 
         num_mix = 10
-        nr_logistic_mix = 10
+        nr_logistic_mix = 100
         f_num = self.feature_volume // 8
         self.nin_out = nin(3 * f_num, num_mix * nr_logistic_mix)
 
