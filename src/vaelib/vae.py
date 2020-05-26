@@ -236,10 +236,16 @@ class CNN(VAE):
             self.encoder_linear
         )
 
+        num_mix = 10
+        nr_logistic_mix = 10
+        f_num = self.feature_volume // 8
+        self.nin_out = nin(3 * f_num, num_mix * nr_logistic_mix)
+
     def decoder(self, z):
         rolled = self.project(z).view(len(z), -1, self.feature_size, self.feature_size)
         rolled = self.decoder_cnn(rolled)
-        return rolled
+        out_logits = self.nin_out(F.elu(rolled))
+        return out_logits
 
     def q(self, encoded):
         unrolled = encoded.view(len(encoded), -1)
