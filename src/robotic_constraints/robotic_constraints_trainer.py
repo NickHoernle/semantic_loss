@@ -91,55 +91,39 @@ class RCTrainer(GenerativeTrainer):
                 # condition_params = condition_params.to(device)
 
                 optimizer.zero_grad()
-                if epoch > 5:
-                    for param in self.get_means_param(net):
-                        param.requires_grad = True
 
-                    results = self.call_net(net, x)
-                    recon_traj = self.get_y_tracks(results[0])
-                    loss_f = self.forward_loss((x, trajectory), *results, recon_traj)
+                unlabeled_results = net((x, None))
+                recon_traj = [self.get_y_tracks(weights) for weights in unlabeled_results['reconstructed']]
+                loss_f = self.forward_loss((x, trajectory), net, **unlabeled_results, recon_traj=recon_traj)
 
-                else:
-                    for param in self.get_means_param(net):
-                        param.requires_grad = False
+                loss_b, loss_b2 = 0, 0
+                if self.backward:
+                    if epoch < 10:
+                        pass
+                    else:
+                        num_test_samples = 100 * net.num_categories
+                        labels = torch.zeros(num_test_samples, net.num_categories).to(self.device)
+                        labels[torch.arange(num_test_samples), torch.arange(net.num_categories).repeat(num_test_samples // net.num_categories)] = 1
+                        labels = labels[:len(x) + (epoch-10)*2, :]
 
-                    num_samps = len(x)
-                    n_cat = net.NUM_CATEGORIES
-                    labels = torch.zeros(num_samps, n_cat).to(device)
-                    labels[torch.arange(num_samps), torch.arange(n_cat).repeat(
-                        num_samps // n_cat + 1)[:num_samps]] = 1
+                        xs = net.sample_labelled(labels)
 
-                    results = self.call_net(net, (x, labels))
-                    data_reconstructed, latent_samples, latent_params, one_hot = results
-                    q_mu, q_logvar, q_main_mu, q_main_logvar, q_label_logprob = latent_params
-                    z, z_means = latent_samples
+                        # import pdb
+                        # pdb.set_trace()
 
-                    z_means_ = (one_hot.unsqueeze(-1) * z_means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
-                    KLD_cont = -0.5 * torch.sum(1 + q_logvar - (q_mu - z_means_).pow(2) - q_logvar.exp())
-
-                    recon_traj = self.get_y_tracks(data_reconstructed)
-                    recon_loss =1e3 * torch.norm(trajectory - recon_traj.view(recon_traj.size(0), -1))
-
-                    loss_f = recon_loss + KLD_cont.sum()
-                    # import pdb
-                    # pdb.set_trace()
-                    # loss_f = self.forward_loss((x, trajectory), *results, recon_traj)
-
-                loss_b = 0
-                if self.backward and epoch > 15:
-                    # optimizer.zero_grad()
-                    y_track = recon_traj
-                    loss_b = self.backward_loss(y_track, results, loaders.dataset.constraints)
-                    #
-                    # num_samples = len(x)
-                    # net_output = net.sample(num_samples//3, device=device)
-                    # y_track = self.get_y_tracks(net_output)
-                    # loss_b += self.backward_loss(y_track, results, loaders.dataset.constraints)
+                        # weights = xs.view(num_test_samples, self.data_dims // 2, -1).transpose(1, 2)
+                        track = self.get_y_tracks(xs)
+                        loss_b = self.backward_loss(track, loaders.dataset.constraints)
+                        # w_recon_traj = torch.cat([(torch.exp(qy).unsqueeze(1).unsqueeze(2) * rt).unsqueeze(0) for qy, rt in
+                        #                       zip(unlabeled_results['q_vals'][-1].T, recon_traj)], dim=0).sum(dim=0)
+                        # loss_b2 = self.backward_loss(w_recon_traj, loaders.dataset.constraints)
 
                 loss = loss_f + loss_b
                 loss.backward()
-                # if self.max_grad_norm > 0:
-                #     clip_grad_norm_(net.parameters(), self.max_grad_norm)
+
+                if self.max_grad_norm > 0:
+                    clip_grad_norm_(net.parameters(), self.max_grad_norm)
+
                 optimizer.step()
 
                 loss_meter.update(loss.item(), x.size(0))
@@ -170,20 +154,20 @@ class RCTrainer(GenerativeTrainer):
                     trajectory = trajectory.to(device)
                     # condition_params = condition_params.to(device)
 
-                    results = self.call_net(net, x)
-                    # loss = self.forward_loss(x, *results)
-                    recon_traj = self.get_y_tracks(results[0])
-                    loss = self.forward_loss((x, trajectory), *results, recon_traj)
+                    unlabeled_results = net((x, None))
+                    recon_traj = [self.get_y_tracks(weights) for weights in unlabeled_results['reconstructed']]
+                    loss = self.forward_loss((x, trajectory), net, **unlabeled_results, recon_traj=recon_traj)
+                    # loss = self.forward_loss((x, trajectory), *results, recon_traj)
 
                     loss_meter.update(loss.item(), x.size(0))
 
                     progress_bar.set_postfix(nll=loss_meter.avg)
                     progress_bar.update(x.size(0))
 
-                    self.plot_gen_traj(results[0].view(len(x), dims // 2, -1).transpose(1, 2), f"{epoch}a")
+                    # self.plot_gen_traj(results[0].view(len(x), dims // 2, -1).transpose(1, 2), f"{epoch}a")
 
-        print(net.means)
-        print(net.q_log_var)
+        # print(net.means)
+        # print(net.q_log_var)
         return loss_meter.avg
 
     def call_net(self, net, inputs):
@@ -236,6 +220,8 @@ class RCTrainer(GenerativeTrainer):
         import numpy as np
         import matplotlib.pyplot as plt
 
+        train_ds, valid_ds = self.get_datasets()
+
         num_test_samples = len(weights)
         condition_params = torch.tensor([np.random.uniform(0, .05, num_test_samples),
                                          np.random.uniform(0, .05, num_test_samples),
@@ -258,7 +244,9 @@ class RCTrainer(GenerativeTrainer):
 
         # ax = plot_trajectories(y_track.detach().numpy(), constraints=trainloader.dataset.constraints)
         fig, ax = plt.subplots(nrows=1, ncols=1)
-        plot_trajectories(y_track, ax=ax)
+        plot_trajectories(y_track, ax=ax, constraints=train_ds.constraints)
+        ax.set_ylim(-0.2, 1.2)
+        ax.set_xlim(-0.2, 1.2)
         fig.savefig(f'{self.figure_path}/sample_' + str(epoch) + '.png')  # save the figure to file
         plt.close(fig)
 

@@ -15,13 +15,15 @@ from robotic_constraints.dataloader import NavigateFromTo
 
 import numpy as np
 
-from vaelib.vae import VAE_Categorical
+from vaelib.vae import M2_Linear
 
 mdl_name = 'maf'
 n_cats = 3
 def build_model(data_dim=10, hidden_dim=10, num_categories=n_cats):
-    return VAE_Categorical(
-        data_dim=data_dim, hidden_dim=hidden_dim, NUM_CATEGORIES=num_categories
+    return M2_Linear(
+        data_dim=data_dim,
+        hidden_dim=hidden_dim,
+        NUM_CATEGORIES=num_categories,
     )
 
 
@@ -88,47 +90,34 @@ class RC_mixture_VAE(RCTrainer):
 
 
     @staticmethod
-    def forward_loss(data, data_reconstructed, latent_samples, latent_params, traj_recon):
+    def forward_loss(data, net, reconstructed, latent_samples, q_vals, recon_traj):
         """
         Loss forward. We marginalize out the latent categorical variable
         """
-        num_categories = n_cats
+        z, pred_means = latent_samples
+
+        q_mu, q_logvar, log_q_ys = q_vals
+        KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
 
         weights, trajectories = data
-        q_mu, q_logvar, q_means, q_means_log_var, pred_label_sm = latent_params
-        z, means = latent_samples
 
-        # import pdb
-        # pdb.set_trace()
         loss_u = 0
-        # TODO: add something to regularize this
-        for cat in range(num_categories):
+        for cat in range(len(reconstructed)):
 
-            q_y = pred_label_sm[:, cat]
-            log_q_y = torch.log(q_y + 1e-10)
+            pred = recon_traj[cat]
+            true = trajectories.view(len(pred), -1, 2)
 
-            # TODO: going to cause an issue as vector is not on target device
-            one_hot_u = VAE_Categorical.convert_to_one_hot(
-                num_categories=num_categories, labels=cat * torch.ones(len(weights)).long())
+            error = 1e1*torch.norm(true - pred, dim=(1,2))
 
-            # import pdb
-            # pdb.set_trace()
-            z_means_ = (one_hot_u.unsqueeze(-1) * means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
-            KLD_cont = - 0.5 * (1 + q_logvar - (q_mu - z_means_).pow(2) - q_logvar.exp()).sum(dim=1)
+            log_q_y = log_q_ys[:, cat]
+            q_y = torch.exp(log_q_y)
 
-            loss_u += (q_y * KLD_cont + (q_y * log_q_y + (1 - q_y) * torch.log(1 - q_y + 1e-10))).sum()
+            loss_u += torch.sum(q_y * error + q_y * log_q_y)
 
-        recon_loss = 1e3 * torch.norm(trajectories - traj_recon.view(traj_recon.size(0), -1))
-        KLD_cont_main = -0.5 * torch.sum(
-            1 + q_means_log_var - np.log(100) - (q_means_log_var.exp() + q_means.pow(2)) / 100)
-        loss_u += recon_loss + KLD_cont_main
-
-        # import pdb
-        # pdb.set_trace()
-        return loss_u #+ torch.sum(1/(means[0,:]-means[1,:])**2 + 1/(means[1,:]-means[2,:])**2 + 1/(means[2,:]-means[0,:])**2)
+        return loss_u.sum() + KLD_cont
 
     @staticmethod
-    def backward_loss(y_track, weights_recon, constraints):
+    def backward_loss(y_track, constraints):
         """
         Loss for the labeled data
         """
@@ -153,6 +142,9 @@ class RC_mixture_VAE(RCTrainer):
         labels[torch.arange(num_test_samples), torch.arange(n_cats).repeat(num_test_samples//n_cats)] = 1
 
         xs = net.sample_labelled(labels)
+
+        # import pdb
+        # pdb.set_trace()
 
         weights = xs.view(num_test_samples, self.data_dims // 2, -1).transpose(1, 2)
 
