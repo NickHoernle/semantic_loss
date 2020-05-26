@@ -18,6 +18,17 @@ def init_weights(m):
         torch.nn.init.normal_(m.weight,0,.05)
         m.bias.data.fill_(0)
 
+
+class Flatten(nn.Module):
+
+    def __init__(self, feature_volume):
+        super().__init__()
+        self.feature_volume = feature_volume
+
+    def forward(self, x):
+        return x.view(-1, self.feature_volume)
+
+
 class VAE(nn.Module):
     def __init__(self, data_dim, hidden_dim, condition=False, num_condition=0, **kwargs):
         super().__init__()
@@ -209,7 +220,7 @@ class CNN(VAE):
 
         # num_mix = 3 if channel_num == 1 else 10
         num_mix = 10
-        nr_logistic_mix = 100
+        self.nr_logistic_mix = 10
 
         # projection
         self.project = nn.Sequential(
@@ -230,7 +241,7 @@ class CNN(VAE):
             nn.ELU(),
             nn.ConvTranspose2d(kernel_num, kernel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
             nn.ELU(),
-            nin(kernel_num, num_mix * nr_logistic_mix),
+            nin(kernel_num, num_mix * self.nr_logistic_mix),
         )
 
     def decoder(self, z):
@@ -329,7 +340,7 @@ class VAE_Categorical_Base(VAE):
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
         x_reconstructed, _ = self.decoder(z)
-        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 10)
+        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, self.nr_logistic_mix)
         return x_reconstructed
 
 
@@ -421,7 +432,7 @@ class M2(VAE_Categorical_Base, CNN):
         base_dist = MultivariateNormal(self.zeros, self.eye)
         z = base_dist.sample((n_samps,))
         x_reconstructed, _ = self.decoder(z, labels)
-        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 100)
+        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, self.nr_logistic_mix)
         return x_reconstructed
 
 
@@ -527,7 +538,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         z = base_dist.sample((n_samps,))
         q_mean_expanded = (labels.unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(labels), 1, 1))).sum(dim=1)
         x_reconstructed = self.decoder(z + q_mean_expanded)
-        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, 100)
+        x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, self.nr_logistic_mix)
         return x_reconstructed
 
 class M2_Gumbel(M2):
@@ -553,16 +564,6 @@ class M2_Gumbel(M2):
         return {"reconstructed": [x_reconstructed],
                 "latent_samples": [z, pred_means, sampled_label],
                 "q_vals": [q_mu, q_logvar, log_q_ys]}
-
-
-class Flatten(nn.Module):
-
-    def __init__(self, feature_volume):
-        super().__init__()
-        self.feature_volume = feature_volume
-
-    def forward(self, x):
-        return x.view(-1, self.feature_volume)
 
 
 def log_sum_exp(x):
