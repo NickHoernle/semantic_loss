@@ -45,7 +45,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         seed=0,
         gamma=0.9,
         resume=False,
-        early_stopping_lim=75,
+        early_stopping_lim=200,
         additional_model_config_args=['hidden_dim', 'num_labeled_data_per_class', 'lr2'],
         num_loader_workers=8,
         num_labeled_data_per_class=100,
@@ -193,7 +193,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         idxs = np.arange(net.num_categories)
         for j in range(net.num_categories):
             distances = torch.sqrt(torch.square(net.q_global_means[j] - net.q_global_means[idxs[idxs != j]]).sum(dim=1))
-            sloss += torch.where(distances < 20, 20 - distances, torch.zeros_like(distances)).sum()
+            sloss += torch.where(distances < 10, 10 - distances, torch.zeros_like(distances)).sum()
 
         return epoch*epoch*sloss/10
 
