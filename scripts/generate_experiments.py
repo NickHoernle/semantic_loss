@@ -16,7 +16,7 @@ base_call = (f"semi_supervised_vae.py gmm --input-data={DATA_HOME}/data --output
              f"--num_labeled_data_per_class=400 "
              f"--s_loss=True"
              f"--num_test_samples=0 "
-             f"--num_loader_workers=0 "
+             f"--num_loader_workers=2 "
              f"--dataset=CIFAR10 ")
 
 repeats = 1
