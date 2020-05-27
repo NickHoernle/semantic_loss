@@ -58,8 +58,8 @@ for (lr, lr2, gam, h_dim, kn, bs, rep) in settings:
         f"--lr2={lr2} "
         f"--gamma={gam} "
         f"--hidden_dim={h_dim} "
-        f"--batch_size {bs} "
-        f"--kernel_num {kn} "
+        f"--batch_size={bs} "
+        f"--kernel_num={kn} "
         f"run"
     )
     print(expt_call, file=output_file)
