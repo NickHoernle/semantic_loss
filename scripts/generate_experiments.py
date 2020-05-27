@@ -21,7 +21,7 @@ base_call = (f"semi_supervised_vae.py gmm --input-data={DATA_HOME}/data --output
 
 repeats = 1
 learning_rates = [1e-3, 1e-4]
-learning_rates2 = [1e-4, 1e-6, 1e-8]
+learning_rates2 = [1e-2, 1e-3, 1e-4]
 gammas = [.99, .999]
 hidden_dim = [500, 1500, 2500]
 kernel_nums= [100, 200, 300]
