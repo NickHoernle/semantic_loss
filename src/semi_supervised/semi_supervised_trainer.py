@@ -173,7 +173,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         correct, total = 0.0, 0.0
         saved = False
 
-        with tqdm(total=len(loaders.dataset), disable=self.tqdm_print) as progress_bar:
+        with tqdm(total=len(loaders.sampler), disable=self.tqdm_print) as progress_bar:
             for data, labels in loaders:
 
                 data = data.to(device)
