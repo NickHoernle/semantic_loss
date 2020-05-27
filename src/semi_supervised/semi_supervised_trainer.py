@@ -309,7 +309,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         return F.binary_cross_entropy(torch.sigmoid(reconstructions), data, reduction="sum")
 
     def get_loaders(self, train_ds, valid_ds, num_categories):
-        labelled_sampler, unlabelled_sampler = get_samplers(
+        labelled_sampler, unlabelled_sampler, validation_sampler = get_samplers(
             np.array(train_ds.targets).astype(int),
             n=self.num_labeled_data_per_class,
             n_categories=num_categories,
@@ -320,8 +320,12 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         train_loader_unlabeled = torch.utils.data.DataLoader(
             train_ds, sampler=unlabelled_sampler, **self.loader_params
         )
+        train_loader_validation = torch.utils.data.DataLoader(
+            train_ds, sampler=validation_sampler, **self.loader_params
+        )
         train_loader = (train_loader_labeled, train_loader_unlabeled)
-        valid_loader = torch.utils.data.DataLoader(valid_ds, **self.loader_params)
+        # valid_loader = torch.utils.data.DataLoader(valid_ds, **self.loader_params)
+        valid_loader = train_loader_validation
 
         return train_loader, valid_loader
 

@@ -7,6 +7,8 @@ def get_samplers(labels, n=100, n_categories=10):
     from operator import __or__
     from torch.utils.data.sampler import SubsetRandomSampler
 
+    LEN_VALIDATION = 10000
+
     # Only choose digits in n_labels
     (indices,) = np.where(reduce(__or__, [labels == i for i in np.arange(n_categories)]))
 
@@ -17,12 +19,19 @@ def get_samplers(labels, n=100, n_categories=10):
     indices_unlabeled = torch.from_numpy(indices[~np.in1d(indices, indices_labeled)])
     indices_labeled = torch.from_numpy(indices_labeled)
     indices_labeled = np.repeat(indices_labeled, len(indices_unlabeled)//len(indices_labeled))
-    indices_unlabeled = indices_unlabeled[:len(indices_labeled)]
+    indices_unlabeled = indices_unlabeled[:len(indices_labeled)-LEN_VALIDATION]
 
     indices_labeled = np.random.choice(indices_labeled, len(indices_labeled), replace=False).astype(int)
+
+    # now split the unlabeled set into a train and a validation set
     indices_unlabeled = np.random.choice(indices_unlabeled, len(indices_unlabeled), replace=False).astype(int)
 
-    return SubsetRandomSampler(indices_labeled), SubsetRandomSampler(indices_unlabeled)
+    indices_unlabeled_validation = indices_unlabeled[:LEN_VALIDATION]
+    indices_unlabeled_train = indices_unlabeled[LEN_VALIDATION:]
+
+    return SubsetRandomSampler(indices_labeled), \
+           SubsetRandomSampler(indices_unlabeled_train), \
+           SubsetRandomSampler(indices_unlabeled_validation)
 
 
 def to_logits(x):
