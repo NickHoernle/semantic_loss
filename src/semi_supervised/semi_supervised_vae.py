@@ -131,7 +131,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
         if epoch < 50:
-            return (50-epoch)*recon_err + KLD_cont.sum() + KLD_cont_main + discriminator_loss
+            return 1/(50-epoch)*recon_err + KLD_cont.sum() + KLD_cont_main + discriminator_loss
 
         return recon_err + KLD_cont.sum() + KLD_cont_main + discriminator_loss
 
@@ -166,7 +166,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
                                          (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
 
         if epoch < 50:
-            return (50-epoch)*BCE + loss_u + KLD_cont_main
+            return 1/(50-epoch)*BCE + loss_u + KLD_cont_main
 
         return loss_u + KLD_cont_main + BCE
 
