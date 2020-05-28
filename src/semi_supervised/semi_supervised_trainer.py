@@ -154,7 +154,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 progress_bar.update(data_u.size(0))
 
                 self.global_step += data_u.size(0)
-        print(f"===============> Epoch {epoch}; SLoss: {sloss_meter.avg}; NLL: {loss_meter.avg}")
+        print(f"===============> Epoch {epoch}; SLoss: {sloss_meter.avg}; NLL: {loss_meter.avg/(self.batch_size*32*32*3*np.log(2.))}")
         return loss_meter.avg
 
     @torch.no_grad()
@@ -255,12 +255,12 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
         _CIFAR_TEST_TRANSFORMS = [
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
         if self.dataset == "MNIST":
