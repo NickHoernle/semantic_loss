@@ -248,7 +248,7 @@ def discretized_mix_logistic_loss(x, l):
     # log_scales = torch.max(l[:, :, :, :, nr_mix:2 * nr_mix], -7.)
     log_scales = torch.clamp(l[:, :, :, :, nr_mix:2 * nr_mix], min=-7.)
 
-    coeffs = F.tanh(l[:, :, :, :, 2 * nr_mix:3 * nr_mix])
+    coeffs = torch.tanh(l[:, :, :, :, 2 * nr_mix:3 * nr_mix])
     # here and below: getting the means and adjusting them based on preceding
     # sub-pixels
     x = x.contiguous()
@@ -263,9 +263,9 @@ def discretized_mix_logistic_loss(x, l):
     centered_x = x - means
     inv_stdv = torch.exp(-log_scales)
     plus_in = inv_stdv * (centered_x + 1. / 255.)
-    cdf_plus = F.sigmoid(plus_in)
+    cdf_plus = torch.sigmoid(plus_in)
     min_in = inv_stdv * (centered_x - 1. / 255.)
-    cdf_min = F.sigmoid(min_in)
+    cdf_min = torch.sigmoid(min_in)
     # log probability for edge case of 0 (before scaling)
     log_cdf_plus = plus_in - F.softplus(plus_in)
     # log probability for edge case of 255 (before scaling)
