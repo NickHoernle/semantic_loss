@@ -119,8 +119,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         q_means = q_mu - (true_y.unsqueeze(-1) * z_global.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
         # reconstruction loss
-        # recon_err = discretized_mix_logistic_loss(data, data_recon)
-        recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        recon_err = discretized_mix_logistic_loss(data, data_recon)
+        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 
         # KLD for Z2
         KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
@@ -130,8 +130,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
-        if epoch < 50:
-            return 1/(50-epoch)*recon_err + KLD_cont.sum() + KLD_cont_main + discriminator_loss
+        # if epoch < 50:
+        #     return 1/(50-epoch)*recon_err + KLD_cont.sum() + KLD_cont_main + discriminator_loss
 
         return recon_err + KLD_cont.sum() + KLD_cont_main + discriminator_loss
 
@@ -146,7 +146,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         q_mu, q_logvar, q_global_means, q_global_log_var, log_q_ys = q_vals
         num_categories = len(log_q_ys[0])
 
-        BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        # BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        recon_err = discretized_mix_logistic_loss(data, data_recon)
 
         # latent unlabeled loss
         loss_u = 0
@@ -165,10 +166,10 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
                                          (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
 
-        if epoch < 50:
-            return 1/(50-epoch)*BCE + loss_u + KLD_cont_main
+        # if epoch < 50:
+        #     return 1/(50-epoch)*BCE + loss_u + KLD_cont_main
 
-        return loss_u + KLD_cont_main + BCE
+        return loss_u + KLD_cont_main + recon_err
 
     def semantic_loss(self, epoch, net, *args, **kwargs):
         """
