@@ -7,7 +7,7 @@ def get_samplers(labels, n=100, n_categories=10):
     from operator import __or__
     from torch.utils.data.sampler import SubsetRandomSampler
 
-    LEN_VALIDATION = 10000
+    LEN_VALIDATION = 5000
 
     # Only choose digits in n_labels
     (indices,) = np.where(reduce(__or__, [labels == i for i in np.arange(n_categories)]))
