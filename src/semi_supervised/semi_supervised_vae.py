@@ -168,7 +168,12 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         """
         Semantic loss applied to latent space
         """
+        delay = 10
+
         if not self.s_loss:
+            return torch.tensor(0)
+
+        if epoch < delay:
             return torch.tensor(0)
 
         # if epoch < 10:
@@ -195,7 +200,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             distances = torch.sqrt(torch.square(net.q_global_means[j] - net.q_global_means[idxs[idxs != j]]).sum(dim=1))
             sloss += torch.where(distances < 10, 10 - distances, torch.zeros_like(distances)).sum()
 
-        return epoch*epoch*sloss/10
+        return ((epoch-delay)**2)*sloss
 
     @staticmethod
     def simple_loss(data, reconstructed, latent_samples, q_vals):
