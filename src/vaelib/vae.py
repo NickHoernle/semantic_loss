@@ -484,7 +484,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
                          kernel_num=kernel_num)
 
         self.q_global_means = nn.Parameter(torch.rand(self.num_categories, self.hidden_dim))
-        self.q_global_log_var = nn.Parameter(torch.ones(self.num_categories, self.hidden_dim))
+        self.q_global_log_var = nn.Parameter(-1*torch.ones(self.num_categories, self.hidden_dim))
 
     def discriminator(self, q_mu, q_logvar):
 
