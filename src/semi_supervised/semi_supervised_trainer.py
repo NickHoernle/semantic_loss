@@ -206,7 +206,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 correct += (torch.argmax(net_args['q_vals'][-1], dim=1) == labels).sum().float()
                 total += len(labels)
 
-        print(f"===============> Epoch {epoch}; Accuracy: {correct/total}; NLL: {loss_meter.avg}")
+        print(f"===============> Epoch {epoch}; Accuracy: {correct/total}; NLL: {loss_meter.avg/(self.batch_size*32*32*3*np.log(2.))}")
         # print(net.q_global_means)
         # print(net.q_global_log_var)
         if return_accuracy:
