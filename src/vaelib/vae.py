@@ -179,14 +179,14 @@ class CNN(VAE):
         self.encoding_cnn = nn.Sequential(
             nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
             nn.BatchNorm2d(kernel_num//4),
-            # nn.ELU(True),
-            # nin(kernel_num//4, kernel_num//4),
+            nn.ELU(True),
+            nin(kernel_num//4, kernel_num//4),
             nn.ELU(True),
             nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
             nn.BatchNorm2d(kernel_num//2),
             nn.ELU(True),
-            # nin(kernel_num//2, kernel_num//2),
-            # nn.ELU(True),
+            nin(kernel_num//2, kernel_num//2),
+            nn.ELU(True),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.BatchNorm2d(kernel_num),
             nn.ELU(True),
@@ -239,18 +239,18 @@ class CNN(VAE):
         self.decoder_cnn = nn.Sequential(
             nn.ConvTranspose2d(kernel_num, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, ?, 8, 8]
             nn.BatchNorm2d(kernel_num // 2),
-            # nn.ELU(True),
-            # nin(kernel_num//2, kernel_num//2),
+            nn.ELU(True),
+            nin(kernel_num//2, kernel_num//2),
             nn.ELU(True),
             nn.ConvTranspose2d(kernel_num//2, kernel_num//4, kernel_size=4, stride=2, padding=1),  # [batch, ?, 16, 16]
             nn.BatchNorm2d(kernel_num // 4),
-            # nn.ELU(True),
-            # nin(kernel_num//4, kernel_num//4),
             nn.ELU(True),
-            # nn.ConvTranspose2d(kernel_num//4, num_mix * self.nr_logistic_mix, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
-            nn.ConvTranspose2d(kernel_num // 4, self.channel_num, kernel_size=4, stride=2, padding=1)
+            nin(kernel_num//4, kernel_num//4),
+            nn.ELU(True),
+            nn.ConvTranspose2d(kernel_num//4, num_mix * self.nr_logistic_mix, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
+            # nn.ConvTranspose2d(kernel_num // 4, self.channel_num, kernel_size=4, stride=2, padding=1)
             # nn.ELU(True),
-            # nin(kernel_num//8, self.channel_num),
+            # nin(num_mix * self.nr_logistic_mix, self.channel_num),
             # nin(kernel_num // 8, num_mix * self.nr_logistic_mix)
         )
 
@@ -485,6 +485,8 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
 
         self.q_global_means = nn.Parameter(self.num_categories*torch.rand(self.num_categories, self.hidden_dim))
         self.q_global_log_var = nn.Parameter(0*torch.ones(self.num_categories, self.hidden_dim))
+
+        self.apply(init_weights)
 
     def discriminator(self, q_mu, q_logvar):
 
