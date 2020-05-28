@@ -104,7 +104,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             {"params": base_params}], lr=self.lr)
 
     @staticmethod
-    def labeled_loss(data, labels, net, reconstructed, latent_samples, q_vals):
+    def labeled_loss(data, labels, epoch, reconstructed, latent_samples, q_vals):
         """
         Loss for the labeled data
         """
@@ -130,10 +130,13 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
+        if epoch < 50:
+            return (50-epoch)*recon_err + KLD_cont.sum() + KLD_cont_main + discriminator_loss
+
         return recon_err + KLD_cont.sum() + KLD_cont_main + discriminator_loss
 
     @staticmethod
-    def unlabeled_loss(data, net, reconstructed, latent_samples, q_vals):
+    def unlabeled_loss(data, epoch, reconstructed, latent_samples, q_vals):
         """
         Loss for the unlabeled data
         """
@@ -161,6 +164,9 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
                                          (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
+
+        if epoch < 50:
+            return (50-epoch)*BCE + loss_u + KLD_cont_main
 
         return loss_u + KLD_cont_main + BCE
 

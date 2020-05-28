@@ -128,10 +128,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 unlabeled_results = net((data_u, None))
 
                 ############## Labeled step ################
-                loss_l = self.labeled_loss(data_l, one_hot, net, **labeled_results)
+                loss_l = self.labeled_loss(data_l, one_hot, epoch, **labeled_results)
 
                 ############## Unlabeled step ##############
-                loss_u = self.unlabeled_loss(data_u, net, **unlabeled_results)
+                loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
 
                 ############# Semantic Loss ################
                 loss_s = self.semantic_loss(epoch, net, labeled_results, labeled_results, labels=one_hot)
