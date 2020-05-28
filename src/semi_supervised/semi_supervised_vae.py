@@ -119,8 +119,10 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         q_means = q_mu - (true_y.unsqueeze(-1) * z_global.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
         # reconstruction loss
-        recon_err = discretized_mix_logistic_loss(data, data_recon)
-        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        # import pdb
+        # pdb.set_trace()
+        # recon_err = discretized_mix_logistic_loss(data, data_recon)
+        recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 
         # KLD for Z2
         KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
@@ -146,8 +148,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         q_mu, q_logvar, q_global_means, q_global_log_var, log_q_ys = q_vals
         num_categories = len(log_q_ys[0])
 
-        # BCE = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
-        recon_err = discretized_mix_logistic_loss(data, data_recon)
+        recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        # recon_err = discretized_mix_logistic_loss(data, data_recon)
 
         # latent unlabeled loss
         loss_u = 0
@@ -233,7 +235,6 @@ def discretized_mix_logistic_loss(x, l):
     log-likelihood for mixture of discretized logistics, assumes the data has been rescaled to [-1,1] interval 
     Borrowed from: https://github.com/pclucas14/pixel-cnn-pp/blob/master/utils.py
     """
-    # Pytorch ordering
     x = x.permute(0, 2, 3, 1)
     l = l.permute(0, 2, 3, 1)
     xs = [int(y) for y in x.size()]
@@ -242,7 +243,6 @@ def discretized_mix_logistic_loss(x, l):
     # here and below: unpacking the params of the mixture of logistics
     nr_mix = int(ls[-1] / 10)
     logit_probs = l[:, :, :, :nr_mix]
-
     l = l[:, :, :, nr_mix:].contiguous().view(xs + [nr_mix * 3])  # 3 for mean, scale, coef
     means = l[:, :, :, :, :nr_mix]
     # log_scales = torch.max(l[:, :, :, :, nr_mix:2 * nr_mix], -7.)

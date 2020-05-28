@@ -19,13 +19,12 @@ def get_samplers(labels, n=100, n_categories=10):
     indices_unlabeled = torch.from_numpy(indices[~np.in1d(indices, indices_labeled)])
     indices_labeled = torch.from_numpy(indices_labeled)
     indices_labeled = np.repeat(indices_labeled, len(indices_unlabeled)//len(indices_labeled))
-    indices_unlabeled = indices_unlabeled[:len(indices_labeled)-LEN_VALIDATION]
+    indices_unlabeled = indices_unlabeled[:len(indices_labeled)]
 
     indices_labeled = np.random.choice(indices_labeled, len(indices_labeled), replace=False).astype(int)
 
     # now split the unlabeled set into a train and a validation set
     indices_unlabeled = np.random.choice(indices_unlabeled, len(indices_unlabeled), replace=False).astype(int)
-
     indices_unlabeled_validation = indices_unlabeled[:LEN_VALIDATION]
     indices_unlabeled_train = indices_unlabeled[LEN_VALIDATION:]
 
