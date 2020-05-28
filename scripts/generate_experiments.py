@@ -13,11 +13,11 @@ DATA_HOME = f'{SCRATCH_HOME}/vaelib'
 base_call = (f"semi_supervised_vae.py gmm --input-data={DATA_HOME}/data --output-data={DATA_HOME}/output "
              f"--use_cuda=True "
              f"--num_epochs=300 "
-             f"--num_labeled_data_per_class=10 "
+             f"--num_labeled_data_per_class=400 "
              f"--s_loss=True"
              f"--num_test_samples=0 "
              f"--num_loader_workers=2 "
-             f"--dataset=MNIST ")
+             f"--dataset=CIFAR10 ")
 
 repeats = 1
 learning_rates = [5e-3, 1e-3]
