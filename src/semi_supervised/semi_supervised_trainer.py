@@ -184,9 +184,11 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     num_categories=self.num_categories, labels=labels
                 ).to(device)
 
-                # net_args = net((data, None))
-                net_args = net((data, one_hot))
-                loss = self.labeled_loss(data, one_hot, net, **net_args)
+                net_args = net((data, None))
+                loss = self.unlabeled_loss(data, 51, **net_args)
+
+                # net_args = net((data, one_hot))
+                # loss = self.labeled_loss(data, one_hot, net, **net_args)
 
                 # if not saved and not self.tqdm_print: #only save these if on local
                 #     save_image(torch.sigmoid(net_args["reconstructed"][0]), f'{self.figure_path}/recon_{epoch}.png')
