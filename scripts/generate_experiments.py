@@ -20,9 +20,9 @@ base_call = (f"semi_supervised_vae.py gmm --input-data={DATA_HOME}/data --output
              f"--dataset=CIFAR10 ")
 
 repeats = 1
-learning_rates = [5e-3, 1e-3]
+learning_rates = [1e-3]
 # learning_rates = [1e-3]
-learning_rates2 = [1e-5]
+learning_rates2 = [1e-4, 1e-5]
 gammas = [.99, .999]
 hidden_dim = [500, 1000]
 # hidden_dim = [100, 500]
