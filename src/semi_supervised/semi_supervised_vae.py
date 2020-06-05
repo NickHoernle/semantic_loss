@@ -116,19 +116,18 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         num_categories = len(log_q_y[0])
 
         # get the means that z should be associated with
-        q_means = q_mu - (true_y.unsqueeze(-1) * z_global.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+        q_means = q_mu - (true_y.unsqueeze(-1) * q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
         # reconstruction loss
         # import pdb
         # pdb.set_trace()
-        recon_err = discretized_mix_logistic_loss(data, data_recon)
-        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        # recon_err = discretized_mix_logistic_loss(data, data_recon)
+        recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 
         # KLD for Z2
-        KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
+        KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
 
-        KLD_cont_main = - 0.5 * (1 + q_global_log_var - np.log(num_categories**2) -
-                                          (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories**2)).sum()
+        KLD_cont_main = - 0.5 * ((1 + q_global_log_var - q_global_means.pow(2) - q_global_log_var.exp()).sum(dim=1)).sum()
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
@@ -142,36 +141,29 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         """
         Loss for the unlabeled data
         """
-        data_recon = reconstructed[0]
         z, z_global = latent_samples
 
         q_mu, q_logvar, q_global_means, q_global_log_var, log_q_ys = q_vals
         num_categories = len(log_q_ys[0])
 
-        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
-        recon_err = discretized_mix_logistic_loss(data, data_recon)
+        # recon_err = discretized_mix_logistic_loss(data, data_recon)
+        KLD_cont = - 0.5 * (1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1).sum()
+        KLD_cont_main = - 0.5 * ((1 + q_global_log_var - q_global_means.pow(2) - q_global_log_var.exp()).sum(dim=1)).sum()
 
         # latent unlabeled loss
         loss_u = 0
         for cat in range(num_categories):
 
-            # reconstruction loss
-            q_means = q_mu - z_global[cat].unsqueeze(0).repeat(len(q_mu), 1)
+            data_recon = reconstructed[cat]
+            recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="none").sum(dim=(1,2,3))
 
+            # reconstruction loss
             log_q_y = log_q_ys[:, cat]
             q_y = torch.exp(log_q_y)
 
-            # q_means = q_global_means[cat].unsqueeze(0).repeat(len(q_mu), 1, )
-            KLD_cont = - 0.5 * (1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)
-            loss_u += (q_y*(KLD_cont + log_q_y)).sum()
+            loss_u += (q_y*(recon_err + log_q_y)).sum()
 
-        KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
-                                         (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
-
-        # if epoch < 50:
-        #     return 1/(50-epoch)*BCE + loss_u + KLD_cont_main
-
-        return loss_u + recon_err + KLD_cont_main
+        return loss_u + KLD_cont + KLD_cont_main
 
     def semantic_loss(self, epoch, net, *args, **kwargs):
         """

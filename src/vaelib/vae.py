@@ -247,8 +247,8 @@ class CNN(VAE):
             nn.ELU(True),
             nin(kernel_num//4, kernel_num//4),
             nn.ELU(True),
-            nn.ConvTranspose2d(kernel_num//4, num_mix * self.nr_logistic_mix, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
-            # nn.ConvTranspose2d(kernel_num // 4, self.channel_num, kernel_size=4, stride=2, padding=1)
+            # nn.ConvTranspose2d(kernel_num//4, num_mix * self.nr_logistic_mix, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
+            nn.ConvTranspose2d(kernel_num // 4, self.channel_num, kernel_size=4, stride=2, padding=1)
             # nn.ELU(True),
             # nin(num_mix * self.nr_logistic_mix, self.channel_num),
             # nin(kernel_num // 8, num_mix * self.nr_logistic_mix)
@@ -483,10 +483,19 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
                          channel_num=channel_num,
                          kernel_num=kernel_num)
 
-        self.q_global_means = nn.Parameter(self.num_categories*torch.rand(self.num_categories, self.hidden_dim))
+        self.q_global_means = nn.Parameter(torch.rand(self.num_categories, self.hidden_dim))
         self.q_global_log_var = nn.Parameter(0*torch.ones(self.num_categories, self.hidden_dim))
+        self.log_q_y = nn.Sequential(
+            nn.Linear(self.feature_volume // 4, self.feature_volume // 2),
+            nn.ELU(True),
+            nn.Linear(self.feature_volume // 2, NUM_CATEGORIES)
+        )
 
         self.apply(init_weights)
+
+    def q(self, encoded):
+        unrolled = encoded.view(len(encoded), -1)
+        return self.q_mean(unrolled), self.q_logvar(unrolled), self.log_q_y(unrolled)
 
     def discriminator(self, q_mu, q_logvar):
 
@@ -496,60 +505,52 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
         q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
 
-        return self.base.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
+        return self.base.log_prob((q_mus - q_global_means))
 
     def forward_labelled(self, x, labels, **kwargs):
 
         encoded = self.encoder(x)
 
-        (q_mu, q_logvar) = self.q(encoded)
+        (q_mu, q_logvar, log_p_y) = self.q(encoded)
 
-        log_p_y = self.discriminator(q_mu, q_logvar)
-        pred_label_sm_log = log_p_y - log_sum_exp(log_p_y).unsqueeze(1)
+        # log_p_y = self.discriminator(q_mu, q_logvar)
+        log_q_ys = log_p_y - log_sum_exp(log_p_y).unsqueeze(1)
 
         z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
 
-        # z_mean_expanded = (labels.unsqueeze(-1) * (z_global.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
+        z_mean_expanded = (labels.unsqueeze(-1) * (z_global.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
         # q_mu_expanded = (torch.exp(pred_label_sm_log).unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
 
         z = self.reparameterize(q_mu, q_logvar)
 
-        x_reconstructed = self.decoder(z)
+        x_reconstructed = self.decoder(z + z_mean_expanded)
 
         return {"reconstructed": [x_reconstructed],
                 "latent_samples": [z, z_global],
-                "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, pred_label_sm_log]}
+                "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, log_q_ys]}
 
     def forward_unlabelled(self, x, **kwargs):
         encoded = self.encoder(x)
 
-        (q_mu, q_logvar) = self.q(encoded)
+        (q_mu, q_logvar, log_p_y) = self.q(encoded)
 
-        log_p_y = self.discriminator(q_mu, q_logvar)
         log_q_ys = log_p_y - log_sum_exp(log_p_y).unsqueeze(1)
 
         z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
-        # q_mu_expanded = (torch.exp(log_q_ys).unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
+
         z = self.reparameterize(q_mu, q_logvar)
 
-        # reconstructions = []
-        #
-        # for cat in range(self.num_categories):
-        #     # labels = torch.zeros_like(log_q_ys)
-        #     # labels[:, cat] = 1
-        #     z_mean_expanded = z_global[cat].unsqueeze(0).repeat(len(x), 1)
-        #     # q_mean_expanded = self.q_global_means[cat].unsqueeze(0).repeat(len(x), 1)
-        #     # z = self.reparameterize(q_mu, q_logvar)
-        #     #
-        #     # z_mean_expanded = self.q_global_means[cat].unsqueeze(0).repeat(len(x), 1)
-        #     #
-        #     # x_reconstructed, _ = self.decoder(z + z_mean_expanded)
-        #     x_reconstructed = self.decoder(z + z_mean_expanded)
-        #
-        #     reconstructions.append(x_reconstructed)
-        x_reconstructed = self.decoder(z)
+        reconstructions = []
 
-        return {"reconstructed": [x_reconstructed],
+        for cat in range(self.num_categories):
+
+            z_mean_expanded = z_global[cat].unsqueeze(0).repeat(len(x), 1)
+
+            x_reconstructed = self.decoder(z + self.num_categories*z_mean_expanded)
+
+            reconstructions.append(x_reconstructed)
+
+        return {"reconstructed": reconstructions,
                 "latent_samples": [z, z_global],
                 "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, log_q_ys]}
 
