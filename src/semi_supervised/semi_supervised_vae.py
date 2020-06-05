@@ -127,7 +127,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         # KLD for Z2
         KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
 
-        KLD_cont_main = - 0.5 * ((1 + q_global_log_var - q_global_means.pow(2) - q_global_log_var.exp()).sum(dim=1)).sum()
+        KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
+                                         (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
@@ -148,7 +149,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         # recon_err = discretized_mix_logistic_loss(data, data_recon)
         KLD_cont = - 0.5 * (1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1).sum()
-        KLD_cont_main = - 0.5 * ((1 + q_global_log_var - q_global_means.pow(2) - q_global_log_var.exp()).sum(dim=1)).sum()
+        KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
+                                  (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
 
         # latent unlabeled loss
         loss_u = 0

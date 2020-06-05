@@ -483,7 +483,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
                          channel_num=channel_num,
                          kernel_num=kernel_num)
 
-        self.q_global_means = nn.Parameter(torch.rand(self.num_categories, self.hidden_dim))
+        self.q_global_means = nn.Parameter(self.num_categories*torch.rand(self.num_categories, self.hidden_dim))
         self.q_global_log_var = nn.Parameter(0*torch.ones(self.num_categories, self.hidden_dim))
         self.log_q_y = nn.Sequential(
             nn.Linear(self.feature_volume // 4, self.feature_volume // 2),
@@ -546,7 +546,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
 
             z_mean_expanded = z_global[cat].unsqueeze(0).repeat(len(x), 1)
 
-            x_reconstructed = self.decoder(z + self.num_categories*z_mean_expanded)
+            x_reconstructed = self.decoder(z + z_mean_expanded)
 
             reconstructions.append(x_reconstructed)
 
