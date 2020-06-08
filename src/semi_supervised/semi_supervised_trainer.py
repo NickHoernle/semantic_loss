@@ -260,11 +260,13 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
+            rescaling
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
         _CIFAR_TEST_TRANSFORMS = [
             transforms.ToTensor(),
+            rescaling
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
@@ -357,3 +359,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         img_sample = net.sample_labelled(labels)
         # img_sample = torch.sigmoid(img_sample)
         save_image(img_sample, f'{self.figure_path}/sample_' + str(epoch) + '.png')
+
+
+def rescaling(x):
+    return (x - .5) * 2.
