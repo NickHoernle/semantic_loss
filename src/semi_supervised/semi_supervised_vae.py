@@ -99,7 +99,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         base_params = list(
             map(lambda x: x[1], list(filter(lambda kv: kv[0] not in params_, net.named_parameters()))))
         # return optim.Adam(net.parameters(), lr=self.lr)
-        return (optim.SGD(base_params, self.lr), optim.SGD(mean_params, self.lr2))
+        return (optim.Adam(base_params, self.lr), optim.Adam(mean_params, self.lr2))
         # return optim.Adam([
         #     {"params": params, "lr": self.lr2},
         #     {"params": base_params}], lr=self.lr)
