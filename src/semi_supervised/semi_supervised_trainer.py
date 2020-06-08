@@ -123,7 +123,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 labeled_results = net((data_l, one_hot))
                 loss_l = self.labeled_loss(data_l, one_hot, epoch, **labeled_results)
-                loss_l.backward()
+                loss_s = self.semantic_loss(epoch, net, labeled_results, labeled_results, labels=one_hot)
+
+                loss = loss_s + loss_l
+                loss.backward()
 
                 opt_mu.step()
                 opt_unsup.step()
@@ -153,6 +156,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 # loss.backward()
                 # opt_mu.step()
 
+                sloss_meter.update(loss_s.item(), data_u.size(0))
                 loss_meter.update(loss_u.item(), data_u.size(0))
 
                 progress_bar.set_postfix(nll=loss_meter.avg, sloss=sloss_meter.avg)
