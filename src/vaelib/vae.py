@@ -485,19 +485,16 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
 
         self.q_global_means = nn.Parameter(self.num_categories*torch.rand(self.num_categories, self.hidden_dim))
         self.q_global_log_var = nn.Parameter(0*torch.ones(self.num_categories, self.hidden_dim))
-        self.log_q_y = nn.Sequential(
-            nn.Linear(self.feature_volume // 4, self.feature_volume // 2),
-            nn.ELU(True),
-            nn.Linear(self.feature_volume // 2, NUM_CATEGORIES)
-        )
+        # self.log_q_y = nn.Sequential(
+        #     nn.ELU(True),
+        #     nn.Linear(self.feature_volume // 4, self.feature_volume // 2),
+        #     nn.ELU(True),
+        #     nn.Linear(self.feature_volume // 2, NUM_CATEGORIES)
+        # )
 
         self.apply(init_weights)
 
-    def q(self, encoded):
-        unrolled = encoded.view(len(encoded), -1)
-        return self.q_mean(unrolled), self.q_logvar(unrolled), self.log_q_y(unrolled)
-
-    def discriminator(self, q_mu, q_logvar):
+    def log_q_y(self, q_mu, q_logvar):
 
         q_mus = q_mu.unsqueeze(1).repeat(1, self.num_categories, 1)
         q_sigs = torch.exp(q_logvar).unsqueeze(1).repeat(1, self.num_categories, 1)
@@ -505,53 +502,50 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
         q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
 
-        return self.base.log_prob((q_mus - q_global_means))
+        return self.base.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
+
+    def q(self, encoded):
+        unrolled = encoded.view(len(encoded), -1)
+        return self.q_mean(unrolled), self.q_logvar(unrolled)
 
     def forward_labelled(self, x, labels, **kwargs):
 
         encoded = self.encoder(x)
 
-        (q_mu, q_logvar, log_p_y) = self.q(encoded)
-
-        # log_p_y = self.discriminator(q_mu, q_logvar)
+        (q_mu, q_logvar) = self.q(encoded)
+        log_p_y = self.log_q_y(q_mu, q_logvar)
         log_q_ys = log_p_y - log_sum_exp(log_p_y).unsqueeze(1)
 
-        z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
+        q_log_var_expanded = (labels.unsqueeze(-1) * (self.q_global_log_var.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
 
-        z_mean_expanded = (labels.unsqueeze(-1) * (z_global.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
-        # q_mu_expanded = (torch.exp(pred_label_sm_log).unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
+        z = self.reparameterize(q_mu, q_logvar + q_log_var_expanded)
 
-        z = self.reparameterize(q_mu, q_logvar)
-
-        x_reconstructed = self.decoder(z + z_mean_expanded)
+        x_reconstructed = self.decoder(z)
 
         return {"reconstructed": [x_reconstructed],
-                "latent_samples": [z, z_global],
+                "latent_samples": [z, None],
                 "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, log_q_ys]}
 
     def forward_unlabelled(self, x, **kwargs):
         encoded = self.encoder(x)
 
-        (q_mu, q_logvar, log_p_y) = self.q(encoded)
-
+        (q_mu, q_logvar) = self.q(encoded)
+        log_p_y = self.log_q_y(q_mu, q_logvar)
         log_q_ys = log_p_y - log_sum_exp(log_p_y).unsqueeze(1)
-
-        z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
-
-        z = self.reparameterize(q_mu, q_logvar)
 
         reconstructions = []
 
         for cat in range(self.num_categories):
 
-            z_mean_expanded = z_global[cat].unsqueeze(0).repeat(len(x), 1)
+            q_log_var_expanded = self.q_global_log_var[cat].unsqueeze(0).repeat(len(x), 1)
+            z = self.reparameterize(q_mu, q_logvar+q_log_var_expanded)
 
-            x_reconstructed = self.decoder(z + z_mean_expanded)
+            x_reconstructed = self.decoder(z)
 
             reconstructions.append(x_reconstructed)
 
         return {"reconstructed": reconstructions,
-                "latent_samples": [z, z_global],
+                "latent_samples": [z, None],
                 "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, log_q_ys]}
 
     def sample_labelled(self, labels):
