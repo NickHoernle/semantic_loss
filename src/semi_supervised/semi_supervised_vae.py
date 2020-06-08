@@ -95,13 +95,14 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         This allows for different learning rates for means params vs other params
         """
         params_ = ["q_global_means", "q_global_log_var"]
-        params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in params_, net.named_parameters()))))
+        mean_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in params_, net.named_parameters()))))
         base_params = list(
             map(lambda x: x[1], list(filter(lambda kv: kv[0] not in params_, net.named_parameters()))))
         # return optim.Adam(net.parameters(), lr=self.lr)
-        return optim.Adam([
-            {"params": params, "lr": self.lr2},
-            {"params": base_params}], lr=self.lr)
+        return (optim.Adam(base_params, self.lr), optim.Adam(mean_params, self.lr2))
+        # return optim.Adam([
+        #     {"params": params, "lr": self.lr2},
+        #     {"params": base_params}], lr=self.lr)
 
     @staticmethod
     def labeled_loss(data, labels, epoch, reconstructed, latent_samples, q_vals):
@@ -127,15 +128,12 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         # KLD for Z2
         KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
 
-        KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
-                                         (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
+        # KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
+        #                                  (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
-        # if epoch < 50:
-        #     return 1/(50-epoch)*recon_err + KLD_cont.sum() + KLD_cont_main + discriminator_loss
-
-        return recon_err + KLD_cont.sum() + discriminator_loss + KLD_cont_main
+        return recon_err + KLD_cont.sum() + discriminator_loss  #+ KLD_cont_main
 
     @staticmethod
     def unlabeled_loss(data, epoch, reconstructed, latent_samples, q_vals):
@@ -151,23 +149,23 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
                                   (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
 
+        data_recon = reconstructed[0]
+        recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="none").sum(dim=(1, 2, 3)).sum()
+
         # latent unlabeled loss
         loss_u = 0
         for cat in range(num_categories):
 
             q_means = q_mu - q_global_means[cat].unsqueeze(0).repeat(len(data), 1)
-            KLD_cont = - 0.5 * (1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1).sum()
-
-            data_recon = reconstructed[cat]
-            recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="none").sum(dim=(1,2,3))
+            KLD_cont = - 0.5 * (1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)
 
             # reconstruction loss
             log_q_y = log_q_ys[:, cat]
             q_y = torch.exp(log_q_y)
 
-            loss_u += (q_y*(recon_err + log_q_y + KLD_cont)).sum()
+            loss_u += (q_y*(log_q_y + KLD_cont)).sum()
 
-        return loss_u + KLD_cont + KLD_cont_main
+        return recon_err + loss_u  #+ KLD_cont_main
 
     def semantic_loss(self, epoch, net, *args, **kwargs):
         """

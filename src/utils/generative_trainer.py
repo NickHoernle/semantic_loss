@@ -196,7 +196,7 @@ class GenerativeTrainer:
             self.global_step = start_epoch * len(train_loader.dataset)
 
         optimizer = self.get_optimizer(net)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.gamma)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer[0], gamma=self.gamma)
 
         count_valid_not_improving = 0
 

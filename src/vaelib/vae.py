@@ -180,13 +180,13 @@ class CNN(VAE):
             nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
             nn.BatchNorm2d(kernel_num//4),
             nn.ELU(True),
-            nin(kernel_num//4, kernel_num//4),
-            nn.ELU(True),
+            # nin(kernel_num//4, kernel_num//4),
+            # nn.ELU(True),
             nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
             nn.BatchNorm2d(kernel_num//2),
             nn.ELU(True),
-            nin(kernel_num//2, kernel_num//2),
-            nn.ELU(True),
+            # nin(kernel_num//2, kernel_num//2),
+            # nn.ELU(True),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.BatchNorm2d(kernel_num),
             nn.ELU(True),
@@ -228,6 +228,8 @@ class CNN(VAE):
 
         # projection
         self.project = nn.Sequential(
+            # nn.BatchNorm1d(hidden_dim),
+            # nn.ELU(True),
             nn.Linear(hidden_dim, hidden_dim),
             nn.BatchNorm1d(hidden_dim),
             nn.ELU(True),
@@ -237,15 +239,17 @@ class CNN(VAE):
         )
 
         self.decoder_cnn = nn.Sequential(
+            # nin(kernel_num, kernel_num),
             nn.ConvTranspose2d(kernel_num, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, ?, 8, 8]
             nn.BatchNorm2d(kernel_num // 2),
+            # nn.ELU(True),
+            # nin(kernel_num//2, kernel_num//2),
             nn.ELU(True),
-            nin(kernel_num//2, kernel_num//2),
-            nn.ELU(True),
+            # nin(kernel_num // 2, kernel_num // 2),
             nn.ConvTranspose2d(kernel_num//2, kernel_num//4, kernel_size=4, stride=2, padding=1),  # [batch, ?, 16, 16]
             nn.BatchNorm2d(kernel_num // 4),
-            nn.ELU(True),
-            nin(kernel_num//4, kernel_num//4),
+            # nn.ELU(True),
+            # nin(kernel_num//4, kernel_num//4),
             nn.ELU(True),
             # nn.ConvTranspose2d(kernel_num//4, num_mix * self.nr_logistic_mix, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
             nn.ConvTranspose2d(kernel_num // 4, self.channel_num, kernel_size=4, stride=2, padding=1)
@@ -483,7 +487,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
                          channel_num=channel_num,
                          kernel_num=kernel_num)
 
-        self.q_global_means = nn.Parameter(self.num_categories*torch.rand(self.num_categories, self.hidden_dim))
+        self.q_global_means = nn.Parameter(NUM_CATEGORIES*torch.rand(self.num_categories, self.hidden_dim))
         self.q_global_log_var = nn.Parameter(0*torch.ones(self.num_categories, self.hidden_dim))
         # self.log_q_y = nn.Sequential(
         #     nn.ELU(True),
@@ -502,7 +506,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
         q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
 
-        return self.base.log_prob((q_mus - q_global_means)/(q_sigs + q_global_sigs))
+        return self.base.log_prob((q_mus - q_global_means)/(1 + q_sigs + q_global_sigs))
 
     def q(self, encoded):
         unrolled = encoded.view(len(encoded), -1)
@@ -510,41 +514,20 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
 
     def forward_labelled(self, x, labels, **kwargs):
 
-        encoded = self.encoder(x)
+        return self.forward_unlabelled(x)
 
+    def forward_unlabelled(self, x, **kwargs):
+        encoded = self.encoder(x)
         (q_mu, q_logvar) = self.q(encoded)
+
         log_p_y = self.log_q_y(q_mu, q_logvar)
         log_q_ys = log_p_y - log_sum_exp(log_p_y).unsqueeze(1)
 
-        q_log_var_expanded = (labels.unsqueeze(-1) * (self.q_global_log_var.unsqueeze(0).repeat(len(x), 1, 1))).sum(dim=1)
-
-        z = self.reparameterize(q_mu, q_logvar + q_log_var_expanded)
+        z = self.reparameterize(q_mu, q_logvar)
 
         x_reconstructed = self.decoder(z)
 
         return {"reconstructed": [x_reconstructed],
-                "latent_samples": [z, None],
-                "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, log_q_ys]}
-
-    def forward_unlabelled(self, x, **kwargs):
-        encoded = self.encoder(x)
-
-        (q_mu, q_logvar) = self.q(encoded)
-        log_p_y = self.log_q_y(q_mu, q_logvar)
-        log_q_ys = log_p_y - log_sum_exp(log_p_y).unsqueeze(1)
-
-        reconstructions = []
-
-        for cat in range(self.num_categories):
-
-            q_log_var_expanded = self.q_global_log_var[cat].unsqueeze(0).repeat(len(x), 1)
-            z = self.reparameterize(q_mu, q_logvar+q_log_var_expanded)
-
-            x_reconstructed = self.decoder(z)
-
-            reconstructions.append(x_reconstructed)
-
-        return {"reconstructed": reconstructions,
                 "latent_samples": [z, None],
                 "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, log_q_ys]}
 

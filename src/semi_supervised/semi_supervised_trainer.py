@@ -95,6 +95,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
         (train_loader_labelled_, train_loader) = loaders
         train_loader_labelled = iter(train_loader_labelled_)
+        opt_unsup = optimizer[0]
+        opt_mu = optimizer[0]
 
         # anneal the tau parameter
         # net.tau = np.max((0.5, net.tau * np.exp(-5e-3 * (epoch))))
@@ -116,8 +118,15 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     num_categories=self.num_categories, labels=target_l
                 ).to(device)
 
-                optimizer.zero_grad()
+                opt_unsup.zero_grad()
+                opt_mu.zero_grad()
 
+                labeled_results = net((data_l, one_hot))
+                loss_l = self.labeled_loss(data_l, one_hot, epoch, **labeled_results)
+                loss_l.backward()
+
+                opt_mu.step()
+                opt_unsup.step()
                 # if epoch == 0:
                 #     ############## Warmup CNN ##################
                 #     reconstruction = net.autoencoder(data_u)
@@ -125,30 +134,26 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 #
                 # else:
 
-                labeled_results = net((data_l, one_hot))
+
+                opt_unsup.zero_grad()
                 unlabeled_results = net((data_u, None))
-
-                ############## Labeled step ################
-                loss_l = self.labeled_loss(data_l, one_hot, epoch, **labeled_results)
-
                 ############## Unlabeled step ##############
                 loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
+                loss_u.backward()
+                #
+                # if self.max_grad_norm > 0:
+                #     clip_grad_norm_(net.parameters(), self.max_grad_norm)
 
-                ############# Semantic Loss ################
-                loss_s = self.semantic_loss(epoch, net, labeled_results, labeled_results, labels=one_hot)
+                opt_unsup.step()
 
-                loss = loss_l + loss_s + loss_u
+                # opt_mu.zero_grad()
+                # labeled_results = net((data_l, one_hot))
+                # log_q_y = labeled_results["q_vals"][-1]
+                # loss = -(one_hot * log_q_y).sum(dim=1).sum()
+                # loss.backward()
+                # opt_mu.step()
 
-                sloss_meter.update(loss_s.item(), data_u.size(0))
-
-                loss.backward()
-
-                if self.max_grad_norm > 0:
-                    clip_grad_norm_(net.parameters(), self.max_grad_norm)
-
-                optimizer.step()
-
-                loss_meter.update(loss.item(), data_u.size(0))
+                loss_meter.update(loss_u.item(), data_u.size(0))
 
                 progress_bar.set_postfix(nll=loss_meter.avg, sloss=sloss_meter.avg)
                 progress_bar.update(data_u.size(0))
