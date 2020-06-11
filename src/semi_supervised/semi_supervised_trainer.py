@@ -98,6 +98,9 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         opt_unsup = optimizer[0]
         opt_mu = optimizer[1]
 
+        transform = transforms.Compose([RandomCrop(32, padding=4, device=self.device),
+                                        RandomHorizontalFlip(device=self.device)])
+
         # anneal the tau parameter
         # net.tau = np.max((0.5, net.tau * np.exp(-5e-3 * (epoch))))
         slosses = 0
@@ -108,9 +111,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 # prepare the data
                 data_u = data_u.to(device)
-                # data_u = self.to_logits(data_u, device)
+                data_u_trans = data_u.copy()
+                data_u = transform(data_u)
+
                 data_l = data_l.to(device)
-                # data_l = self.to_logits(data_l, device)
 
                 target_l = target_l.to(device)
 
@@ -140,12 +144,27 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 opt_unsup.zero_grad()
                 unlabeled_results = net((data_u, None))
-                ############## Unlabeled step ##############
                 loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
+
+                if epoch > 20:
+                    trans_results = net((data_u_trans, None))
+                    predictions = torch.exp(unlabeled_results["q_vals"][-1])
+
+                    one_hot_pred = self.convert_to_one_hot(
+                        num_categories=self.num_categories, labels=predictions.argmax(dim=1)
+                    ).to(device)
+
+                    perturbed_likelihood = (one_hot_pred * predictions * trans_results["log_p_y"] -
+                                            (1 - one_hot_pred) * (1 - predictions) * trans_results["log_p_y"]).sum(dim=1)
+
+                    loss_trans = -perturbed_likelihood.sum()
+
+                    loss_u += loss_trans
+
                 loss_u.backward()
-                #
-                # if self.max_grad_norm > 0:
-                #     clip_grad_norm_(net.parameters(), self.max_grad_norm)
+
+                if self.max_grad_norm > 0:
+                    clip_grad_norm_(net.parameters(), self.max_grad_norm)
 
                 opt_unsup.step()
 
@@ -367,3 +386,126 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
 def rescaling(x):
     return (x - .5) * 2.
+
+# https://github.com/pratogab/batch-transforms
+
+class ToTensor:
+    """Applies the :class:`~torchvision.transforms.ToTensor` transform to a batch of images.
+    """
+
+    def __init__(self):
+        self.max = 255
+
+    def __call__(self, tensor):
+        """
+        Args:
+            tensor (Tensor): Tensor of size (N, C, H, W) to be tensorized.
+        Returns:
+            Tensor: Tensorized Tensor.
+        """
+        return tensor.float().div_(self.max)
+
+
+class Normalize:
+    """Applies the :class:`~torchvision.transforms.Normalize` transform to a batch of images.
+    .. note::
+        This transform acts out of place by default, i.e., it does not mutate the input tensor.
+    Args:
+        mean (sequence): Sequence of means for each channel.
+        std (sequence): Sequence of standard deviations for each channel.
+        inplace(bool,optional): Bool to make this operation in-place.
+        dtype (torch.dtype,optional): The data type of tensors to which the transform will be applied.
+        device (torch.device,optional): The device of tensors to which the transform will be applied.
+    """
+
+    def __init__(self, mean, std, inplace=False, dtype=torch.float, device='cpu'):
+        self.mean = torch.as_tensor(mean, dtype=dtype, device=device)[None, :, None, None]
+        self.std = torch.as_tensor(std, dtype=dtype, device=device)[None, :, None, None]
+        self.inplace = inplace
+
+    def __call__(self, tensor):
+        """
+        Args:
+            tensor (Tensor): Tensor of size (N, C, H, W) to be normalized.
+        Returns:
+            Tensor: Normalized Tensor.
+        """
+        if not self.inplace:
+            tensor = tensor.clone()
+
+        tensor.sub_(self.mean).div_(self.std)
+        return tensor
+
+
+class RandomHorizontalFlip:
+    """Applies the :class:`~torchvision.transforms.RandomHorizontalFlip` transform to a batch of images.
+    .. note::
+        This transform acts out of place by default, i.e., it does not mutate the input tensor.
+    Args:
+        p (float): probability of an image being flipped.
+        inplace(bool,optional): Bool to make this operation in-place.
+    """
+
+    def __init__(self, p=0.5, inplace=False, device='cpu'):
+        self.p = p
+        self.inplace = inplace
+
+    def __call__(self, tensor):
+        """
+        Args:
+            tensor (Tensor): Tensor of size (N, C, H, W) to be flipped.
+        Returns:
+            Tensor: Randomly flipped Tensor.
+        """
+        if not self.inplace:
+            tensor = tensor.clone()
+
+        flipped = torch.rand(tensor.size(0)) < self.p
+        tensor[flipped] = torch.flip(tensor[flipped], [3])
+        return tensor
+
+
+class RandomCrop:
+    """Applies the :class:`~torchvision.transforms.RandomCrop` transform to a batch of images.
+    Args:
+        size (int): Desired output size of the crop.
+        padding (int, optional): Optional padding on each border of the image.
+            Default is None, i.e no padding.
+        dtype (torch.dtype,optional): The data type of tensors to which the transform will be applied.
+        device (torch.device,optional): The device of tensors to which the transform will be applied.
+    """
+
+    def __init__(self, size, padding=None, dtype=torch.float, device='cpu'):
+        self.size = size
+        self.padding = padding
+        self.dtype = dtype
+        self.device = device
+
+    def __call__(self, tensor):
+        """
+        Args:
+            tensor (Tensor): Tensor of size (N, C, H, W) to be cropped.
+        Returns:
+            Tensor: Randomly cropped Tensor.
+        """
+        if self.padding is not None:
+            padded = torch.zeros((tensor.size(0), tensor.size(1), tensor.size(2) + self.padding * 2,
+                                  tensor.size(3) + self.padding * 2), dtype=self.dtype, device=self.device)
+            padded[:, :, self.padding:-self.padding, self.padding:-self.padding] = tensor
+        else:
+            padded = tensor
+
+        w, h = padded.size(2), padded.size(3)
+        th, tw = self.size, self.size
+        if w == tw and h == th:
+            i, j = 0, 0
+        else:
+            i = torch.randint(0, h - th + 1, (tensor.size(0),), device=self.device)
+            j = torch.randint(0, w - tw + 1, (tensor.size(0),), device=self.device)
+
+        rows = torch.arange(th, dtype=torch.long, device=self.device) + i[:, None]
+        columns = torch.arange(tw, dtype=torch.long, device=self.device) + j[:, None]
+        padded = padded.permute(1, 0, 2, 3)
+        padded = padded[:, torch.arange(tensor.size(0))[:, None, None], rows[:, torch.arange(th)[:, None]],
+                 columns[:, None]]
+        return padded.permute(1, 0, 2, 3)
