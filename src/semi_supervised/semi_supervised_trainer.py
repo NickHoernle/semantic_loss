@@ -285,6 +285,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         _CIFAR_TRAIN_TRANSFORMS = [
             # transforms.RandomCrop(32, padding=4),
             # transforms.RandomHorizontalFlip(),
+            transforms.ColorJitter(),
+            transforms.RandomRotation(15),
             transforms.ToTensor(),
             rescaling
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
