@@ -96,7 +96,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         (train_loader_labelled_, train_loader) = loaders
         train_loader_labelled = iter(train_loader_labelled_)
         opt_unsup = optimizer[0]
-        opt_mu = optimizer[0]
+        opt_mu = optimizer[1]
 
         # anneal the tau parameter
         # net.tau = np.max((0.5, net.tau * np.exp(-5e-3 * (epoch))))
