@@ -146,7 +146,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 unlabeled_results = net((data_u, None))
                 loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
 
-                if epoch > 20:
+                if epoch > 0:
                     trans_results = net((data_u_trans, None))
                     predictions = torch.exp(unlabeled_results["q_vals"][-1])
 
