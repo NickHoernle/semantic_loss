@@ -155,7 +155,9 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     ).to(device)
 
                     # perturbed_likelihood = (one_hot_pred * trans_results["q_vals"][-1]).sum(dim=1)
-                    perturbed_likelihood = (one_hot_pred * trans_results["log_p_y"]).sum(dim=1)
+                    # perturbed_likelihood = (one_hot_pred * trans_results["log_p_y"]).sum(dim=1)
+                    perturbed_likelihood = (one_hot_pred * trans_results["log_p_y"] -
+                                            (1-one_hot_pred) * trans_results["log_p_y"]).sum(dim=1)
 
                     loss_trans = -perturbed_likelihood.sum()
 
@@ -285,8 +287,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         _CIFAR_TRAIN_TRANSFORMS = [
             # transforms.RandomCrop(32, padding=4),
             # transforms.RandomHorizontalFlip(),
-            transforms.ColorJitter(),
-            transforms.RandomRotation(15),
+            # transforms.ColorJitter(),
+            # transforms.RandomRotation(15),
             transforms.ToTensor(),
             rescaling
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
