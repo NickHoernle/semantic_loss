@@ -111,7 +111,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 # prepare the data
                 data_u = data_u.to(device)
-                data_u_trans = data_u.copy()
+                data_u_trans = data_u.clone()
                 data_u = transform(data_u)
 
                 data_l = data_l.to(device)
