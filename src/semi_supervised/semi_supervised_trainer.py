@@ -146,7 +146,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 unlabeled_results = net((data_u, None))
                 loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
 
-                if epoch > 0:
+                if epoch >= 0:
                     trans_results = net((data_u_trans, None))
                     predictions = torch.exp(unlabeled_results["q_vals"][-1])
 
@@ -158,6 +158,9 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                                             #(1 - one_hot_pred) * (1 - predictions) * trans_results["log_p_y"]).sum(dim=1)
 
                     loss_trans = -perturbed_likelihood.sum()
+
+                    # import pdb
+                    # pdb.set_trace()
 
                     loss_u += loss_trans
 
@@ -280,8 +283,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         ]
 
         _CIFAR_TRAIN_TRANSFORMS = [
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
+            # transforms.RandomCrop(32, padding=4),
+            # transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             rescaling
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
