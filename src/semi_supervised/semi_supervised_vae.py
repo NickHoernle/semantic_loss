@@ -105,7 +105,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         #     {"params": base_params}], lr=self.lr)
 
     @staticmethod
-    def labeled_loss(data, labels, epoch, reconstructed, latent_samples, q_vals):
+    def labeled_loss(data, labels, epoch, reconstructed, latent_samples, q_vals, **kwargs):
         """
         Loss for the labeled data
         """
@@ -136,7 +136,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         return recon_err + KLD_cont + discriminator_loss  #+ KLD_cont_main
 
     @staticmethod
-    def unlabeled_loss(data, epoch, reconstructed, latent_samples, q_vals):
+    def unlabeled_loss(data, epoch, reconstructed, latent_samples, q_vals, **kwargs):
         """
         Loss for the unlabeled data
         """

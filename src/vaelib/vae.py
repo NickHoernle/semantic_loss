@@ -528,6 +528,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
 
         return {"reconstructed": [x_reconstructed],
                 "latent_samples": [z, None],
+                "log_p_y": log_p_y,
                 "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, log_q_ys]}
 
     def sample_labelled(self, labels):
