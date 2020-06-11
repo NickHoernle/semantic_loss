@@ -154,8 +154,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                         num_categories=self.num_categories, labels=predictions.argmax(dim=1)
                     ).to(device)
 
-                    perturbed_likelihood = one_hot_pred * trans_results["log_p_y"]# -
-                                            #(1 - one_hot_pred) * (1 - predictions) * trans_results["log_p_y"]).sum(dim=1)
+                    perturbed_likelihood = (one_hot_pred * trans_results["log_p_y"] +
+                                            (1 - one_hot_pred) * trans_results["log_p_y"]).sum(dim=1)
 
                     loss_trans = -perturbed_likelihood.sum()
 
