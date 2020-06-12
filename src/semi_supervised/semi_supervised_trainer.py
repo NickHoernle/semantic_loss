@@ -148,18 +148,27 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 if epoch >= 0:
                     trans_results = net((data_u_trans, None))
-                    predictions = torch.exp(unlabeled_results["q_vals"][-1])
 
-                    one_hot_pred = self.convert_to_one_hot(
-                        num_categories=self.num_categories, labels=predictions.argmax(dim=1)
+                    predictions1 = torch.exp(unlabeled_results["q_vals"][-1])
+                    one_hot_pred1 = self.convert_to_one_hot(
+                        num_categories=self.num_categories, labels=predictions1.argmax(dim=1)
                     ).to(device)
 
-                    perturbed_likelihood = (one_hot_pred * trans_results["q_vals"][-1]).sum(dim=1)
+                    # perturbed_likelihood1 = (one_hot_pred1 * trans_results["q_vals"][-1]).sum(dim=1)
                     # perturbed_likelihood = (one_hot_pred * trans_results["log_p_y"]).sum(dim=1)
-                    # perturbed_likelihood = (one_hot_pred * trans_results["log_p_y"] -
-                    #                         (1-one_hot_pred) * trans_results["log_p_y"]).sum(dim=1)
+                    perturbed_likelihood1 = (one_hot_pred1 * trans_results["log_p_y"] -
+                                            (1-one_hot_pred1) * trans_results["log_p_y"]).sum(dim=1)
 
-                    loss_trans = -perturbed_likelihood.sum()
+                    predictions2 = torch.exp(trans_results["q_vals"][-1])
+                    one_hot_pred2 = self.convert_to_one_hot(
+                        num_categories=self.num_categories, labels=predictions2.argmax(dim=1)
+                    ).to(device)
+                    # perturbed_likelihood1 = (one_hot_pred1 * trans_results["q_vals"][-1]).sum(dim=1)
+                    # perturbed_likelihood = (one_hot_pred * trans_results["log_p_y"]).sum(dim=1)
+                    perturbed_likelihood2 = (one_hot_pred2 * unlabeled_results["log_p_y"] -
+                                            (1 - one_hot_pred2) * unlabeled_results["log_p_y"]).sum(dim=1)
+
+                    loss_trans = -perturbed_likelihood1.sum() - perturbed_likelihood2.sum()
 
                     # import pdb
                     # pdb.set_trace()
