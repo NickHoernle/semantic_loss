@@ -189,7 +189,7 @@ class CNN(VAE):
             nn.ELU(True),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.BatchNorm2d(kernel_num),
-            nn.Dropout2d(0.1)
+            nn.Dropout2d(0.1),
             nn.ELU(True),
         )
 
