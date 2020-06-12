@@ -175,7 +175,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         delay = 10
 
         if not self.s_loss:
-            return torch.tensor(0)
+            return torch.zeros_like(net.q_global_means).sum()
 
         # if epoch < delay:
         #     return torch.tensor(0)
