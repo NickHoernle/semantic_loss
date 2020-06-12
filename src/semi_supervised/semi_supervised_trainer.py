@@ -129,11 +129,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 loss_l = self.labeled_loss(data_l, one_hot, epoch, **labeled_results)
                 loss_s = self.semantic_loss(epoch, net, labeled_results, labeled_results, labels=one_hot)
 
-                loss = loss_s + loss_l
-                loss.backward()
-
-                opt_mu.step()
-                opt_unsup.step()
+                # opt_mu.step()
+                # opt_unsup.step()
                 # if epoch == 0:
                 #     ############## Warmup CNN ##################
                 #     reconstruction = net.autoencoder(data_u)
@@ -146,36 +143,11 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 unlabeled_results = net((data_u, None))
                 loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
 
-                # if epoch >= 0:
-                #     trans_results = net((data_u_trans, None))
-                #
-                #     predictions1 = torch.exp(unlabeled_results["q_vals"][-1])
-                #     one_hot_pred1 = self.convert_to_one_hot(
-                #         num_categories=self.num_categories, labels=predictions1.argmax(dim=1)
-                #     ).to(device)
-                #
-                #     # perturbed_likelihood1 = (one_hot_pred1 * trans_results["q_vals"][-1]).sum(dim=1)
-                #     # perturbed_likelihood = (one_hot_pred * trans_results["log_p_y"]).sum(dim=1)
-                #     perturbed_likelihood1 = (one_hot_pred1 * trans_results["log_p_y"] -
-                #                             (1-one_hot_pred1) * trans_results["log_p_y"]).sum(dim=1)
-                #
-                #     predictions2 = torch.exp(trans_results["q_vals"][-1])
-                #     one_hot_pred2 = self.convert_to_one_hot(
-                #         num_categories=self.num_categories, labels=predictions2.argmax(dim=1)
-                #     ).to(device)
-                #     # perturbed_likelihood1 = (one_hot_pred1 * trans_results["q_vals"][-1]).sum(dim=1)
-                #     # perturbed_likelihood = (one_hot_pred * trans_results["log_p_y"]).sum(dim=1)
-                #     perturbed_likelihood2 = (one_hot_pred2 * unlabeled_results["log_p_y"] -
-                #                             (1 - one_hot_pred2) * unlabeled_results["log_p_y"]).sum(dim=1)
-                #
-                #     loss_trans = -perturbed_likelihood1.sum() - perturbed_likelihood2.sum()
-                #
-                #     # import pdb
-                #     # pdb.set_trace()
-                #
-                #     loss_u += loss_trans
+                loss = loss_u + loss_l + loss_s
 
-                loss_u.backward()
+                loss.backward()
+
+                opt_mu.step()
 
                 if self.max_grad_norm > 0:
                     clip_grad_norm_(net.parameters(), self.max_grad_norm)
