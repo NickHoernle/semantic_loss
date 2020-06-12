@@ -189,6 +189,7 @@ class CNN(VAE):
             nn.ELU(True),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.BatchNorm2d(kernel_num),
+            nn.Dropout2d(0.1)
             nn.ELU(True),
         )
 
@@ -198,8 +199,10 @@ class CNN(VAE):
         self.encoder_linear = nn.Sequential(
             nn.Linear(self.feature_volume, self.feature_volume//2), # need the div 4 due to max pool
             nn.BatchNorm1d(self.feature_volume//2),
+            nn.Dropout(0.1),
             nn.ELU(True),
             nn.Linear(self.feature_volume//2, self.feature_volume//4),
+            nn.Dropout(0.1),
             nn.ELU(True),
         )
 
