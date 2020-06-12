@@ -33,6 +33,9 @@
 # slurm info - more at https://slurm.schedmd.com/sbatch.html#lbAJ
 echo "Job running on ${SLURM_JOB_NODELIST}"
 
+git_commit="`git rev-parse HEAD`"
+echo "Last git commit: ${git_commit}"
+
 dt=$(date '+%d/%m/%Y %H:%M:%S')
 echo "Job started: $dt"
 
