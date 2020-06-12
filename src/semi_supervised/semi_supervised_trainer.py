@@ -290,13 +290,13 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             # transforms.ColorJitter(),
             # transforms.RandomRotation(15),
             transforms.ToTensor(),
-            rescaling
+            # rescaling
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
         _CIFAR_TEST_TRANSFORMS = [
             transforms.ToTensor(),
-            rescaling
+            # rescaling
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
