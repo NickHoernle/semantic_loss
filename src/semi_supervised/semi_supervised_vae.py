@@ -62,6 +62,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         self.s_loss = s_loss
         self.lr2 = lr2
         self.hidden_dim = hidden_dim
+        self.s_loss_mag = s_loss_mag
+
         super().__init__(
             build_model,
             model_parameters,
