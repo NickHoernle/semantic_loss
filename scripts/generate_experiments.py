@@ -12,7 +12,7 @@ SCRATCH_HOME = f'{SCRATCH_DISK}/{USER}'
 DATA_HOME = f'{SCRATCH_HOME}/vaelib'
 base_call = (f"semi_supervised_vae.py gmm --input-data={DATA_HOME}/data --output-data={DATA_HOME}/output "
              f"--use_cuda=True "
-             f"--num_epochs=300 "
+             f"--num_epochs=200 "
              f"--num_labeled_data_per_class=400 "
              f"--s_loss=True"
              f"--num_test_samples=0 "
@@ -20,19 +20,20 @@ base_call = (f"semi_supervised_vae.py gmm --input-data={DATA_HOME}/data --output
              f"--dataset=CIFAR10 ")
 
 repeats = 1
-learning_rates = [1e-6, 5e-7, 1e-7]
-learning_rates2 = [1e-5, 1e-7]
-gammas = [.99, .999]
-hidden_dim = [1000, 2000]
-kernel_nums= [150, 250]
-sloss = [True, False]
+learning_rates = [1e-6]
+learning_rates2 = [1e-7, 1e-8]
+gammas = [.99]
+hidden_dim = [1000]
+kernel_nums= [250, 350]
+sloss = [True]
 batch_size = [100]
+sloss_magnitude = [5,7,9,11,13,15]
 # backward = [True, False]
 # back_strength = [1e2, 1e3, 1e4, 1e5]
 # num_layers = [40]
 # gammas = [.99]
 
-settings = [(lr, lr2, gam, h_dim, k_num, s_loss, bs, rep)
+settings = [(lr, lr2, gam, h_dim, k_num, s_loss, bs, sl_mag, rep)
             for lr in learning_rates
             for lr2 in learning_rates2
             for gam in gammas
@@ -40,6 +41,7 @@ settings = [(lr, lr2, gam, h_dim, k_num, s_loss, bs, rep)
             for k_num in kernel_nums
             for s_loss in sloss
             for bs in batch_size
+            for sl_mag in sloss_magnitude
             for rep in range(repeats)]
 
 nr_expts = len(settings)
@@ -51,7 +53,7 @@ print(f'Estimated time = {(nr_expts / nr_servers * avg_expt_time)/60} hrs')
 
 output_file = open("experiment.txt", "w")
 
-for (lr, lr2, gam, h_dim, kn, sl, bs, rep) in settings:
+for (lr, lr2, gam, h_dim, kn, sl, bs, sl_mag, rep) in settings:
     # Note that we don't set a seed for rep - a seed is selected at random
     # and recorded in the output data by the python script
     expt_call = (
@@ -63,6 +65,7 @@ for (lr, lr2, gam, h_dim, kn, sl, bs, rep) in settings:
         f"--batch_size={bs} "
         f"--s_loss={sl} "
         f"--kernel_num={kn} "
+        f"--s_loss_mag={sl_mag} "
         f"run"
     )
     print(expt_call, file=output_file)
