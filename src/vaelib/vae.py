@@ -189,8 +189,8 @@ class CNN(VAE):
             nn.ELU(True),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.BatchNorm2d(kernel_num),
-            nn.Dropout2d(0.1),
             nn.ELU(True),
+            nn.Dropout2d(0.1),
         )
 
         self.feature_size = self.image_size // (2 ** 3)
@@ -199,11 +199,11 @@ class CNN(VAE):
         self.encoder_linear = nn.Sequential(
             nn.Linear(self.feature_volume, self.feature_volume//2), # need the div 4 due to max pool
             nn.BatchNorm1d(self.feature_volume//2),
-            nn.Dropout(0.1),
             nn.ELU(True),
+            nn.Dropout(0.1),
             nn.Linear(self.feature_volume//2, self.feature_volume//4),
-            nn.Dropout(0.1),
             nn.ELU(True),
+            nn.Dropout(0.1),
         )
 
         self.encoder = nn.Sequential(
@@ -216,16 +216,16 @@ class CNN(VAE):
             nn.Linear(self.feature_volume//4, hidden_dim),
             nn.BatchNorm1d(hidden_dim),
             nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
             nn.Dropout(0.1),
+            nn.Linear(hidden_dim, hidden_dim),
         )
 
         self.q_logvar = nn.Sequential(
             nn.Linear(self.feature_volume//4, hidden_dim),
             nn.BatchNorm1d(hidden_dim),
             nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
             nn.Dropout(0.1),
+            nn.Linear(hidden_dim, hidden_dim),
         )
 
         # num_mix = 3 if channel_num == 1 else 10
@@ -247,12 +247,12 @@ class CNN(VAE):
         self.decoder_cnn = nn.Sequential(
             # nin(kernel_num, kernel_num),
             nn.ConvTranspose2d(kernel_num, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, ?, 8, 8]
-            nn.BatchNorm2d(kernel_num // 2, momentum=0.01),
+            nn.BatchNorm2d(kernel_num // 2),
             nn.ELU(True),
             nin(kernel_num//2, kernel_num//2),
             nn.ELU(True),
             nn.ConvTranspose2d(kernel_num//2, kernel_num//4, kernel_size=4, stride=2, padding=1),  # [batch, ?, 16, 16]
-            nn.BatchNorm2d(kernel_num // 4, momentum=0.01),
+            nn.BatchNorm2d(kernel_num // 4),
             nn.ELU(True),
             nin(kernel_num//4, kernel_num//4),
             nn.ELU(True),
