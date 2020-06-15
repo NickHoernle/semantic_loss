@@ -160,7 +160,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     num_categories=self.num_categories, labels=pred_p.argmax(dim=1)
                 ).to(device)
 
-                perturbed_likelihood = (one_hot_pred * log_trans_pred_p).sum(dim=1)
+                perturbed_likelihood = (one_hot_pred * unlabeled_trans_res["log_p_y"]).sum(dim=1)
 
                 consistency_reg = -perturbed_likelihood.sum()
 
