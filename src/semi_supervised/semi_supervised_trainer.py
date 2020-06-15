@@ -162,7 +162,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 perturbed_likelihood = (one_hot_pred * log_trans_pred_p).sum(dim=1)
 
-                consistency_reg = perturbed_likelihood.sum()
+                consistency_reg = -perturbed_likelihood.sum()
 
                 loss = loss_u + loss_l + consistency_reg
                 loss.backward()
