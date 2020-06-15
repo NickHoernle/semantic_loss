@@ -244,16 +244,17 @@ class CNN(VAE):
         self.decoder_cnn = nn.Sequential(
             # nin(kernel_num, kernel_num),
             nn.ConvTranspose2d(kernel_num, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, ?, 8, 8]
-            nn.BatchNorm2d(kernel_num // 2),
+            nn.BatchNorm2d(kernel_num // 2, momentum=0.01),
             nn.ELU(True),
             nin(kernel_num//2, kernel_num//2),
             nn.ELU(True),
             nn.ConvTranspose2d(kernel_num//2, kernel_num//4, kernel_size=4, stride=2, padding=1),  # [batch, ?, 16, 16]
-            nn.BatchNorm2d(kernel_num // 4),
+            nn.BatchNorm2d(kernel_num // 4, momentum=0.01),
             nn.ELU(True),
             nin(kernel_num//4, kernel_num//4),
             nn.ELU(True),
             nn.ConvTranspose2d(kernel_num//4, self.channel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
+            nn.BatchNorm2d(kernel_num // 4, momentum=0.01),
             # nn.ConvTranspose2d(kernel_num // 4, kernel_num//8, kernel_size=4, stride=2, padding=1),
             # nn.ELU(True),
             # nin(kernel_num//8, num_mix * self.nr_logistic_mix),
