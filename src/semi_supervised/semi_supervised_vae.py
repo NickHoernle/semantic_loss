@@ -136,6 +136,9 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
+        if epoch < 10:
+            return (epoch/10)*recon_err + KLD_cont + discriminator_loss
+
         return recon_err + KLD_cont + discriminator_loss  #+ KLD_cont_main
 
     @staticmethod
@@ -168,6 +171,9 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             q_y = torch.exp(log_q_y)
 
             loss_u += (q_y*(log_q_y + KLD_cont)).sum()
+
+        if epoch < 10:
+            return (epoch/10)*recon_err + loss_u
 
         return recon_err + loss_u  #+ KLD_cont_main
 
