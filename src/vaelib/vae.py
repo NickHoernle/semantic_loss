@@ -180,21 +180,21 @@ class CNN(VAE):
             nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
             nn.BatchNorm2d(kernel_num//4),
             nn.ELU(True),
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.25),
             nin(kernel_num//4, kernel_num//4),
             nn.ELU(True),
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.25),
             nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
             nn.BatchNorm2d(kernel_num//2),
             nn.ELU(True),
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.25),
             nin(kernel_num//2, kernel_num//2),
             nn.ELU(True),
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.25),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.BatchNorm2d(kernel_num),
             nn.ELU(True),
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.25),
         )
 
         self.feature_size = self.image_size // (2 ** 3)
@@ -204,10 +204,10 @@ class CNN(VAE):
             nn.Linear(self.feature_volume, self.feature_volume//2), # need the div 4 due to max pool
             nn.BatchNorm1d(self.feature_volume//2),
             nn.ELU(True),
-            nn.Dropout(0.1),
+            nn.Dropout(0.25),
             nn.Linear(self.feature_volume//2, self.feature_volume//4),
             nn.ELU(True),
-            nn.Dropout(0.1),
+            nn.Dropout(0.25),
         )
 
         self.encoder = nn.Sequential(
@@ -220,7 +220,7 @@ class CNN(VAE):
             nn.Linear(self.feature_volume//4, hidden_dim),
             nn.BatchNorm1d(hidden_dim),
             nn.ELU(True),
-            nn.Dropout(0.1),
+            nn.Dropout(0.25),
             nn.Linear(hidden_dim, hidden_dim),
         )
 
@@ -228,7 +228,7 @@ class CNN(VAE):
             nn.Linear(self.feature_volume//4, hidden_dim),
             nn.BatchNorm1d(hidden_dim),
             nn.ELU(True),
-            nn.Dropout(0.1),
+            nn.Dropout(0.25),
             nn.Linear(hidden_dim, hidden_dim),
         )
 
