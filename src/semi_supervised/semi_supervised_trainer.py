@@ -129,11 +129,11 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 loss_l = self.labeled_loss(data_l, one_hot, epoch, **labeled_results)
                 loss_s = self.semantic_loss(epoch, net, labeled_results, labeled_results, labels=one_hot)
 
-                # loss = loss_s #+ loss_l
-                # loss.backward()
+                loss = loss_s + loss_l
+                loss.backward()
 
-                # opt_mu.step()
-                # opt_unsup.step()
+                opt_mu.step()
+                opt_unsup.step()
                 # if epoch == 0:
                 #     ############## Warmup CNN ##################
                 #     reconstruction = net.autoencoder(data_u)
@@ -142,13 +142,13 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 # else:
 
 
-                # opt_unsup.zero_grad()
+                opt_unsup.zero_grad()
 
                 unlabeled_results = net((data_u, None))
                 unlabeled_trans_res = net((data_u_trans, None))
-                # labeled_results = net((data_l, one_hot))
+                labeled_results = net((data_l, one_hot))
 
-                # loss_l = self.labeled_loss(data_l, one_hot, epoch, **labeled_results)
+                loss_l = self.labeled_loss(data_l, one_hot, epoch, **labeled_results)
                 loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
 
                 log_pred_p = unlabeled_results["q_vals"][-1]
@@ -164,13 +164,12 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 consistency_reg = -perturbed_likelihood.sum()
 
-                loss = loss_s + loss_u + loss_l + consistency_reg
+                loss = loss_u + loss_l + consistency_reg
                 loss.backward()
 
                 if self.max_grad_norm > 0:
                     clip_grad_norm_(net.parameters(), self.max_grad_norm)
 
-                opt_mu.step()
                 opt_unsup.step()
 
                 # opt_mu.zero_grad()
