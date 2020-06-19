@@ -97,7 +97,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         """
         This allows for different learning rates for means params vs other params
         """
-        params_ = ["q_global_means", "q_global_log_var", "q_mean", "q_logvar"]
+        params_ = ["q_global_means", "q_global_log_var"]
         mean_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in params_, net.named_parameters()))))
         base_params = list(
             map(lambda x: x[1], list(filter(lambda kv: kv[0] not in params_, net.named_parameters()))))
