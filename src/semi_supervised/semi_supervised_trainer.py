@@ -149,25 +149,25 @@ class SemiSupervisedTrainer(GenerativeTrainer):
 
                 unlabeled_results = net((data_u, None))
                 unlabeled_trans_res = net((data_u_trans, None))
-                labeled_results = net((data_l_trans, one_hot))
+                # labeled_results = net((data_l_trans, one_hot))
 
                 loss_l = self.labeled_loss(data_l, one_hot, epoch, **labeled_results)
                 loss_u = self.unlabeled_loss(data_u_trans, epoch, **unlabeled_results)
 
-                log_pred_p = unlabeled_results["q_vals"][-1]
-                log_trans_pred_p = unlabeled_trans_res["q_vals"][-1]
+                # log_pred_p = unlabeled_results["q_vals"][-1]
+                # log_trans_pred_p = unlabeled_trans_res["q_vals"][-1]
+                #
+                # pred_p = torch.exp(log_pred_p)
+                #
+                # one_hot_pred = self.convert_to_one_hot(
+                #     num_categories=self.num_categories, labels=pred_p.argmax(dim=1)
+                # ).to(device)
+                #
+                # perturbed_likelihood = (one_hot_pred * unlabeled_trans_res["log_p_y"]).sum(dim=1)
 
-                pred_p = torch.exp(log_pred_p)
+                # consistency_reg = -perturbed_likelihood.sum()
 
-                one_hot_pred = self.convert_to_one_hot(
-                    num_categories=self.num_categories, labels=pred_p.argmax(dim=1)
-                ).to(device)
-
-                perturbed_likelihood = (one_hot_pred * unlabeled_trans_res["log_p_y"]).sum(dim=1)
-
-                consistency_reg = -perturbed_likelihood.sum()
-
-                loss = loss_u + loss_l + consistency_reg
+                loss = loss_u + loss_l #+ consistency_reg
                 loss.backward()
 
                 if self.max_grad_norm > 0:
