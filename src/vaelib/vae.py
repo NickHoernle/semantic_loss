@@ -497,7 +497,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
                          channel_num=channel_num,
                          kernel_num=kernel_num)
 
-        self.q_global_means = nn.Parameter(NUM_CATEGORIES*torch.rand(self.num_categories, self.hidden_dim))
+        self.q_global_means = nn.Parameter(torch.rand(self.num_categories, self.hidden_dim))
         self.q_global_log_var = nn.Parameter(0*torch.ones(self.num_categories, self.hidden_dim))
         # self.log_q_y = nn.Sequential(
         #     nn.ELU(True),
