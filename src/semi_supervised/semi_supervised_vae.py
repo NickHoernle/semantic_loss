@@ -137,9 +137,9 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
         if epoch < 100:
-            return (epoch/100)*recon_err + 10*KLD_cont + 10*discriminator_loss
+            return (epoch/100)*recon_err + KLD_cont + discriminator_loss
 
-        return recon_err + 10*KLD_cont + 10*discriminator_loss  #+ KLD_cont_main
+        return recon_err + KLD_cont + discriminator_loss  #+ KLD_cont_main
 
     @staticmethod
     def unlabeled_loss(data, epoch, reconstructed, latent_samples, q_vals, **kwargs):
