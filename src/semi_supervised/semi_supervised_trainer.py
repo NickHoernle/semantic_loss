@@ -148,8 +148,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 data_l_trans = transform(data_l)
 
                 unlabeled_results = net((data_u, None))
-                unlabeled_trans_res = net((data_u_trans, None))
-                # labeled_results = net((data_l_trans, one_hot))
+                # unlabeled_trans_res = net((data_u_trans, None))
+                labeled_results = net((data_l_trans, one_hot))
 
                 loss_l = self.labeled_loss(data_l, one_hot, epoch, **labeled_results)
                 loss_u = self.unlabeled_loss(data_u_trans, epoch, **unlabeled_results)
