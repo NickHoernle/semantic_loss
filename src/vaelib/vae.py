@@ -175,7 +175,7 @@ class CNN(VAE):
         self.channel_num = channel_num
         self.kernel_num = kernel_num
         self.z_size = hidden_dim
-        self.dropout_level = 0.1
+        self.dropout_level = 0.2
         self.encoding_cnn = nn.Sequential(
             nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
             nn.BatchNorm2d(kernel_num//4),
