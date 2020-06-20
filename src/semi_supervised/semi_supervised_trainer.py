@@ -115,7 +115,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 data_u = transform(data_u)
 
                 data_l = data_l.to(device)
-                data_l_trans = transform(data_l)
+                data_l = transform(data_l)
 
                 target_l = target_l.to(device)
 
@@ -126,7 +126,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 opt_unsup.zero_grad()
                 opt_mu.zero_grad()
 
-                labeled_results = net((data_l_trans, one_hot))
+                labeled_results = net((data_l, one_hot))
                 loss_l = self.labeled_loss(data_l, one_hot, epoch, **labeled_results)
                 loss_s = self.semantic_loss(epoch, net, labeled_results, labeled_results, labels=one_hot)
 
