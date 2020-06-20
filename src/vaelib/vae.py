@@ -175,26 +175,26 @@ class CNN(VAE):
         self.channel_num = channel_num
         self.kernel_num = kernel_num
         self.z_size = hidden_dim
-
+        self.dropout_level = 0.1
         self.encoding_cnn = nn.Sequential(
             nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
             nn.BatchNorm2d(kernel_num//4),
             nn.ELU(True),
-            nn.Dropout2d(0.15),
+            nn.Dropout2d(self.dropout_level),
             nin(kernel_num//4, kernel_num//4),
             nn.ELU(True),
-            nn.Dropout2d(0.15),
+            nn.Dropout2d(self.dropout_level),
             nn.Conv2d(kernel_num//4, kernel_num//2, kernel_size=4, stride=2, padding=1),  # [batch, kernel_num//2, 8, 8]
             nn.BatchNorm2d(kernel_num//2),
             nn.ELU(True),
-            nn.Dropout2d(0.15),
+            nn.Dropout2d(self.dropout_level),
             nin(kernel_num//2, kernel_num//2),
             nn.ELU(True),
-            nn.Dropout2d(0.15),
+            nn.Dropout2d(self.dropout_level),
             nn.Conv2d(kernel_num//2, kernel_num, kernel_size=4, stride=2, padding=1),     # [batch, kernel_num, 4, 4]
             nn.BatchNorm2d(kernel_num),
             nn.ELU(True),
-            nn.Dropout2d(0.15),
+            nn.Dropout2d(self.dropout_level),
         )
 
         self.feature_size = self.image_size // (2 ** 3)
@@ -204,10 +204,10 @@ class CNN(VAE):
             nn.Linear(self.feature_volume, self.feature_volume//2), # need the div 4 due to max pool
             nn.BatchNorm1d(self.feature_volume//2),
             nn.ELU(True),
-            nn.Dropout(0.15),
+            nn.Dropout(self.dropout_level),
             nn.Linear(self.feature_volume//2, self.feature_volume//4),
             nn.ELU(True),
-            nn.Dropout(0.15),
+            nn.Dropout(self.dropout_level),
         )
 
         self.encoder = nn.Sequential(
@@ -220,7 +220,7 @@ class CNN(VAE):
             nn.Linear(self.feature_volume//4, hidden_dim),
             nn.BatchNorm1d(hidden_dim),
             nn.ELU(True),
-            nn.Dropout(0.15),
+            nn.Dropout(self.dropout_level),
             nn.Linear(hidden_dim, hidden_dim),
         )
 
@@ -228,7 +228,7 @@ class CNN(VAE):
             nn.Linear(self.feature_volume//4, hidden_dim),
             nn.BatchNorm1d(hidden_dim),
             nn.ELU(True),
-            nn.Dropout(0.15),
+            nn.Dropout(self.dropout_level),
             nn.Linear(hidden_dim, hidden_dim),
         )
 

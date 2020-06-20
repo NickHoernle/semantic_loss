@@ -365,8 +365,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             train_ds, sampler=validation_sampler, **self.loader_params
         )
         train_loader = (train_loader_labeled, train_loader_unlabeled)
-        # valid_loader = torch.utils.data.DataLoader(valid_ds, **self.loader_params)
-        valid_loader = train_loader_validation
+        valid_loader = torch.utils.data.DataLoader(valid_ds, **self.loader_params)
+        # valid_loader = train_loader_validation
 
         return train_loader, valid_loader
 
