@@ -12,7 +12,7 @@ SCRATCH_HOME = f'{SCRATCH_DISK}/{USER}'
 DATA_HOME = f'{SCRATCH_HOME}/vaelib'
 base_call = (f"semi_supervised_vae.py gmm --input-data={DATA_HOME}/data --output-data={DATA_HOME}/output "
              f"--use_cuda=True "
-             f"--num_epochs=200 "
+             f"--num_epochs=500 "
              f"--num_labeled_data_per_class=400 "
              f"--s_loss=True"
              f"--num_test_samples=0 "
@@ -21,13 +21,13 @@ base_call = (f"semi_supervised_vae.py gmm --input-data={DATA_HOME}/data --output
 
 repeats = 1
 learning_rates = [1e-6, 1e-7]
-learning_rates2 = [1e-7, 1e-8]
-gammas = [.99]
-hidden_dim = [250, 500]
-kernel_nums= [500, 750]
+learning_rates2 = [1e-7, 1e-6]
+gammas = [.99, .99]
+hidden_dim = [1250]
+kernel_nums= [500]
 sloss = [True]
 batch_size = [100]
-sloss_magnitude = [9, 11, 13]
+sloss_magnitude = [5, 8, 10]
 # backward = [True, False]
 # back_strength = [1e2, 1e3, 1e4, 1e5]
 # num_layers = [40]
