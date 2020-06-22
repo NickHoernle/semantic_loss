@@ -260,7 +260,8 @@ class CNN(VAE):
             nn.ELU(True),
             nin(kernel_num//4, kernel_num//4),
             nn.ELU(True),
-            nn.ConvTranspose2d(kernel_num//4, self.channel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
+            nn.ConvTranspose2d(kernel_num // 4, num_mix * self.nr_logistic_mix, kernel_size=4, stride=2, padding=1)
+            # nn.ConvTranspose2d(kernel_num//4, self.channel_num, kernel_size=4, stride=2, padding=1),  # [batch, ?, 32, 32]?
             # nn.BatchNorm2d(self.channel_num, momentum=0.01),
             # nn.ConvTranspose2d(kernel_num // 4, kernel_num//8, kernel_size=4, stride=2, padding=1),
             # nn.ELU(True),
