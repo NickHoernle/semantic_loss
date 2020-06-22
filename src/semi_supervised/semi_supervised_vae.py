@@ -125,8 +125,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         # reconstruction loss
         # import pdb
         # pdb.set_trace()
-        recon_err = discretized_mix_logistic_loss(data, data_recon).mean()
-        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        # recon_err = discretized_mix_logistic_loss(data, data_recon).mean()
+        recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
 
         # KLD for Z2
         KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
@@ -156,8 +156,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
                                   (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
 
         data_recon = reconstructed[0]
-        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="none").sum(dim=(1, 2, 3)).sum()
-        recon_err = discretized_mix_logistic_loss(data, data_recon).sum()
+        recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="none").sum(dim=(1, 2, 3)).sum()
+        # recon_err = discretized_mix_logistic_loss(data, data_recon).sum()
 
         # latent unlabeled loss
         loss_u = 0
