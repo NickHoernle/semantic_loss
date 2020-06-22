@@ -175,7 +175,7 @@ class CNN(VAE):
         self.channel_num = channel_num
         self.kernel_num = kernel_num
         self.z_size = hidden_dim
-        self.dropout_level = 0.2
+        self.dropout_level = 0.15
         self.encoding_cnn = nn.Sequential(
             nn.Conv2d(channel_num, kernel_num//4, kernel_size=4, stride=2, padding=1),    # [batch, kernel_num//4, 16, 16]
             nn.BatchNorm2d(kernel_num//4),
@@ -500,7 +500,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         self.q_global_means = nn.Parameter(self.num_categories*torch.rand(self.num_categories, self.hidden_dim))
         self.q_global_log_var = nn.Parameter(-1*torch.ones(self.num_categories, self.hidden_dim))
 
-        self.reg = 10
+        self.reg = 100
         # self.log_q_y = nn.Sequential(
         #     nn.ELU(True),
         #     nn.Linear(self.feature_volume // 4, self.feature_volume // 2),
