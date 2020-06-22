@@ -120,7 +120,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         num_categories = len(log_q_y[0])
 
         # get the means that z should be associated with
-        q_means = q_mu - (true_y.unsqueeze(-1) * q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
+        q_means = q_mu - (true_y.unsqueeze(-1) * z_global.unsqueeze(0).repeat(len(q_mu), 1, 1)).sum(dim=1)
 
         # reconstruction loss
         # import pdb
@@ -131,15 +131,15 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         # KLD for Z2
         KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
 
-        # KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
-        #                                  (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
+        KLD_cont_main = -0.5 * torch.sum(1 + q_global_log_var - np.log(num_categories ** 2) -
+                                         (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
         if epoch < 100:
-            return (epoch/100)*recon_err + KLD_cont + discriminator_loss
+            return (epoch/100)*recon_err + KLD_cont + discriminator_loss + KLD_cont_main
 
-        return recon_err + KLD_cont + discriminator_loss  #+ KLD_cont_main
+        return recon_err + KLD_cont + discriminator_loss + KLD_cont_main
 
     @staticmethod
     def unlabeled_loss(data, epoch, reconstructed, latent_samples, q_vals, **kwargs):
@@ -163,7 +163,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         loss_u = 0
         for cat in range(num_categories):
 
-            q_means = q_mu - q_global_means[cat].unsqueeze(0).repeat(len(data), 1)
+            q_means = q_mu - z_global[cat].unsqueeze(0).repeat(len(data), 1)
             KLD_cont = - 0.5 * (1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)
 
             # reconstruction loss
@@ -173,9 +173,9 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
             loss_u += (q_y*(log_q_y + KLD_cont)).sum()
 
         if epoch < 100:
-            return (epoch/100)*recon_err + loss_u
+            return (epoch/100)*recon_err + loss_u + KLD_cont_main
 
-        return recon_err + loss_u  #+ KLD_cont_main
+        return recon_err + loss_u + KLD_cont_main
 
     def semantic_loss(self, epoch, net, *args, **kwargs):
         """
