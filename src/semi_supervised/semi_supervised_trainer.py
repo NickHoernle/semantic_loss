@@ -188,8 +188,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 progress_bar.set_postfix(nll=loss_meter.avg, sloss=sloss_meter.avg)
                 progress_bar.update(data_u.size(0))
 
-                if net.reg > 1:
-                    net.reg -= 1
+        if net.reg > 1:
+            net.reg -= 1
 
                 self.global_step += data_u.size(0)
         print(f"===============> Epoch {epoch}; SLoss: {sloss_meter.avg}; NLL: {loss_meter.avg/(self.batch_size*32*32)}")
