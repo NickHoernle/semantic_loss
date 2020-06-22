@@ -498,7 +498,9 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
                          kernel_num=kernel_num)
 
         self.q_global_means = nn.Parameter(self.num_categories*torch.rand(self.num_categories, self.hidden_dim))
-        self.q_global_log_var = nn.Parameter(0*torch.ones(self.num_categories, self.hidden_dim))
+        self.q_global_log_var = nn.Parameter(-1*torch.ones(self.num_categories, self.hidden_dim))
+
+        self.reg = 10
         # self.log_q_y = nn.Sequential(
         #     nn.ELU(True),
         #     nn.Linear(self.feature_volume // 4, self.feature_volume // 2),
@@ -516,7 +518,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         # q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
         # q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
 
-        return self.base.log_prob(z_samp - global_samp)
+        return self.base.log_prob((z_samp - global_samp)/self.reg)
 
     def q(self, encoded):
         unrolled = encoded.view(len(encoded), -1)
