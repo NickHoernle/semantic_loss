@@ -508,15 +508,17 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
 
         self.apply(init_weights)
 
-    def log_q_y(self, q_mu, q_logvar):
+    def log_q_y(self, q_mu, q_logvar, z_global):
 
         q_mus = q_mu.unsqueeze(1).repeat(1, self.num_categories, 1)
         q_sigs = torch.exp(q_logvar).unsqueeze(1).repeat(1, self.num_categories, 1)
 
-        q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
-        q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
+        global_samp = z_global.unsqueeze(0).repeat(len(q_mu), 1, 1)
 
-        return self.base.log_prob((q_mus - q_global_means)/(1 + q_sigs + q_global_sigs))
+        # q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
+        # q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
+
+        return self.base.log_prob((q_mus - global_samp)/(1 + q_sigs))
 
     def q(self, encoded):
         unrolled = encoded.view(len(encoded), -1)
@@ -528,9 +530,12 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
 
     def forward_unlabelled(self, x, **kwargs):
         encoded = self.encoder(x)
+
+        z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
+
         (q_mu, q_logvar) = self.q(encoded)
 
-        log_p_y = self.log_q_y(q_mu, q_logvar)
+        log_p_y = self.log_q_y(q_mu, q_logvar, z_global)
         log_q_ys = log_p_y - log_sum_exp(log_p_y).unsqueeze(1)
 
         z = self.reparameterize(q_mu, q_logvar)
@@ -538,7 +543,7 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         x_reconstructed = self.decoder(z)
 
         return {"reconstructed": [x_reconstructed],
-                "latent_samples": [z, None],
+                "latent_samples": [z, z_global],
                 "log_p_y": log_p_y,
                 "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, log_q_ys]}
 
