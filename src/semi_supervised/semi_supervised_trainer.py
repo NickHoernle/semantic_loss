@@ -101,10 +101,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         transform = transforms.Compose([RandomCrop(32, padding=4, device=self.device),
                                         RandomHorizontalFlip(device=self.device)])
 
-        if epoch < 5:
+        if epoch < 10:
             for param_group in opt_unsup.param_groups:
-                param_group['lr'] = 1e-8
-        elif epoch == 5:
+                param_group['lr'] = 5e-8
+        elif epoch == 10:
             for param_group in opt_unsup.param_groups:
                 param_group['lr'] = self.lr
         # anneal the tau parameter
