@@ -140,7 +140,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         # if epoch < 100:
         #     return (epoch/100)*recon_err + KLD_cont + discriminator_loss + KLD_cont_main
 
-        return recon_err + KLD_cont + discriminator_loss + KLD_cont_main
+        return recon_err + 10*KLD_cont + discriminator_loss + KLD_cont_main
 
     @staticmethod
     def unlabeled_loss(data, epoch, reconstructed, latent_samples, q_vals, **kwargs):
@@ -176,7 +176,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         if epoch < 100:
             return (epoch/100)*recon_err + loss_u + KLD_cont_main
 
-        return recon_err + loss_u + KLD_cont_main
+        return recon_err + 10*loss_u + KLD_cont_main
 
     def semantic_loss(self, epoch, net, *args, **kwargs):
         """
