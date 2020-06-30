@@ -14,8 +14,8 @@ from torch.distributions import MultivariateNormal, Uniform, \
 import math
 
 def init_weights(m):
-    if type(m) == nn.Linear:
-        torch.nn.init.normal_(m.weight,0,.05)
+    if (type(m) == nn.Linear) or (type(m) == nn.Conv2d) or (type(m) == nn.ConvTranspose2d):
+        torch.nn.init.xavier_uniform_(m.weight)
         m.bias.data.fill_(0)
 
 
