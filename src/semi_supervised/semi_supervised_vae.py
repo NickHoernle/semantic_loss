@@ -15,6 +15,7 @@ from torch.distributions import MultivariateNormal
 from vaelib.vae import GMM_VAE
 from semi_supervised.semi_supervised_trainer import SemiSupervisedTrainer
 
+pixelwise_loss = torch.nn.L1Loss()
 
 def build_model(data_dim=10, hidden_dim=10, num_categories=10, kernel_num=50, channel_num=1):
     return GMM_VAE(
@@ -127,7 +128,10 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         # import pdb
         # pdb.set_trace()
         # recon_err = discretized_mix_logistic_loss(data, data_recon).mean()
-        recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="sum")
+        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="none").mean(dim=(1, 2, 3)).sum()
+
+        recon_err = pixelwise_loss(torch.tanh(data_recon), data).sum()
 
         # KLD for Z2
         KLD_cont = - 0.5 * ((1 + q_logvar - q_means.pow(2) - q_logvar.exp()).sum(dim=1)).sum()
@@ -157,8 +161,10 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
                                   (q_global_log_var.exp() + q_global_means.pow(2)) / (num_categories ** 2))
 
         data_recon = reconstructed[0]
-        recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="none").sum(dim=(1, 2, 3)).sum()
+        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="none").sum(dim=(1, 2, 3)).sum()
+        # recon_err = F.binary_cross_entropy(torch.sigmoid(data_recon), data, reduction="none").mean(dim=(1, 2, 3)).sum()
         # recon_err = discretized_mix_logistic_loss(data, data_recon).sum()
+        recon_err = pixelwise_loss(torch.tanh(data_recon), data).sum()
 
         # latent unlabeled loss
         loss_u = 0

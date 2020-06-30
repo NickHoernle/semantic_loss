@@ -288,6 +288,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             transforms.ToPILImage(),
             transforms.Pad(2),
             transforms.ToTensor(),
+            rescaling
         ]
 
         _CIFAR_TRAIN_TRANSFORMS = [
@@ -297,13 +298,13 @@ class SemiSupervisedTrainer(GenerativeTrainer):
             # transforms.RandomRotation(15),
             transforms.ToTensor(),
             # rescaling
-            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
         _CIFAR_TEST_TRANSFORMS = [
             transforms.ToTensor(),
             # rescaling
-            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
 
         if self.dataset == "MNIST":
