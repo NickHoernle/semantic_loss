@@ -201,11 +201,8 @@ class CNN(VAE):
         self.feature_volume = kernel_num * self.feature_size * self.feature_size
 
         self.encoder_linear = nn.Sequential(
-            nn.Linear(self.feature_volume, self.feature_volume//2), # need the div 4 due to max pool
-            nn.BatchNorm1d(self.feature_volume//2),
-            nn.ELU(True),
-            nn.Dropout(self.dropout_level),
-            nn.Linear(self.feature_volume//2, self.feature_volume//4),
+            nn.Linear(self.feature_volume, self.feature_volume//4), # need the div 4 due to max pool
+            nn.BatchNorm1d(self.feature_volume//4),
             nn.ELU(True),
             nn.Dropout(self.dropout_level),
         )
@@ -218,18 +215,10 @@ class CNN(VAE):
 
         self.q_mean = nn.Sequential(
             nn.Linear(self.feature_volume//4, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
-            nn.ELU(True),
-            nn.Dropout(self.dropout_level),
-            nn.Linear(hidden_dim, hidden_dim),
         )
 
         self.q_logvar = nn.Sequential(
             nn.Linear(self.feature_volume//4, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
-            nn.ELU(True),
-            nn.Dropout(self.dropout_level),
-            nn.Linear(hidden_dim, hidden_dim),
         )
 
         # num_mix = 3 if channel_num == 1 else 10
@@ -240,11 +229,8 @@ class CNN(VAE):
         self.project = nn.Sequential(
             # nn.BatchNorm1d(hidden_dim),
             # nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
-            nn.ELU(True),
             nn.Linear(hidden_dim, self.feature_volume),
-            nn.BatchNorm1d(self.feature_volume),
+            nn.BatchNorm1d(hidden_dim),
             nn.ELU(True),
         )
 
