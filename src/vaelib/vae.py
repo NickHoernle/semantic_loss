@@ -230,7 +230,7 @@ class CNN(VAE):
             # nn.BatchNorm1d(hidden_dim),
             # nn.ELU(True),
             nn.Linear(hidden_dim, self.feature_volume),
-            nn.BatchNorm1d(hidden_dim),
+            nn.BatchNorm1d(self.feature_volume),
             nn.ELU(True),
         )
 
