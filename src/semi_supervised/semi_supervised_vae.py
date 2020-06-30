@@ -99,7 +99,8 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         This allows for different learning rates for means params vs other params
         """
         params_ = ["q_global_means", "q_global_log_var"]
-        mean_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in params_, net.named_parameters()))))
+        mean_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in params_, net.named_parameters())))) + \
+                      [v for k, v in net.named_parameters() if "encoder" in k]
         base_params = list(
             map(lambda x: x[1], list(filter(lambda kv: kv[0] not in params_, net.named_parameters()))))
         # return optim.Adam(net.parameters(), lr=self.lr)
@@ -141,10 +142,10 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         discriminator_loss = -(true_y * log_q_y).sum(dim=1).sum()
 
-        if epoch < 10:
-            return recon_err + KLD_cont + discriminator_loss + KLD_cont_main
+        if epoch < 100:
+            return (epoch/100)*recon_err + KLD_cont + 100*discriminator_loss + KLD_cont_main
 
-        return recon_err + 10*KLD_cont + discriminator_loss + KLD_cont_main
+        return recon_err + KLD_cont + discriminator_loss + KLD_cont_main
 
     @staticmethod
     def unlabeled_loss(data, epoch, reconstructed, latent_samples, q_vals, **kwargs):
@@ -179,10 +180,10 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
             loss_u += (q_y*(log_q_y + KLD_cont)).sum()
 
-        if epoch < 10:
-            return recon_err + loss_u + KLD_cont_main
+        if epoch < 100:
+            return (epoch/100)*recon_err + loss_u + KLD_cont_main
 
-        return recon_err + 10*loss_u + KLD_cont_main
+        return recon_err + loss_u + KLD_cont_main
 
     def semantic_loss(self, epoch, net, *args, **kwargs):
         """
