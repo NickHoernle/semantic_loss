@@ -123,7 +123,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                     num_categories=self.num_categories, labels=target_l
                 ).to(device)
 
-                # opt_unsup.zero_grad()
+                opt_unsup.zero_grad()
                 opt_mu.zero_grad()
 
                 labeled_results = net((data_l, one_hot))
@@ -134,7 +134,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 loss.backward()
 
                 opt_mu.step()
-                # opt_unsup.step()
+                opt_unsup.step()
                 # if epoch == 0:
                 #     ############## Warmup CNN ##################
                 #     reconstruction = net.autoencoder(data_u)
