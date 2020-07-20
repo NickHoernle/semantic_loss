@@ -122,7 +122,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 opt_encode.step()
 
                 opt_decode.zero_grad()
-                sample = torch.randn(len(data_u), net.hidden_dim)
+                sample = torch.randn(len(data_u), net.hidden_dim).to(device)
                 generations = net.decode(sample)
                 loss_s = self.semantic_loss(generations, all_labels=all_labels).sum()
                 loss_s.backward()
