@@ -12,6 +12,7 @@ from torchvision.utils import save_image
 from torch.distributions import MultivariateNormal, Uniform, \
     TransformedDistribution, SigmoidTransform, Normal, Categorical
 import math
+from vaelib.resnet import Wide_ResNet
 
 def init_weights(m):
     if (type(m) == nn.Linear) or (type(m) == nn.Conv2d) or (type(m) == nn.ConvTranspose2d):
@@ -476,7 +477,7 @@ class M2_Linear(LinearVAE, M2):
         return self.q_mean(unrolled), self.q_logvar(unrolled), self.log_q_y(unrolled)
 
 
-class GMM_VAE(VAE_Categorical_Base, CNN):
+class GMM_VAE(VAE_Categorical_Base):
     def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):
         super().__init__(data_dim=data_dim,
                          hidden_dim=hidden_dim,
@@ -484,28 +485,39 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
                          channel_num=channel_num,
                          kernel_num=kernel_num)
 
-        self.q_global_means = nn.Parameter(self.num_categories*torch.rand(self.num_categories, self.hidden_dim))
-        self.q_global_log_var = nn.Parameter(-1*torch.ones(self.num_categories, self.hidden_dim))
+        self.project = nn.Sequential(
+            # nn.BatchNorm1d(hidden_dim),
+            # nn.ELU(True),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ELU(True),
+        )
 
-        self.reg = 100
-        # self.log_q_y = nn.Sequential(
-        #     nn.ELU(True),
-        #     nn.Linear(self.feature_volume // 4, self.feature_volume // 2),
-        #     nn.ELU(True),
-        #     nn.Linear(self.feature_volume // 2, NUM_CATEGORIES)
-        # )
+        self.encoder = Wide_ResNet(28, 2, 0.3, hidden_dim)
+
+        self.q_mean = nn.Sequential(
+            nn.BatchNorm1d(hidden_dim),
+            nn.ELU(True),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+
+        self.q_logvar = nn.Sequential(
+            nn.BatchNorm1d(hidden_dim),
+            nn.ELU(True),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+
+        self.decoder = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ELU(True),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ELU(True),
+            nn.Linear(hidden_dim, NUM_CATEGORIES)
+        )
 
         self.apply(init_weights)
-
-    def log_q_y(self, z, z_global):
-
-        z_samp = z.unsqueeze(1).repeat(1, self.num_categories, 1)
-        global_samp = z_global.unsqueeze(0).repeat(len(z_samp), 1, 1)
-
-        # q_global_means = self.q_global_means.unsqueeze(0).repeat(len(q_mu), 1, 1)
-        # q_global_sigs = torch.exp(self.q_global_log_var).unsqueeze(0).repeat(len(q_mu), 1, 1)
-
-        return self.base.log_prob((z_samp - global_samp)/self.reg)
 
     def q(self, encoded):
         unrolled = encoded.view(len(encoded), -1)
@@ -516,30 +528,19 @@ class GMM_VAE(VAE_Categorical_Base, CNN):
         return self.forward_unlabelled(x)
 
     def forward_unlabelled(self, x, **kwargs):
+
         encoded = self.encoder(x)
         (q_mu, q_logvar) = self.q(encoded)
-
-        z_global = self.reparameterize(self.q_global_means, self.q_global_log_var)
         z = self.reparameterize(q_mu, q_logvar)
-
-        log_p_y = self.log_q_y(z, z_global)
-        log_q_ys = log_p_y - log_sum_exp(log_p_y).unsqueeze(1)
-
         x_reconstructed = self.decoder(z)
 
         return {"reconstructed": [x_reconstructed],
-                "latent_samples": [z, z_global],
-                "log_p_y": log_p_y,
-                "q_vals": [q_mu, q_logvar, self.q_global_means, self.q_global_log_var, log_q_ys]}
+                "latent_samples": [z],
+                "q_vals": [q_mu, q_logvar]}
 
     def sample_labelled(self, labels):
-        n_samps = len(labels)
-        base_dist = MultivariateNormal(self.zeros, self.eye)
-        z = base_dist.sample((n_samps,))
-        q_mean_expanded = (labels.unsqueeze(-1) * (self.q_global_means.unsqueeze(0).repeat(len(labels), 1, 1))).sum(dim=1)
-        x_reconstructed = self.decoder(z + q_mean_expanded)
-        # x_reconstructed = sample_from_discretized_mix_logistic(x_reconstructed, self.nr_logistic_mix)
-        return torch.sigmoid(x_reconstructed)
+        pass
+
 
 class M2_Gumbel(M2):
     def __init__(self, data_dim, hidden_dim, NUM_CATEGORIES, channel_num=1, kernel_num=150):
