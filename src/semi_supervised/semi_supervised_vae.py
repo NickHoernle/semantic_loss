@@ -39,6 +39,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         kernel_num=50,
         batch_size=256,
         lr2=1e-2,
+        lr3=1e-2,
         s_loss=False,
         s_loss_mag=5,
         lr=1e-3,
@@ -62,6 +63,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
 
         self.s_loss = s_loss
         self.lr2 = lr2
+        self.lr3 = lr3
         self.hidden_dim = hidden_dim
         self.s_loss_mag = s_loss_mag
 
@@ -100,9 +102,13 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         """
         encoder_parameters = [v for k, v in net.named_parameters() if "encoder" in k]
         decoder_params = [v for k, v in net.named_parameters() if "decoder" in k]
-        return [optim.Adam(net.parameters(), lr=self.lr*1e1),
-                optim.Adam(encoder_parameters, lr=self.lr),
-                optim.Adam(decoder_params, lr=self.lr*1e-2)]
+        return [optim.Adam(net.parameters(), lr=self.lr),
+                optim.Adam(encoder_parameters, lr=self.lr2),
+                optim.Adam(decoder_params, lr=self.lr3)]
+
+    # return [optim.SGD(net.parameters(), lr=self.lr, weight_decay=0.001, momentum=0.9),
+    #         optim.SGD(encoder_parameters, lr=self.lr2, weight_decay=0.001, momentum=0.9),
+    #         optim.SGD(decoder_params, lr=self.lr3, weight_decay=0.001, momentum=0.9)]
 
     @staticmethod
     def labeled_loss(data, labels, epoch, reconstructed, latent_samples, q_vals, **kwargs):
