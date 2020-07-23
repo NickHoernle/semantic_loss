@@ -115,27 +115,27 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 loss_l.backward()
                 opt_all.step()
 
-                opt_encode.zero_grad()
-                labeled_results = net((data_l, target_l))
-                unlabeled_results = net((data_u, None))
-                loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
-                loss_l = self.unlabeled_loss(data_l, epoch, **labeled_results)
-                loss = loss_u + loss_l
-                loss.backward()
-                opt_encode.step()
+                # opt_encode.zero_grad()
+                # labeled_results = net((data_l, target_l))
+                # unlabeled_results = net((data_u, None))
+                # loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
+                # loss_l = self.unlabeled_loss(data_l, epoch, **labeled_results)
+                # loss = loss_u + loss_l
+                # loss.backward()
+                # opt_encode.step()
 
                 # opt_decode.zero_grad()
-                sample = torch.randn(len(data_u), net.hidden_dim).to(device)
-                generations = net.decode(sample)
-                loss_s = self.semantic_loss(generations, all_labels=all_labels).sum()
+                # sample = torch.randn(len(data_u), net.hidden_dim).to(device)
+                # generations = net.decode(sample)
+                # loss_s = self.semantic_loss(generations, all_labels=all_labels).sum()
                 # loss_s.backward()
 
                 # if self.max_grad_norm > 0:
                 #     clip_grad_norm_(net.parameters(), self.max_grad_norm)
                 # opt_decode.step()
 
-                sloss_meter.update(loss_s.item(), data_u.size(0))
-                loss_meter.update(loss_u.item(), data_u.size(0))
+                # sloss_meter.update(loss_s.item(), data_u.size(0))
+                # loss_meter.update(loss_u.item(), data_u.size(0))
 
                 progress_bar.set_postfix(nll=loss_meter.avg, sloss=sloss_meter.avg)
                 progress_bar.update(data_u.size(0))
