@@ -493,7 +493,18 @@ class GMM_VAE(VAE_Categorical_Base):
             nn.ELU(True),
         )
 
-        self.encoder = Wide_ResNet(28, 2, 0.3, hidden_dim)
+        self.encoder = Wide_ResNet(28, 2, 0, hidden_dim)
+
+        # self.encoder = nn.Sequential(
+        #     Flatten(32*32*channel_num),
+        #     nn.Linear(32*32*channel_num, hidden_dim),
+        #     nn.BatchNorm1d(hidden_dim),
+        #     nn.ELU(True),
+        #     nn.Linear(hidden_dim, hidden_dim),
+        #     nn.BatchNorm1d(hidden_dim),
+        #     nn.ELU(True),
+        #     nn.Linear(hidden_dim, hidden_dim),
+        # )
 
         self.q_mean = nn.Sequential(
             nn.BatchNorm1d(hidden_dim),
