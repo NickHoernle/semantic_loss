@@ -115,14 +115,17 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 loss_l.backward()
                 opt_all.step()
 
-                # opt_encode.zero_grad()
-                # labeled_results = net((data_l, target_l))
-                # unlabeled_results = net((data_u, None))
-                # loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
-                # loss_l = self.unlabeled_loss(data_l, epoch, **labeled_results)
-                # loss = loss_u + loss_l
-                # loss.backward()
-                # opt_encode.step()
+                opt_encode.zero_grad()
+                labeled_results = net((data_l, target_l))
+                unlabeled_results = net((data_u, None))
+                loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
+                loss_l = self.unlabeled_loss(data_l, epoch, **labeled_results)
+                loss = loss_u + loss_l
+                loss.backward()
+                opt_encode.step()
+
+                # import pdb
+                # pdb.set_trace()
 
                 # opt_decode.zero_grad()
                 # sample = torch.randn(len(data_u), net.hidden_dim).to(device)
