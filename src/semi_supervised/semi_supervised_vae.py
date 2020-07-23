@@ -120,9 +120,11 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         Loss for the labeled data
         """
         predictions = reconstructed[0]
+        q_mu, q_logvar = q_vals
         categorical_loss = F.cross_entropy(predictions, labels, reduction="mean")
+        # KLD_cont = - 0.5 * (1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).mean()
 
-        return categorical_loss
+        return categorical_loss # + KLD_cont
 
 
     @staticmethod
@@ -132,7 +134,7 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         """
         q_mu, q_logvar = q_vals
 
-        KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp()).sum(dim=1)).mean()
+        KLD_cont = - 0.5 * ((1 + q_logvar - q_mu.pow(2) - q_logvar.exp())).mean()
 
         return KLD_cont
 

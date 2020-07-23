@@ -485,46 +485,54 @@ class GMM_VAE(VAE_Categorical_Base):
                          channel_num=channel_num,
                          kernel_num=kernel_num)
 
-        self.project = nn.Sequential(
-            # nn.BatchNorm1d(hidden_dim),
-            # nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ELU(),
-        )
+        # self.project = nn.Sequential(
+        #     # nn.BatchNorm1d(hidden_dim),
+        #     # nn.ELU(True),
+        #     nn.Linear(hidden_dim, hidden_dim),
+        #     # nn.BatchNorm1d(hidden_dim),
+        #     nn.ELU(True),
+        # )
 
         self.encoder = Wide_ResNet(28, 2, 0, hidden_dim)
 
         # self.encoder = nn.Sequential(
         #     Flatten(32*32*channel_num),
         #     nn.Linear(32*32*channel_num, hidden_dim),
-        #     # nn.BatchNorm1d(hidden_dim),
-        #     nn.ELU(),
-        #     nn.Linear(hidden_dim, hidden_dim),
-        #     # nn.BatchNorm1d(hidden_dim),
-        #     nn.ELU(),
-        #     nn.Linear(hidden_dim, hidden_dim),
+        #     nn.BatchNorm1d(hidden_dim),
+            # nn.ELU(True),
+            # nn.Linear(hidden_dim, hidden_dim),
+            # nn.BatchNorm1d(hidden_dim),
         # )
 
         self.q_mean = nn.Sequential(
+            nn.ELU(True),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ELU(True),
+            nn.Linear(hidden_dim, hidden_dim),
             # nn.BatchNorm1d(hidden_dim),
-            nn.ELU(),
+            nn.ELU(True),
             nn.Linear(hidden_dim, hidden_dim),
         )
 
         self.q_logvar = nn.Sequential(
+            nn.ELU(True),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ELU(True),
+            nn.Linear(hidden_dim, hidden_dim),
             # nn.BatchNorm1d(hidden_dim),
-            nn.ELU(),
+            nn.ELU(True),
             nn.Linear(hidden_dim, hidden_dim),
         )
 
         self.decoder = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ELU(),
+            nn.ELU(True),
             nn.Linear(hidden_dim, hidden_dim),
             # nn.BatchNorm1d(hidden_dim),
-            nn.ELU(),
+            nn.ELU(True),
+            nn.Linear(hidden_dim, hidden_dim),
+            # nn.BatchNorm1d(hidden_dim),
+            nn.ELU(True),
             nn.Linear(hidden_dim, NUM_CATEGORIES)
         )
 
@@ -548,6 +556,7 @@ class GMM_VAE(VAE_Categorical_Base):
         return {"reconstructed": [x_reconstructed],
                 "latent_samples": [z],
                 "q_vals": [q_mu, q_logvar]}
+        # return encoded
 
     def sample_labelled(self, labels):
         pass
