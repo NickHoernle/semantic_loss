@@ -102,13 +102,13 @@ class VAESemiSupervisedTrainer(SemiSupervisedTrainer):
         """
         encoder_parameters = [v for k, v in net.named_parameters() if "encoder" in k]
         decoder_params = [v for k, v in net.named_parameters() if "decoder" in k]
-        return [optim.Adam(net.parameters(), lr=self.lr),
-                optim.Adam(encoder_parameters, lr=self.lr2),
-                optim.Adam(decoder_params, lr=self.lr3)]
+        # return [optim.Adam(net.parameters(), lr=self.lr),
+        #         optim.Adam(encoder_parameters, lr=self.lr2),
+        #         optim.Adam(decoder_params, lr=self.lr3)]
 
-        # return [optim.SGD(net.parameters(), lr=self.lr),
-        #         optim.SGD(encoder_parameters, lr=self.lr2),
-        #         optim.SGD(decoder_params, lr=self.lr3)]
+        return [optim.SGD(net.parameters(), lr=self.lr),
+                optim.SGD(encoder_parameters, lr=self.lr2),
+                optim.SGD(decoder_params, lr=self.lr3)]
 
         # return [optim.SGD(net.parameters(), lr=self.lr, weight_decay=0.001, momentum=0.9),
         #         optim.SGD(encoder_parameters, lr=self.lr2, weight_decay=0.001, momentum=0.9),

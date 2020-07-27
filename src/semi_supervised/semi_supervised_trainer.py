@@ -100,7 +100,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         self.data_dims = model_parameters['data_dim']
         self.num_categories = model_parameters['num_categories']
         self.logic_net = BaseNet(10).to(self.device)
-        self.logic_opt = torch.optim.Adam(self.logic_net.parameters(), lr=self.lr)
+        self.logic_opt = torch.optim.SGD(self.logic_net.parameters(), lr=self.lr)
 
     @torch.enable_grad()
     def train(self, epoch, net, optimizer, loaders, **kwargs):
