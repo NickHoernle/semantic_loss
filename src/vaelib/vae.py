@@ -30,6 +30,25 @@ class Flatten(nn.Module):
         return x.reshape(-1, self.feature_volume)
 
 
+class BaseNet(nn.Module):
+
+    def __init__(self, num_categories):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(num_categories, 100),
+            nn.ReLU(True),
+            nn.Linear(100, 100),
+            nn.ReLU(True),
+            nn.Linear(100, 100),
+            nn.ReLU(True),
+            nn.Linear(100, 1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
 class VAE(nn.Module):
     def __init__(self, data_dim, hidden_dim, condition=False, num_condition=0, **kwargs):
         super().__init__()
@@ -494,47 +513,41 @@ class GMM_VAE(VAE_Categorical_Base):
         # )
 
         self.encoder = Wide_ResNet(28, 2, 0, hidden_dim)
-
+        #
         # self.encoder = nn.Sequential(
         #     Flatten(32*32*channel_num),
         #     nn.Linear(32*32*channel_num, hidden_dim),
-        #     nn.BatchNorm1d(hidden_dim),
-            # nn.ELU(True),
-            # nn.Linear(hidden_dim, hidden_dim),
-            # nn.BatchNorm1d(hidden_dim),
+        #     nn.ReLU(),
+        #     nn.Linear(hidden_dim, NUM_CATEGORIES),
         # )
 
-        self.q_mean = nn.Sequential(
-            nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
-        )
-
-        self.q_logvar = nn.Sequential(
-            nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
-        )
-
-        self.decoder = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ELU(True),
-            nn.Linear(hidden_dim, hidden_dim),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ELU(True),
-            nn.Linear(hidden_dim, NUM_CATEGORIES)
-        )
+        # self.q_mean = nn.Sequential(
+        #     nn.ReLU(),
+        #     nn.Linear(hidden_dim, hidden_dim),
+        #     nn.ReLU(),
+        #     nn.Linear(hidden_dim, hidden_dim),
+        #     nn.ReLU(),
+        #     nn.Linear(hidden_dim, hidden_dim),
+        # )
+        #
+        # self.q_logvar = nn.Sequential(
+        #     nn.ReLU(),
+        #     nn.Linear(hidden_dim, hidden_dim),
+        #     nn.ReLU(),
+        #     nn.Linear(hidden_dim, hidden_dim),
+        #     nn.ReLU(),
+        #     nn.Linear(hidden_dim, hidden_dim),
+        # )
+        #
+        # self.decoder = nn.Sequential(
+        #     nn.Linear(hidden_dim, hidden_dim),
+        #     nn.ReLU(),
+        #     nn.Linear(hidden_dim, hidden_dim),
+        #     nn.ReLU(),
+        #     nn.Linear(hidden_dim, hidden_dim),
+        #     nn.ReLU(),
+        #     nn.Linear(hidden_dim, NUM_CATEGORIES)
+        # )
 
         self.apply(init_weights)
 
@@ -549,13 +562,13 @@ class GMM_VAE(VAE_Categorical_Base):
     def forward_unlabelled(self, x, **kwargs):
 
         encoded = self.encoder(x)
-        (q_mu, q_logvar) = self.q(encoded)
-        z = self.reparameterize(q_mu, q_logvar)
-        x_reconstructed = self.decoder(z)
+        # (q_mu, q_logvar) = self.q(encoded)
+        # z = self.reparameterize(q_mu, q_logvar)
+        # x_reconstructed = self.decoder(z)
 
-        return {"reconstructed": [x_reconstructed],
-                "latent_samples": [z],
-                "q_vals": [q_mu, q_logvar]}
+        return {"reconstructed": [encoded],}
+                # "latent_samples": [z],
+                # "q_vals": [q_mu, q_logvar]}
         # return encoded
 
     def sample_labelled(self, labels):

@@ -20,6 +20,25 @@ from torchvision.utils import save_image
 
 from torch.nn import functional as F
 
+from nflib.flows import (
+    AffineConstantFlow, ActNorm, AffineHalfFlow,
+    SlowMAF, MAF, IAF, Invertible1x1Conv,
+    NormalizingFlow, NormalizingFlowModel,
+)
+
+from vaelib.vae import BaseNet
+
+def build_flow(dim=10, num_layers=5):
+    prior = MultivariateNormal(torch.zeros(dim), torch.eye(dim))
+    flows = [AffineHalfFlow(dim=dim, parity=i%2, conditioning=False, num_conditioning=4) for i in range(num_layers)]
+    return NormalizingFlowModel(prior, flows, conditioning=False)
+
+from torch.distributions import MultivariateNormal, Uniform, TransformedDistribution, SigmoidTransform
+
+prior = MultivariateNormal(torch.zeros(10), torch.eye(10))
+flows = [AffineHalfFlow(dim=10, parity=i%2) for i in range(4)]
+flow_model = NormalizingFlowModel(prior, flows)
+
 params = {
     "MNIST":{"num_categories": 10, "channel_num": 1},
     "CIFAR10":{"num_categories": 10, "channel_num": 3},
@@ -80,6 +99,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         )
         self.data_dims = model_parameters['data_dim']
         self.num_categories = model_parameters['num_categories']
+        self.logic_net = BaseNet(10)
+        self.logic_opt = torch.optim.Adam(self.logic_net.parameters(), lr=self.lr)
 
     @torch.enable_grad()
     def train(self, epoch, net, optimizer, loaders, **kwargs):
@@ -100,29 +121,65 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         with tqdm(total=len(train_loader.sampler), disable=self.tqdm_print) as progress_bar:
             for i, (data_u, labels_u) in enumerate(train_loader):
 
+                b_size = data_u.size(0)
+                label = torch.full((b_size,), 1, device=device)
+
                 (data_l, target_l) = next(train_loader_labelled)
 
                 # prepare the data
                 data_u = data_u.to(device)
                 data_l = data_l.to(device)
+
                 all_labels = torch.eye(self.num_categories).to(device)
 
                 target_l = target_l.to(device)
+                target_one_hot = self.convert_to_one_hot(num_categories=self.num_categories, labels=target_l).to(device)
 
                 opt_all.zero_grad()
                 labeled_results = net((data_l, target_l))
-                loss_l = self.labeled_loss(data_l, target_l, epoch, **labeled_results)
-                loss_l.backward()
+                log_probs = labeled_results["reconstructed"][0]
+                loss = F.cross_entropy(log_probs, target_l)
+
+                if epoch > 5:
+
+                    labeled_results = net((data_u, None))
+                    log_probs = labeled_results["reconstructed"][0]
+                    predictions = F.softmax(log_probs, dim=1)
+                    pred_res = self.logic_net(predictions).squeeze(dim=1)
+                    loss_logic = F.binary_cross_entropy(pred_res, label)
+                    loss += 0.001*loss_logic
+
+                loss.backward()
                 opt_all.step()
 
-                opt_encode.zero_grad()
-                labeled_results = net((data_l, target_l))
-                unlabeled_results = net((data_u, None))
-                loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
-                loss_l = self.unlabeled_loss(data_l, epoch, **labeled_results)
-                loss = loss_u + loss_l
-                loss.backward()
-                opt_encode.step()
+                # train on true labels
+                self.logic_opt.zero_grad()
+                true_res = self.logic(target_one_hot)
+                pred_res = self.logic_net(target_one_hot).squeeze(dim=1)
+                loss_logic = F.binary_cross_entropy(pred_res, true_res)
+                loss_logic.backward()
+                self.logic_opt.step()
+
+                # train on predicted labels
+                self.logic_opt.zero_grad()
+                labeled_results = net((data_u, None))
+                log_probs = labeled_results["reconstructed"][0]
+                predictions = F.softmax(log_probs)
+                true_res = self.logic(predictions)
+                pred_res = self.logic_net(predictions).squeeze(dim=1)
+                loss_logic = F.binary_cross_entropy(pred_res, true_res)
+                loss_logic.backward()
+                self.logic_opt.step()
+
+                # opt_encode.zero_grad()
+                # labeled_results = net((data_l, target_l))
+                # unlabeled_results = net((data_u, None))
+                # loss_u = self.unlabeled_loss(data_u, epoch, **unlabeled_results)
+                # loss_l = self.labeled_loss(data_l, target_l, epoch, **labeled_results)
+                # loss_l = self.unlabeled_loss(data_l, epoch, **labeled_results)
+                # loss = loss_u + loss_l
+                # loss.backward()
+                # opt_encode.step()
 
                 # import pdb
                 # pdb.set_trace()
@@ -137,8 +194,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 #     clip_grad_norm_(net.parameters(), self.max_grad_norm)
                 # opt_decode.step()
 
-                # sloss_meter.update(loss_s.item(), data_u.size(0))
-                # loss_meter.update(loss_u.item(), data_u.size(0))
+                sloss_meter.update(loss_logic.item(), data_u.size(0))
+                loss_meter.update(loss.item(), data_u.size(0))
 
                 progress_bar.set_postfix(nll=loss_meter.avg, sloss=sloss_meter.avg)
                 progress_bar.update(data_u.size(0))
@@ -173,7 +230,8 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 all_labels = torch.eye(self.num_categories).to(device)
 
                 net_args = net((data, labels))
-                loss = self.labeled_loss(data, labels, epoch, **net_args)
+                loss = F.cross_entropy(net_args['reconstructed'][0], labels)
+                # loss = self.labeled_loss(data, labels, epoch, **net_args)
 
                 loss_meter.update(loss.item(), data.size(0))
                 progress_bar.set_postfix(nll=loss_meter.avg)
@@ -188,6 +246,10 @@ class SemiSupervisedTrainer(GenerativeTrainer):
         if return_accuracy:
             return loss_meter.avg, correct/total
         return loss_meter.avg
+
+    def logic(self, predictions):
+        logic = ((predictions > 0.95) | (predictions < 0.05)).all(dim=1)
+        return logic.float()
 
     @staticmethod
     def simple_loss(*args, **kwargs):
