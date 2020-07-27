@@ -164,7 +164,7 @@ class SemiSupervisedTrainer(GenerativeTrainer):
                 self.logic_opt.zero_grad()
                 labeled_results = net((data_u, None))
                 log_probs = labeled_results["reconstructed"][0]
-                predictions = F.softmax(log_probs)
+                predictions = F.softmax(log_probs, dim=1)
                 true_res = self.logic(predictions)
                 pred_res = self.logic_net(predictions).squeeze(dim=1)
                 loss_logic = F.binary_cross_entropy(pred_res, true_res)
