@@ -1,89 +1,131 @@
 import torch
-import torch.nn as nn
-import torch.nn.init as init
 import torch.nn.functional as F
-from torch.autograd import Variable
 
-import sys
-import numpy as np
+from torch.nn.init import kaiming_normal_
+from torch.nn.parallel._functions import Broadcast
+from torch.nn.parallel import scatter, parallel_apply, gather
 
-def conv3x3(in_planes, out_planes, stride=1):
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=True)
+from functools import partial
+from nested_dict import nested_dict
 
-def conv_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        init.xavier_uniform_(m.weight, gain=np.sqrt(2))
-        init.constant_(m.bias, 0)
-    elif classname.find('BatchNorm') != -1:
-        init.constant_(m.weight, 1)
-        init.constant_(m.bias, 0)
+def resnet(depth, width, num_classes):
+    assert (depth - 4) % 6 == 0, 'depth should be 6n+4'
+    n = (depth - 4) // 6
+    widths = [int(v * width) for v in (16, 32, 64)]
 
-class wide_basic(nn.Module):
-    def __init__(self, in_planes, planes, dropout_rate, stride=1):
-        super(wide_basic, self).__init__()
-        self.bn1 = nn.BatchNorm2d(in_planes)
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, bias=True)
-        self.dropout = nn.Dropout(p=dropout_rate)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
+    def gen_block_params(ni, no):
+        return {
+            'conv0': conv_params(ni, no, 3),
+            'conv1': conv_params(no, no, 3),
+            'bn0': bnparams(ni),
+            'bn1': bnparams(no),
+            'convdim': conv_params(ni, no, 1) if ni != no else None,
+        }
 
-        self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=True),
-            )
+    def gen_group_params(ni, no, count):
+        return {'block%d' % i: gen_block_params(ni if i == 0 else no, no)
+                for i in range(count)}
 
-    def forward(self, x):
-        out = self.dropout(self.conv1(F.relu(self.bn1(x))))
-        out = self.conv2(F.relu(self.bn2(out)))
-        out += self.shortcut(x)
+    flat_params = cast(flatten({
+        'conv0': conv_params(3, 16, 3),
+        'group0': gen_group_params(16, widths[0], n),
+        'group1': gen_group_params(widths[0], widths[1], n),
+        'group2': gen_group_params(widths[1], widths[2], n),
+        'bn': bnparams(widths[2]),
+        'fc': linear_params(widths[2], num_classes),
+    }))
 
-        return out
+    set_requires_grad_except_bn_(flat_params)
 
-class Wide_ResNet(nn.Module):
-    def __init__(self, depth, widen_factor, dropout_rate, num_classes):
-        super(Wide_ResNet, self).__init__()
-        self.in_planes = 16
+    def block(x, params, base, mode, stride):
+        o1 = F.relu(batch_norm(x, params, base + '.bn0', mode), inplace=True)
+        y = F.conv2d(o1, params[base + '.conv0'], stride=stride, padding=1)
+        o2 = F.relu(batch_norm(y, params, base + '.bn1', mode), inplace=True)
+        z = F.conv2d(o2, params[base + '.conv1'], stride=1, padding=1)
+        if base + '.convdim' in params:
+            return z + F.conv2d(o1, params[base + '.convdim'], stride=stride)
+        else:
+            return z + x
 
-        assert ((depth-4)%6 ==0), 'Wide-resnet depth should be 6n+4'
-        n = (depth-4)/6
-        k = widen_factor
+    def group(o, params, base, mode, stride):
+        for i in range(n):
+            o = block(o, params, '%s.block%d' % (base,i), mode, stride if i == 0 else 1)
+        return o
 
-        print('| Wide-Resnet %dx%d' %(depth, k))
-        nStages = [16, 16*k, 32*k, 64*k]
+    def f(input, params, mode):
+        x = F.conv2d(input, params['conv0'], padding=1)
+        g0 = group(x, params, 'group0', mode, 1)
+        g1 = group(g0, params, 'group1', mode, 2)
+        g2 = group(g1, params, 'group2', mode, 2)
+        o = F.relu(batch_norm(g2, params, 'bn', mode))
+        o = F.avg_pool2d(o, 8, 1, 0)
+        o = o.view(o.size(0), -1)
+        o = F.linear(o, params['fc.weight'], params['fc.bias'])
+        return o
 
-        self.conv1 = conv3x3(3,nStages[0])
-        self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1)
-        self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2)
-        self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, stride=2)
-        self.bn1 = nn.BatchNorm2d(nStages[3], momentum=0.9)
-        self.linear = nn.Linear(nStages[3], num_classes)
+    return f, flat_params
 
-    def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride):
-        strides = [stride] + [1]*(int(num_blocks)-1)
-        layers = []
 
-        for stride in strides:
-            layers.append(block(self.in_planes, planes, dropout_rate, stride))
-            self.in_planes = planes
+def cast(params, dtype='float'):
+    if isinstance(params, dict):
+        return {k: cast(v, dtype) for k,v in params.items()}
+    else:
+        return getattr(params.cuda() if torch.cuda.is_available() else params, dtype)()
 
-        return nn.Sequential(*layers)
 
-    def forward(self, x):
-        out = self.conv1(x)
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = F.relu(self.bn1(out))
-        out = F.avg_pool2d(out, 8)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
+def conv_params(ni, no, k=1):
+    return kaiming_normal_(torch.Tensor(no, ni, k, k))
 
-        return out
 
-if __name__ == '__main__':
-    net=Wide_ResNet(28, 10, 0.3, 10)
-    y = net(Variable(torch.randn(1,3,32,32)))
+def linear_params(ni, no):
+    return {'weight': kaiming_normal_(torch.Tensor(no, ni)), 'bias': torch.zeros(no)}
 
-    print(y.size())
+
+def bnparams(n):
+    return {'weight': torch.rand(n),
+            'bias': torch.zeros(n),
+            'running_mean': torch.zeros(n),
+            'running_var': torch.ones(n)}
+
+
+def data_parallel(f, input, params, mode, device_ids, output_device=None):
+    assert isinstance(device_ids, list)
+    if output_device is None:
+        output_device = device_ids[0]
+
+    if len(device_ids) == 1:
+        return f(input, params, mode)
+
+    params_all = Broadcast.apply(device_ids, *params.values())
+    params_replicas = [{k: params_all[i + j*len(params)] for i, k in enumerate(params.keys())}
+                       for j in range(len(device_ids))]
+
+    replicas = [partial(f, params=p, mode=mode)
+                for p in params_replicas]
+    inputs = scatter([input], device_ids)
+    outputs = parallel_apply(replicas, inputs)
+    return gather(outputs, output_device)
+
+
+def flatten(params):
+    return {'.'.join(k): v for k, v in nested_dict(params).items_flat() if v is not None}
+
+
+def batch_norm(x, params, base, mode):
+    return F.batch_norm(x, weight=params[base + '.weight'],
+                        bias=params[base + '.bias'],
+                        running_mean=params[base + '.running_mean'],
+                        running_var=params[base + '.running_var'],
+                        training=mode)
+
+
+def print_tensor_dict(params):
+    kmax = max(len(key) for key in params.keys())
+    for i, (key, v) in enumerate(params.items()):
+        print(str(i).ljust(5), key.ljust(kmax + 3), str(tuple(v.shape)).ljust(23), torch.typename(v), v.requires_grad)
+
+
+def set_requires_grad_except_bn_(params):
+    for k, v in params.items():
+        if not k.endswith('running_mean') and not k.endswith('running_var'):
+            v.requires_grad = True

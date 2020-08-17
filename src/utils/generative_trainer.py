@@ -164,6 +164,14 @@ class GenerativeTrainer:
     def get_optimizer(self, net):
         return optim.Adam(net.parameters(), lr=self.lr)
 
+    def get_scheduler(self, optimizers):
+        schedulers=[]
+        return schedulers
+
+    def step_scheduler(self, scheduler):
+        for schedul in scheduler:
+            schedul.step()
+
     def main(self):
         """
         Method that runs the main training and testing loop
@@ -196,7 +204,7 @@ class GenerativeTrainer:
             self.global_step = start_epoch * len(train_loader.dataset)
 
         optimizer = self.get_optimizer(net)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer[0], gamma=self.gamma)
+        scheduler = self.get_scheduler(optimizer)
 
         count_valid_not_improving = 0
 
@@ -205,7 +213,7 @@ class GenerativeTrainer:
             loss = self.train(epoch, net, optimizer, train_loader)
             vld_loss = self.test(epoch, net, optimizer, valid_loader)
 
-            scheduler.step()
+            self.step_scheduler(scheduler)
 
             if not np.isnan(vld_loss):
                 self.log_fh.write(f"{epoch},{loss},{vld_loss}\n")

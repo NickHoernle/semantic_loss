@@ -10,7 +10,10 @@ def plot_model(dset, model, constraint=lambda x: np.ones(len(x)).astype(bool), c
     axes = axes.flatten()
 
     data = dset.sample(5000)
-    prior_samps = model.prior.sample([5000])
+    try:
+        prior_samps = model.prior.sample([5000])
+    except:
+        prior_samps = model.prior.sample(5000)
 
     if conditioning:
         data = data[data[:, index] == 1]
@@ -179,6 +182,73 @@ class ConstrainedGaussian(generator):
     def eval_constraints(self, arr, data_indexes):
         broken_constraints = self.constraint(arr).view(-1, 1)
         return -(broken_constraints**2).view(-1,)
+
+
+def convert_to_one_hot(num_categories, labels):
+    labels = labels.unsqueeze(1)
+    one_hot = torch.FloatTensor(len(labels), num_categories).zero_()
+    one_hot.scatter_(1, labels, 1)
+    return one_hot
+
+class ConstrainedLogCategorical(generator):
+    """ Gaussian with no center """
+
+    def sample(self, n):
+        labels = torch.tensor(np.random.choice(np.arange(10), size=n, replace=True))
+        return convert_to_one_hot(10, labels)
+
+    def hard_constraint(self, x):
+        c = (((x[:, 0] > .95) & (x[:, 1] < .05) & (x[:, 2] < .05) & (x[:, 3] < .05) & (x[:, 4] < .05)
+            & (x[:, 5] < .05) & (x[:, 6] < .05) & (x[:, 7] < .05) & (x[:, 8] < .05) & (x[:, 9] < .05)) |
+            ((x[:, 0] < .05) & (x[:, 1] > .95) & (x[:, 2] < .05) & (x[:, 3] < .05) & (
+            x[:, 4] < .05)
+             & (x[:, 5] < .05) & (x[:, 6] < .05) & (x[:, 7] < .05) & (x[:, 8] < .05) & (
+             x[:, 9] < .05)) |
+            ((x[:, 0] < .05) & (x[:, 1] < .05) & (x[:, 2] > .95) & (x[:, 3] < .05) & (
+            x[:, 4] < .05)
+             & (x[:, 5] < .05) & (x[:, 6] < .05) & (x[:, 7] < .05) & (x[:, 8] < .05) & (
+             x[:, 9] < .05)) |
+            ((x[:, 0] < .05) & (x[:, 1] < .05) & (x[:, 2] < .05) & (x[:, 3] > .95) & (
+            x[:, 4] < .05)
+             & (x[:, 5] < .05) & (x[:, 6] < .05) & (x[:, 7] < .05) & (x[:, 8] < .05) & (
+             x[:, 9] < .05)) |
+            ((x[:, 0] < .05) & (x[:, 1] < .05) & (x[:, 2] < .05) & (x[:, 3] < .05) & (
+            x[:, 4] > .95)
+             & (x[:, 5] < .05) & (x[:, 6] < .05) & (x[:, 7] < .05) & (x[:, 8] < .05) & (
+             x[:, 9] < .05)) |
+            ((x[:, 0] < .05) & (x[:, 1] < .05) & (x[:, 2] < .05) & (x[:, 3] < .05) & (
+            x[:, 4] < .05)
+             & (x[:, 5] > .95) & (x[:, 6] < .05) & (x[:, 7] < .05) & (x[:, 8] < .05) & (
+             x[:, 9] < .05)) |
+            ((x[:, 0] < .05) & (x[:, 1] < .05) & (x[:, 2] < .05) & (x[:, 3] < .05) & (
+            x[:, 4] < .05)
+             & (x[:, 5] < .05) & (x[:, 6] > .95) & (x[:, 7] < .05) & (x[:, 8] < .05) & (
+             x[:, 9] < .05)) |
+            ((x[:, 0] < .05) & (x[:, 1] < .05) & (x[:, 2] < .05) & (x[:, 3] < .05) & (
+            x[:, 4] < .05)
+             & (x[:, 5] < .05) & (x[:, 6] < .05) & (x[:, 7] > .95) & (x[:, 8] < .05) & (
+             x[:, 9] < .05)) |
+            ((x[:, 0] < .05) & (x[:, 1] < .05) & (x[:, 2] < .05) & (x[:, 3] < .05) & (
+            x[:, 4] < .05)
+             & (x[:, 5] < .05) & (x[:, 6] < .05) & (x[:, 7] < .05) & (x[:, 8] > .95) & (
+             x[:, 9] < .05)) |
+            ((x[:, 0] < .05) & (x[:, 1] < .05) & (x[:, 2] < .05) & (x[:, 3] < .05) & (
+                x[:, 4] < .05)
+             & (x[:, 5] < .05) & (x[:, 6] < .05) & (x[:, 7] < .05) & (x[:, 8] < .05) & (
+                 x[:, 9] > .95))) & \
+            (x[:, 0] >= 0) & (x[:, 1] >= 0) & (x[:, 2] >= 0) & (x[:, 3] >= 0) & (x[:, 4] >= 0) & (x[:, 5] >= 0) & (x[:, 6] >= 0) & \
+            (x[:, 7] >= 0) & (x[:, 8] >= 0) & (x[:, 9] >= 0) & \
+            (x[:, 0] <= 1) & (x[:, 1] <= 1) & (x[:, 2] <= 1) & (x[:, 3] <= 1) & (x[:, 4] <= 1) & (x[:, 5] <= 1) & (x[:, 6] <= 1) & \
+            (x[:, 7] <= 1) & (x[:, 8] <= 1) & (x[:, 9] <= 1)
+        return c
+
+    # def constraint(self, x):
+    #     magnitude = (4 - (x[:, 0] ** 2 + x[:, 1] ** 2))
+    #     return magnitude * (~self.hard_constraint(x)).float()
+
+    # def eval_constraints(self, arr, data_indexes):
+    #     broken_constraints = self.constraint(arr).view(-1, 1)
+    #     return -(broken_constraints**2).view(-1,)
 
 
 class ConstrainedGaussianInner(generator):
