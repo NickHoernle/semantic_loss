@@ -16,8 +16,9 @@ from torch.autograd import Variable
 
 from wideresnet import WideResNet
 
+from symbolic import *
+
 # used for logging to TensorBoard
-from tensorboard_logger import configure, log_value
 
 parser = argparse.ArgumentParser(description='PyTorch WideResNet Training')
 parser.add_argument('--dataset', default='cifar10', type=str,
@@ -50,15 +51,20 @@ parser.add_argument('--name', default='WideResNet-28-10', type=str,
                     help='name of experiment')
 parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true')
+parser.add_argument('--no-sloss', dest='sloss', action='store_false',
+                    help='whether to use semantic logic loss (default: True)')
 parser.set_defaults(augment=True)
+parser.set_defaults(sloss=True)
 
 best_prec1 = 0
 
+device = "cpu"
+sloss = True
+
 def main():
-    global args, best_prec1
+    global args, best_prec1, class_ixs
     args = parser.parse_args()
     if args.tensorboard: configure("runs/%s"%(args.name))
-
     # Data loading code
     normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
                                      std=[x/255.0 for x in [63.0, 62.1, 66.7]])
@@ -95,8 +101,13 @@ def main():
         batch_size=args.batch_size, shuffle=True, **kwargs)
 
     # create model
-    model = WideResNet(args.layers, args.dataset == 'cifar10' and 10 or 100,
-                            args.widen_factor, dropRate=args.droprate)
+    num_classes = (args.dataset == 'cifar10' and 10 or 100)
+    class_ixs = get_class_ixs(args.dataset)
+    if sloss:
+        terms = get_logic_terms(args.dataset)
+        model = ConstrainedModel(args.layers, num_classes, terms, args.widen_factor, dropRate=args.droprate)
+    else:
+        model = WideResNet(args.layers, num_classes, args.widen_factor, dropRate=args.droprate)
 
     # get the number of model parameters
     print('Number of model parameters: {}'.format(
@@ -105,7 +116,7 @@ def main():
     # for training on multiple GPUs.
     # Use CUDA_VISIBLE_DEVICES=0,1 to specify which GPUs to use
     # model = torch.nn.DataParallel(model).cuda()
-    model = model.cuda()
+    model = model.to(device)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -123,7 +134,7 @@ def main():
     cudnn.benchmark = True
 
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda()
+    criterion = nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum, nesterov = args.nesterov,
                                 weight_decay=args.weight_decay)
@@ -153,23 +164,53 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
+    top1a = AverageMeter()
 
     # switch to train mode
     model.train()
 
     end = time.time()
     for i, (input, target) in enumerate(train_loader):
-        target = target.cuda(non_blocking=True)
-        input = input.cuda(non_blocking=True)
+        target = target.to(device)
+        input = input.to(device)
 
         # compute output
         output = model(input)
-        loss = criterion(output, target)
+
+        if sloss:
+            class_preds, logic_preds = output
+            ll = []
+            for i, p in enumerate(class_preds.split(1, dim=1)):
+                ll += [F.cross_entropy(p.squeeze(1), target, reduction="none")]
+
+            recon_losses = torch.stack(ll, dim=1)
+            likelihood = (-recon_losses).softmax(dim=1)
+
+            loss = (likelihood * recon_losses).sum(dim=1).mean()
+            loss += (logic_preds.exp() * (recon_losses.detach())).sum(dim=1).mean()
+
+            class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]
+        else:
+            class_pred = output
+            loss = criterion(class_pred, target)
 
         # measure accuracy and record loss
-        prec1 = accuracy(output.data, target, topk=(1,))[0]
-        losses.update(loss.data.item(), input.size(0))
+        prec1 = accuracy(class_pred.data, target, topk=(1,))[0]
         top1.update(prec1.item(), input.size(0))
+
+        losses.update(loss.data.item(), input.size(0))
+
+        # get the super class accuracy
+        new_tgts = torch.zeros_like(target)
+        for i, ixs in enumerate(class_ixs[1:]):
+            new_tgts += (i+1)*(torch.stack([target == i for i in ixs], dim=1).any(dim=1))
+
+        forward_mapping = [int(c) for ixs in class_ixs for c in ixs]
+        split = class_pred.log_softmax(dim=1)[:, forward_mapping].split([len(i) for i in class_ixs], dim=1)
+        new_pred = torch.stack([s.logsumexp(dim=1) for s in split], dim=1)
+
+        prec_1a = accuracy(new_pred.data, new_tgts, topk=(1,))[0]
+        top1a.update(prec_1a.item(), input.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -185,9 +226,10 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
+                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  'PrecSG@1 {top1a.val:.3f} ({top1a.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
-                      loss=losses, top1=top1))
+                      loss=losses, top1=top1, top1a=top1a))
     # log to TensorBoard
     if args.tensorboard:
         log_value('train_loss', losses.avg, epoch)
@@ -198,24 +240,37 @@ def validate(val_loader, model, criterion, epoch):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
+    top1a = AverageMeter()
 
     # switch to evaluate mode
     model.eval()
 
     end = time.time()
     for i, (input, target) in enumerate(val_loader):
-        target = target.cuda(non_blocking=True)
-        input = input.cuda(non_blocking=True)
+        target = target.to(device)
+        input = input.to(device)
 
         # compute output
         with torch.no_grad():
-            output = model(input)
+            output = model(input, test=True)
         loss = criterion(output, target)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
         losses.update(loss.data.item(), input.size(0))
         top1.update(prec1.item(), input.size(0))
+
+        # get the super class accuracy
+        new_tgts = torch.zeros_like(target)
+        for i, ixs in enumerate(class_ixs[1:]):
+            new_tgts += (i + 1) * (torch.stack([target == i for i in ixs], dim=1).any(dim=1))
+
+        forward_mapping = [int(c) for ixs in class_ixs for c in ixs]
+        split = output.log_softmax(dim=1)[:, forward_mapping].split([len(i) for i in class_ixs], dim=1)
+        new_pred = torch.stack([s.logsumexp(dim=1) for s in split], dim=1)
+
+        prec_1a = accuracy(new_pred.data, new_tgts, topk=(1,))[0]
+        top1a.update(prec_1a.item(), input.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -225,13 +280,15 @@ def validate(val_loader, model, criterion, epoch):
             print('Test: [{0}/{1}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                      i, len(val_loader), batch_time=batch_time, loss=losses,
-                      top1=top1))
+                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  'PrecSG@1 {top1a.val:.3f} ({top1a.avg:.3f})'.format(
+                epoch, i, len(val_loader), batch_time=batch_time,
+                loss=losses, top1=top1, top1a=top1a))
 
     print(' * Prec@1 {top1.avg:.3f}'.format(top1=top1))
     # log to TensorBoard
     if args.tensorboard:
+        from tensorboard_logger import configure, log_value
         log_value('val_loss', losses.avg, epoch)
         log_value('val_acc', top1.avg, epoch)
     return top1.avg
