@@ -65,12 +65,14 @@ device = "cpu"
 sloss = True
 
 def main():
-    global args, best_prec1, class_ixs
+    global args, best_prec1, class_ixs, sloss
     args = parser.parse_args()
     if args.tensorboard: configure(args.checkpoint_dir+"/%s"%(args.name))
     # Data loading code
     normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
                                      std=[x/255.0 for x in [63.0, 62.1, 66.7]])
+
+    sloss = args.sloss
 
     if args.augment:
         transform_train = transforms.Compose([
