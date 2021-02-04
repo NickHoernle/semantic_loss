@@ -23,6 +23,9 @@ from symbolic import *
 parser = argparse.ArgumentParser(description='PyTorch WideResNet Training')
 parser.add_argument('--dataset', default='cifar10', type=str,
                     help='dataset (cifar10 [default] or cifar100)')
+parser.add_argument('--dataset_path', default='../data', type=str,
+                    help='path to where the data are stored')
+parser.add_argument("--checkpoint_dir", default="runs")
 parser.add_argument('--epochs', default=200, type=int,
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int,
@@ -64,7 +67,7 @@ sloss = True
 def main():
     global args, best_prec1, class_ixs
     args = parser.parse_args()
-    if args.tensorboard: configure("runs/%s"%(args.name))
+    if args.tensorboard: configure(args.checkpoint_dir+"/%s"%(args.name))
     # Data loading code
     normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
                                      std=[x/255.0 for x in [63.0, 62.1, 66.7]])
@@ -93,11 +96,11 @@ def main():
     kwargs = {'num_workers': 1, 'pin_memory': True}
     assert(args.dataset == 'cifar10' or args.dataset == 'cifar100')
     train_loader = torch.utils.data.DataLoader(
-        datasets.__dict__[args.dataset.upper()]('../data', train=True, download=True,
+        datasets.__dict__[args.dataset.upper()](args.dataset_path, train=True, download=True,
                          transform=transform_train),
         batch_size=args.batch_size, shuffle=True, **kwargs)
     val_loader = torch.utils.data.DataLoader(
-        datasets.__dict__[args.dataset.upper()]('../data', train=False, transform=transform_test),
+        datasets.__dict__[args.dataset.upper()](args.dataset_path, train=False, transform=transform_test),
         batch_size=args.batch_size, shuffle=True, **kwargs)
 
     # create model
@@ -296,13 +299,13 @@ def validate(val_loader, model, criterion, epoch):
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     """Saves checkpoint to disk"""
-    directory = "runs/%s/"%(args.name)
+    directory = args.checkpoint_dir+"/%s/"%(args.name)
     if not os.path.exists(directory):
         os.makedirs(directory)
-    filename = directory + filename
-    torch.save(state, filename)
+    fname = directory + filename
+    torch.save(state, fname)
     if is_best:
-        shutil.copyfile(filename, 'runs/%s/'%(args.name) + 'model_best.pth.tar')
+        shutil.copyfile(fname, args.checkpoint_dir + '/%s/' % (args.name) + "best_" + filename)
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
