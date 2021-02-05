@@ -293,7 +293,7 @@ def validate(val_loader, model, criterion, epoch):
                 epoch, i, len(val_loader), batch_time=batch_time,
                 loss=losses, top1=top1, top1a=top1a))
 
-    print(' * Prec@1 {top1.avg:.3f}'.format(top1=top1))
+    print(' * Prec@1 {top1.avg:.3f}, PrecSG@1 {top1a.val:.3f}'.format(top1=top1, top1a=top1a))
     # log to TensorBoard
     if args.tensorboard:
         from tensorboard_logger import configure, log_value
