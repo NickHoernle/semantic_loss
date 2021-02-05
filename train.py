@@ -188,11 +188,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             for i, p in enumerate(class_preds.split(1, dim=1)):
                 ll += [F.cross_entropy(p.squeeze(1), target, reduction="none")]
 
-            recon_losses = torch.stack(ll, dim=1)
-            # likelihood = (-recon_losses).softmax(dim=1)
-
-            loss = (logic_preds.exp() * (recon_losses + logic_preds)).sum(dim=1).mean()
-            # loss += (logic_preds.exp() * (recon_losses.detach())).sum(dim=1).mean()
+            recon_losses, labels = torch.stack(ll, dim=1).min(dim=1)
+            loss = recon_losses.mean()
+            loss += F.nll_loss(logic_preds, labels)
 
             class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]
         else:
