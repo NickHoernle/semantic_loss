@@ -185,7 +185,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         if sloss:
             class_preds, logic_preds = output
             ll = []
-            for i, p in enumerate(class_preds.split(1, dim=1)):
+            for j, p in enumerate(class_preds.split(1, dim=1)):
                 ll += [F.cross_entropy(p.squeeze(1), target, reduction="none")]
 
             pred_loss = torch.stack(ll, dim=1)
@@ -198,7 +198,6 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         else:
             class_pred = output
             loss = criterion(class_pred, target)
-
         # measure accuracy and record loss
         prec1 = accuracy(class_pred.data, target, topk=(1,))[0]
         top1.update(prec1.item(), input.size(0))
@@ -206,23 +205,22 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         losses.update(loss.data.item(), input.size(0))
 
         # get the super class accuracy
-        new_tgts = torch.zeros_like(target)
-        for i, ixs in enumerate(class_ixs[1:]):
-            new_tgts += (i+1)*(torch.stack([target == i for i in ixs], dim=1).any(dim=1))
-
-        forward_mapping = [int(c) for ixs in class_ixs for c in ixs]
-        split = class_pred.log_softmax(dim=1)[:, forward_mapping].split([len(i) for i in class_ixs], dim=1)
-        new_pred = torch.stack([s.logsumexp(dim=1) for s in split], dim=1)
-
-        prec_1a = accuracy(new_pred.data, new_tgts, topk=(1,))[0]
-        top1a.update(prec_1a.item(), input.size(0))
+        # new_tgts = torch.zeros_like(target)
+        # for i, ixs in enumerate(class_ixs[1:]):
+        #     new_tgts += (i+1)*(torch.stack([target == i for i in ixs], dim=1).any(dim=1))
+        #
+        # forward_mapping = [int(c) for ixs in class_ixs for c in ixs]
+        # split = class_pred.log_softmax(dim=1)[:, forward_mapping].split([len(i) for i in class_ixs], dim=1)
+        # new_pred = torch.stack([s.logsumexp(dim=1) for s in split], dim=1)
+        #
+        # prec_1a = accuracy(new_pred.data, new_tgts, topk=(1,))[0]
+        # top1a.update(prec_1a.item(), input.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         scheduler.step()
-
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
@@ -236,9 +234,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
                       epoch, i, len(train_loader), batch_time=batch_time,
                       loss=losses, top1=top1, top1a=top1a))
 
-    if sloss:
-        if epoch % 5 == 4:
-            model.threshold1p()
+    # if sloss:
+    #     if epoch % 5 == 4:
+    #         model.threshold1p()
     # log to TensorBoard
     if args.tensorboard:
         log_value('train_loss', losses.avg, epoch)

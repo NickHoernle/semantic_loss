@@ -7,15 +7,15 @@ from wideresnet import WideResNet
 
 
 class GEQConstant(nn.Module):
-    def __init__(self, ixs_pos, ixs_not, ixs_neg, limit_threshold):
+    def __init__(self, ixs1, ixs_not, ixs_neg, limit_threshold):
         super(GEQConstant, self).__init__()
-        self.ixs_pos = ixs_pos
+        self.ixs1 = ixs1
         self.ixs_neg = ixs_neg
         self.ixs_not = ixs_not
 
         self.limit_threshold = limit_threshold
 
-        self.forward_transform = self.ixs_pos + self.ixs_neg + self.ixs_not
+        self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
         self.reverse_transform = np.argsort(self.forward_transform)
 
     def threshold1p(self):
@@ -23,54 +23,55 @@ class GEQConstant(nn.Module):
             self.limit_threshold += 1
 
     def forward(self, x):
-        x_ = x[:, self.forward_transform]
-        split1, split2, split3 = x_.split([len(self.ixs_pos), len(self.ixs_neg), len(self.ixs_not)], dim=1)
+        split1 = x[:, self.ixs1]
+        split2 = x[:, self.ixs_neg]
+        split3 =x[:, self.ixs_not]
         return torch.cat((F.softplus(split1),
                           -F.softplus(-split2) + self.limit_threshold,
-                          split3),
-                         dim=1)[:, self.reverse_transform]
-
-
-class Between(nn.Module):
-    def __init__(self, ixs_to_constrain, ixs_not, thresholds=[-1, 1]):
-        super(Between, self).__init__()
-        self.ixs_to_constrain = ixs_to_constrain
-        self.ixs_not = ixs_not
-        self.thresholds = thresholds
-
-        self.forward_transform = self.ixs_to_constrain + self.ixs_not
-        self.reverse_transform = np.argsort(self.forward_transform)
-
-    def forward(self, x):
-        x_ = x[:, self.forward_transform]
-        split1, split2 = x_.split([len(self.ixs_to_constrain), len(self.ixs_not)], dim=1)
-        restricted = -F.softplus(-(F.softplus(split1) + (self.thresholds[0] - self.thresholds[1]))) + self.thresholds[1]
-        return torch.cat((restricted,
-                          split2), dim=1)[:, self.reverse_transform]
-
-
-class GEQ(GEQConstant):
-
-    def forward(self, x):
-        x_ = x[:, self.forward_transform]
-        split1, split2, split3 = x_.split([len(self.ixs_pos), len(self.ixs_neg), len(self.ixs_not)], dim=1)
-
-        max_val = F.relu(split2).max(dim=1)[0]
-        min_val = (F.relu(-split1).max(dim=1)[0])
-
-        return torch.cat((split1 + min_val.unsqueeze(1) + max_val.unsqueeze(1),
-                          split2 - self.limit_threshold,
                           split3), dim=1)[:, self.reverse_transform]
 
 
-class AndDisjoint(nn.Module):
-    def __init__(self, term1, term2):
-        super(AndDisjoint, self).__init__()
-        self.term1 = term1
-        self.term2 = term2
+class Between(nn.Module):
+    def __init__(self, ixs1, ixs_less_than, threshold_upper=[-1, 1], threshold_lower=-15):
+        super(Between, self).__init__()
+        self.ixs1 = ixs1
+        self.ixs_less_than = ixs_less_than
+
+        self.threshold_upper = threshold_upper
+        self.threshold_lower = threshold_lower
+
+        self.forward_transform = self.ixs1 + self.ixs_less_than
+        self.reverse_transform = np.argsort(self.forward_transform)
 
     def forward(self, x):
-        return self.term2(self.term1(x))
+        split1 = x[:, self.ixs1]
+        split2 = x[:, self.ixs_less_than]
+        restricted = -F.softplus(-(F.softplus(split1) + (self.threshold_upper[0] - self.threshold_upper[1]))) + self.threshold_upper[1]
+        return torch.cat((restricted, -F.softplus(-split2)+self.threshold_lower), dim=1)[:, self.reverse_transform]
+#
+#
+# class GEQ(GEQConstant):
+#
+#     def forward(self, x):
+#         x_ = x[:, self.forward_transform]
+#         split1, split2, split3 = x_.split([len(self.ixs_pos), len(self.ixs_neg), len(self.ixs_not)], dim=1)
+#
+#         max_val = F.relu(split2).max(dim=1)[0]
+#         min_val = (F.relu(-split1).max(dim=1)[0])
+#
+#         return torch.cat((split1 + min_val.unsqueeze(1) + max_val.unsqueeze(1),
+#                           split2 - self.limit_threshold,
+#                           split3), dim=1)[:, self.reverse_transform]
+#
+#
+# class AndDisjoint(nn.Module):
+#     def __init__(self, term1, term2):
+#         super(AndDisjoint, self).__init__()
+#         self.term1 = term1
+#         self.term2 = term2
+#
+#     def forward(self, x):
+#         return self.term2(self.term1(x))
 
 
 class Identity(nn.Module):
@@ -111,20 +112,29 @@ class ConstrainedModel(nn.Module):
 
 
 # 0, 'airplane', 1 'automobile', 2 'bird', 3'cat', 4 'deer', 5 'dog', 6 'frog', 7 'horse', 8 'ship', 9 'truck'
+
 def get_logic_terms(dataset):
     if dataset == "cifar10":
-        terms2 = [
-            GEQConstant(ixs_not=[0, 1, 8, 9], ixs_pos=[], ixs_neg=[2, 3, 4, 5, 6, 7], limit_threshold=-15),
-            GEQConstant(ixs_not=[2, 3, 4, 5, 6, 7], ixs_pos=[], ixs_neg=[0, 1, 8, 9], limit_threshold=-15),
+        # terms2 = [
+        #     GEQConstant(ixs_not=[0, 1, 8, 9], ixs_pos=[], ixs_neg=[2, 3, 4, 5, 6, 7], limit_threshold=-15),
+        #     GEQConstant(ixs_not=[2, 3, 4, 5, 6, 7], ixs_pos=[], ixs_neg=[0, 1, 8, 9], limit_threshold=-15),
+        # ]
+        # terms1 = [
+        #     Between(ixs_to_constrain=[0, 1, 8, 9], ixs_not=[2, 3, 4, 5, 6, 7], thresholds=[0, 5]),
+        #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
+        # ]
+        terms = [
+            Between(ixs1=[0, 8], ixs_less_than=[1, 2, 3, 4, 5, 6, 7, 9], threshold_upper=[0, 5], threshold_lower=-1),
+            Between(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], threshold_upper=[0, 5], threshold_lower=-1),
+            Between(ixs1=[3, 5], ixs_less_than=[0, 1, 2, 4, 6, 7, 8, 9], threshold_upper=[0, 5], threshold_lower=-1),
+            Between(ixs1=[4, 7], ixs_less_than=[0, 1, 2, 3, 5, 6, 8, 9], threshold_upper=[0, 5], threshold_lower=-1),
+            GEQConstant(ixs1=[2], ixs_not=[], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], limit_threshold=-1),
+            GEQConstant(ixs1=[6], ixs_not=[], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], limit_threshold=-1)
         ]
-        terms1 = [
-            Between(ixs_to_constrain=[0, 1, 8, 9], ixs_not=[2, 3, 4, 5, 6, 7], thresholds=[0, 5]),
-            Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
-        ]
-        return [AndDisjoint(t1, t2) for t1, t2 in zip(terms1, terms2)]
+        return terms
 
 
 def get_class_ixs(dataset):
     if dataset == "cifar10":
-        return [t.term2.ixs_pos + t.term2.ixs_not for t in get_logic_terms(dataset)]
+        return [t.ixs1 for t in get_logic_terms(dataset)]
 
