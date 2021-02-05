@@ -62,7 +62,6 @@ parser.set_defaults(sloss=True)
 best_prec1 = 0
 
 device = "cpu"
-sloss = True
 
 def main():
     global args, best_prec1, class_ixs, sloss
@@ -73,6 +72,7 @@ def main():
                                      std=[x/255.0 for x in [63.0, 62.1, 66.7]])
 
     sloss = args.sloss
+    print(sloss)
 
     if args.augment:
         transform_train = transforms.Compose([
@@ -189,10 +189,10 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
                 ll += [F.cross_entropy(p.squeeze(1), target, reduction="none")]
 
             recon_losses = torch.stack(ll, dim=1)
-            likelihood = (-recon_losses).softmax(dim=1)
+            # likelihood = (-recon_losses).softmax(dim=1)
 
-            loss = (likelihood * recon_losses).sum(dim=1).mean()
-            loss += (logic_preds.exp() * (recon_losses.detach())).sum(dim=1).mean()
+            loss = (logic_preds.exp() * (recon_losses + logic_preds)).sum(dim=1).mean()
+            # loss += (logic_preds.exp() * (recon_losses.detach())).sum(dim=1).mean()
 
             class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]
         else:
@@ -294,7 +294,9 @@ def validate(val_loader, model, criterion, epoch):
                 epoch, i, len(val_loader), batch_time=batch_time,
                 loss=losses, top1=top1, top1a=top1a))
 
-    print(' * Prec@1 {top1.avg:.3f}, PrecSG@1 {top1a.val:.3f}'.format(top1=top1, top1a=top1a))
+    print('{epoch} * Prec@1 {top1.avg:.3f}, '
+          'PrecSG@1 {top1a.avg:.3f}, '
+          'Loss {loss.avg:.3f}'.format(epoch=epoch, top1=top1, top1a=top1a, loss=loss))
     # log to TensorBoard
     if args.tensorboard:
         from tensorboard_logger import configure, log_value
