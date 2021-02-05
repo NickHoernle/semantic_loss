@@ -296,7 +296,7 @@ def validate(val_loader, model, criterion, epoch):
 
     print('{epoch} * Prec@1 {top1.avg:.3f}, '
           'PrecSG@1 {top1a.avg:.3f}, '
-          'Loss {loss.avg:.3f}'.format(epoch=epoch, top1=top1, top1a=top1a, loss=loss))
+          'Loss {loss.val:.3f}'.format(epoch=epoch, top1=top1, top1a=top1a, loss=loss))
     # log to TensorBoard
     if args.tensorboard:
         from tensorboard_logger import configure, log_value
