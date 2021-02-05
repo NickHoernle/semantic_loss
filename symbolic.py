@@ -26,7 +26,7 @@ class GEQConstant(nn.Module):
         x_ = x[:, self.forward_transform]
         split1, split2, split3 = x_.split([len(self.ixs_pos), len(self.ixs_neg), len(self.ixs_not)], dim=1)
         return torch.cat((F.softplus(split1),
-                          -F.softplus(-split2) - self.limit_threshold,
+                          -F.softplus(-split2) + self.limit_threshold,
                           split3),
                          dim=1)[:, self.reverse_transform]
 
@@ -114,20 +114,12 @@ class ConstrainedModel(nn.Module):
 def get_logic_terms(dataset):
     if dataset == "cifar10":
         terms2 = [
-            GEQConstant(ixs_not=[0, 8], ixs_pos=[], ixs_neg=[1, 2, 3, 4, 5, 6, 7, 9], limit_threshold=15),
-            GEQConstant(ixs_not=[1, 9], ixs_pos=[], ixs_neg=[0, 2, 3, 4, 5, 6, 7, 8], limit_threshold=15),
-            GEQConstant(ixs_not=[3, 5], ixs_pos=[], ixs_neg=[0, 1, 2, 4, 6, 7, 8, 9], limit_threshold=15),
-            GEQConstant(ixs_not=[4, 7], ixs_pos=[], ixs_neg=[0, 1, 2, 3, 5, 6, 8, 9], limit_threshold=15),
-            GEQConstant(ixs_not=[],    ixs_pos=[2], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], limit_threshold=15),
-            GEQConstant(ixs_not=[],    ixs_pos=[6], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], limit_threshold=15)
+            GEQConstant(ixs_not=[0, 1, 8, 9], ixs_pos=[], ixs_neg=[2, 3, 4, 5, 6, 7], limit_threshold=-15),
+            GEQConstant(ixs_not=[2, 3, 4, 5, 6, 7], ixs_pos=[], ixs_neg=[0, 1, 8, 9], limit_threshold=-15),
         ]
         terms1 = [
-            Between(ixs_to_constrain=[0, 8], ixs_not=[1, 2, 3, 4, 5, 6, 7, 9], thresholds=[0, 2]),
-            Between(ixs_to_constrain=[1, 9], ixs_not=[0, 2, 3, 4, 5, 6, 7, 8], thresholds=[0, 2]),
-            Between(ixs_to_constrain=[3, 5], ixs_not=[0, 1, 2, 4, 6, 7, 8, 9], thresholds=[0, 2]),
-            Between(ixs_to_constrain=[4, 7], ixs_not=[0, 1, 2, 3, 5, 6, 8, 9], thresholds=[0, 2]),
-            Identity(),
-            Identity()
+            Between(ixs_to_constrain=[0, 1, 8, 9], ixs_not=[2, 3, 4, 5, 6, 7], thresholds=[0, 5]),
+            Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         ]
         return [AndDisjoint(t1, t2) for t1, t2 in zip(terms1, terms2)]
 
