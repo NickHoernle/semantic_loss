@@ -188,6 +188,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             for i, p in enumerate(class_preds.split(1, dim=1)):
                 ll += [F.cross_entropy(p.squeeze(1), target, reduction="none")]
 
+            import pdb
+            pdb.set_trace()
+
             recon_losses, labels = torch.stack(ll, dim=1).min(dim=1)
             loss = recon_losses.mean()
             loss += F.nll_loss(logic_preds, labels)

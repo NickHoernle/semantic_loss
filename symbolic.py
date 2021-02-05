@@ -31,6 +31,24 @@ class GEQConstant(nn.Module):
                          dim=1)[:, self.reverse_transform]
 
 
+class Between(nn.Module):
+    def __init__(self, ixs_to_constrain, ixs_not, thresholds=[-1, 1]):
+        super(Between, self).__init__()
+        self.ixs_to_constrain = ixs_to_constrain
+        self.ixs_not = ixs_not
+        self.thresholds = thresholds
+
+        self.forward_transform = self.ixs_to_constrain + self.ixs_not
+        self.reverse_transform = np.argsort(self.forward_transform)
+
+    def forward(self, x):
+        x_ = x[:, self.forward_transform]
+        split1, split2 = x_.split([len(self.ixs_to_constrain), len(self.ixs_not)], dim=1)
+        restricted = -F.softplus(-(F.softplus(split1) + (self.thresholds[0] - self.thresholds[1]))) + self.thresholds[1]
+        return torch.cat((restricted,
+                          split2), dim=1)[:, self.reverse_transform]
+
+
 class GEQ(GEQConstant):
 
     def forward(self, x):
@@ -45,22 +63,25 @@ class GEQ(GEQConstant):
                           split3), dim=1)[:, self.reverse_transform]
 
 
+class AndDisjoint(nn.Module):
+    def __init__(self, term1, term2):
+        super(AndDisjoint, self).__init__()
+        self.term1 = term1
+        self.term2 = term2
+
+    def forward(self, x):
+        return self.term2(self.term1(x))
+
+
+class Identity(nn.Module):
+    def forward(self, x):
+        return x
+
+
 class OrList(nn.Module):
     def __init__(self, terms):
         super(OrList, self).__init__()
         self.layers = nn.ModuleList(terms)
-        self.tau_ = 5
-
-    @property
-    def tau(self):
-        return self.tau_
-
-    def update_tau(self):
-        self.tau_ = np.max([.96 * self.tau_, .5])
-
-    def threshold1p(self):
-        for layer in self.layers:
-            layer.threshold1p()
 
     def forward(self, x, class_prediction, test=False):
         log_py = class_prediction.log_softmax(dim=1)
@@ -92,18 +113,26 @@ class ConstrainedModel(nn.Module):
 # 0, 'airplane', 1 'automobile', 2 'bird', 3'cat', 4 'deer', 5 'dog', 6 'frog', 7 'horse', 8 'ship', 9 'truck'
 def get_logic_terms(dataset):
     if dataset == "cifar10":
-        terms = [
-            GEQConstant(ixs_pos=[0, 8], ixs_not=[], ixs_neg=[1, 2, 3, 4, 5, 6, 7, 9], limit_threshold=0),
-            GEQConstant(ixs_pos=[1, 9], ixs_not=[], ixs_neg=[0, 2, 3, 4, 5, 6, 7, 8], limit_threshold=0),
-            GEQConstant(ixs_pos=[3, 5], ixs_not=[], ixs_neg=[0, 1, 2, 4, 6, 7, 8, 9], limit_threshold=0),
-            GEQConstant(ixs_pos=[4, 7], ixs_not=[], ixs_neg=[0, 1, 2, 3, 5, 6, 8, 9], limit_threshold=0),
-            GEQConstant(ixs_pos=[2], ixs_not=[], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], limit_threshold=0),
-            GEQConstant(ixs_pos=[6], ixs_not=[], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], limit_threshold=0)
+        terms2 = [
+            GEQConstant(ixs_not=[0, 8], ixs_pos=[], ixs_neg=[1, 2, 3, 4, 5, 6, 7, 9], limit_threshold=15),
+            GEQConstant(ixs_not=[1, 9], ixs_pos=[], ixs_neg=[0, 2, 3, 4, 5, 6, 7, 8], limit_threshold=15),
+            GEQConstant(ixs_not=[3, 5], ixs_pos=[], ixs_neg=[0, 1, 2, 4, 6, 7, 8, 9], limit_threshold=15),
+            GEQConstant(ixs_not=[4, 7], ixs_pos=[], ixs_neg=[0, 1, 2, 3, 5, 6, 8, 9], limit_threshold=15),
+            GEQConstant(ixs_not=[],    ixs_pos=[2], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], limit_threshold=15),
+            GEQConstant(ixs_not=[],    ixs_pos=[6], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], limit_threshold=15)
         ]
-        return terms
+        terms1 = [
+            Between(ixs_to_constrain=[0, 8], ixs_not=[1, 2, 3, 4, 5, 6, 7, 9], thresholds=[0, 2]),
+            Between(ixs_to_constrain=[1, 9], ixs_not=[0, 2, 3, 4, 5, 6, 7, 8], thresholds=[0, 2]),
+            Between(ixs_to_constrain=[3, 5], ixs_not=[0, 1, 2, 4, 6, 7, 8, 9], thresholds=[0, 2]),
+            Between(ixs_to_constrain=[4, 7], ixs_not=[0, 1, 2, 3, 5, 6, 8, 9], thresholds=[0, 2]),
+            Identity(),
+            Identity()
+        ]
+        return [AndDisjoint(t1, t2) for t1, t2 in zip(terms1, terms2)]
 
 
 def get_class_ixs(dataset):
     if dataset == "cifar10":
-        return [t.ixs_pos for t in get_logic_terms(dataset)]
+        return [t.term2.ixs_pos + t.term2.ixs_not for t in get_logic_terms(dataset)]
 
