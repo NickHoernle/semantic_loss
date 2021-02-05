@@ -102,7 +102,7 @@ mkdir -p ${dest_path}  # make it if required
 # * for more about the (endless) rsync options, see the docs:
 #       https://download.samba.org/pub/rsync/rsync.html
 
-rsync --archive --update --compress --progress ${src_path}/ ${dest_path}/data
+rsync --archive --update --compress ${src_path}/ ${dest_path}/data
 
 # unzip the torch files in the destination directory
 #unzip -q -f ${dest_path}/pt_data.zip -d ${dest_path}
@@ -146,7 +146,7 @@ echo "Moving output data back to DFS"
 src_path=${output_dir}
 dest_path=${repo_home}/experiments/
 mkdir -p ${dest_path}
-rsync --archive --update --compress --progress ${src_path}/ ${dest_path}
+rsync --archive --update --compress ${src_path}/ ${dest_path}
 
 # =========================
 # Post experiment logging

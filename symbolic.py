@@ -19,7 +19,7 @@ class GEQConstant(nn.Module):
         self.reverse_transform = np.argsort(self.forward_transform)
 
     def threshold1p(self):
-        if self.limit_threshold < 25:
+        if self.limit_threshold < 20:
             self.limit_threshold += 1
 
     def forward(self, x):
@@ -80,17 +80,25 @@ class ConstrainedModel(nn.Module):
         self.encoder = WideResNet(depth, classes+self.nterms, widen_factor, dropRate=dropRate)
         self.decoder = OrList(terms=layers)
 
+    def threshold1p(self):
+        self.decoder.threshold1p()
+
     def forward(self, x, test=False):
         enc = self.encoder(x)
         ps, preds = enc.split((self.nclasses, self.nterms), dim=1)
         return self.decoder(ps, preds, test)
 
 
+# 0, 'airplane', 1 'automobile', 2 'bird', 3'cat', 4 'deer', 5 'dog', 6 'frog', 7 'horse', 8 'ship', 9 'truck'
 def get_logic_terms(dataset):
     if dataset == "cifar10":
         terms = [
-            GEQConstant(ixs_pos=[0, 1, 8, 9], ixs_not=[], ixs_neg=[2, 3, 4, 5, 6, 7], limit_threshold=10),
-            GEQConstant(ixs_pos=[2, 3, 4, 5, 6, 7], ixs_not=[], ixs_neg=[0, 1, 8, 9], limit_threshold=10)
+            GEQConstant(ixs_pos=[0, 8], ixs_not=[], ixs_neg=[1, 2, 3, 4, 5, 6, 7, 9], limit_threshold=1),
+            GEQConstant(ixs_pos=[1, 9], ixs_not=[], ixs_neg=[0, 2, 3, 4, 5, 6, 7, 8], limit_threshold=1),
+            GEQConstant(ixs_pos=[3, 5], ixs_not=[], ixs_neg=[0, 1, 2, 4, 6, 7, 8, 9], limit_threshold=1),
+            GEQConstant(ixs_pos=[4, 7], ixs_not=[], ixs_neg=[0, 1, 2, 3, 5, 6, 8, 9], limit_threshold=1),
+            GEQConstant(ixs_pos=[2], ixs_not=[], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], limit_threshold=1),
+            GEQConstant(ixs_pos=[6], ixs_not=[], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], limit_threshold=1)
         ]
         return terms
 

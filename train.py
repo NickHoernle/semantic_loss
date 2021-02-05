@@ -235,6 +235,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
                   'PrecSG@1 {top1a.val:.3f} ({top1a.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
                       loss=losses, top1=top1, top1a=top1a))
+
+    if sloss:
+        model.threshold1p()
     # log to TensorBoard
     if args.tensorboard:
         log_value('train_loss', losses.avg, epoch)
