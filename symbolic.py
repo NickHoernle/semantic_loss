@@ -93,12 +93,12 @@ class ConstrainedModel(nn.Module):
 def get_logic_terms(dataset):
     if dataset == "cifar10":
         terms = [
-            GEQConstant(ixs_pos=[0, 8], ixs_not=[], ixs_neg=[1, 2, 3, 4, 5, 6, 7, 9], limit_threshold=1),
-            GEQConstant(ixs_pos=[1, 9], ixs_not=[], ixs_neg=[0, 2, 3, 4, 5, 6, 7, 8], limit_threshold=1),
-            GEQConstant(ixs_pos=[3, 5], ixs_not=[], ixs_neg=[0, 1, 2, 4, 6, 7, 8, 9], limit_threshold=1),
-            GEQConstant(ixs_pos=[4, 7], ixs_not=[], ixs_neg=[0, 1, 2, 3, 5, 6, 8, 9], limit_threshold=1),
-            GEQConstant(ixs_pos=[2], ixs_not=[], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], limit_threshold=1),
-            GEQConstant(ixs_pos=[6], ixs_not=[], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], limit_threshold=1)
+            GEQConstant(ixs_pos=[0, 8], ixs_not=[], ixs_neg=[1, 2, 3, 4, 5, 6, 7, 9], limit_threshold=0),
+            GEQConstant(ixs_pos=[1, 9], ixs_not=[], ixs_neg=[0, 2, 3, 4, 5, 6, 7, 8], limit_threshold=0),
+            GEQConstant(ixs_pos=[3, 5], ixs_not=[], ixs_neg=[0, 1, 2, 4, 6, 7, 8, 9], limit_threshold=0),
+            GEQConstant(ixs_pos=[4, 7], ixs_not=[], ixs_neg=[0, 1, 2, 3, 5, 6, 8, 9], limit_threshold=0),
+            GEQConstant(ixs_pos=[2], ixs_not=[], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], limit_threshold=0),
+            GEQConstant(ixs_pos=[6], ixs_not=[], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], limit_threshold=0)
         ]
         return terms
 

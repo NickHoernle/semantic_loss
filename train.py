@@ -237,7 +237,8 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
                       loss=losses, top1=top1, top1a=top1a))
 
     if sloss:
-        model.threshold1p()
+        if epoch % 5 == 4:
+            model.threshold1p()
     # log to TensorBoard
     if args.tensorboard:
         log_value('train_loss', losses.avg, epoch)
