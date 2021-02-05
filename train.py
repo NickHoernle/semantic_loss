@@ -270,10 +270,10 @@ def validate(val_loader, model, criterion, epoch):
         # get the super class accuracy
         new_tgts = torch.zeros_like(target)
         for j, ixs in enumerate(class_ixs[1:]):
-            new_tgts += (i + 1) * (torch.stack([target == i for i in ixs], dim=1).any(dim=1))
+            new_tgts += (j + 1) * (torch.stack([target == k for k in ixs], dim=1).any(dim=1))
 
         forward_mapping = [int(c) for ixs in class_ixs for c in ixs]
-        split = output.log_softmax(dim=1)[:, forward_mapping].split([len(i) for i in class_ixs], dim=1)
+        split = output.log_softmax(dim=1)[:, forward_mapping].split([len(k) for k in class_ixs], dim=1)
         new_pred = torch.stack([s.logsumexp(dim=1) for s in split], dim=1)
 
         prec_1a = accuracy(new_pred.data, new_tgts, topk=(1,))[0]
