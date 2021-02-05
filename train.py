@@ -269,7 +269,7 @@ def validate(val_loader, model, criterion, epoch):
 
         # get the super class accuracy
         new_tgts = torch.zeros_like(target)
-        for i, ixs in enumerate(class_ixs[1:]):
+        for j, ixs in enumerate(class_ixs[1:]):
             new_tgts += (i + 1) * (torch.stack([target == i for i in ixs], dim=1).any(dim=1))
 
         forward_mapping = [int(c) for ixs in class_ixs for c in ixs]
