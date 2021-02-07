@@ -61,7 +61,7 @@ parser.set_defaults(sloss=True)
 
 best_prec1 = 0
 
-device = "cpu"
+device = "cuda"
 
 def main():
     global args, best_prec1, class_ixs, sloss
