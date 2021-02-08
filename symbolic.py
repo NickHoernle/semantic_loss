@@ -43,7 +43,10 @@ class Between(nn.Module):
         self.forward_transform = self.ixs1 + self.ixs_less_than
         self.reverse_transform = np.argsort(self.forward_transform)
 
+        self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
+
     def forward(self, x):
+        x = self.fc(F.relu(x))
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_less_than]
         restricted1 = -F.softplus(-(F.softplus(split1) + (self.threshold_upper[0] - self.threshold_upper[1]))) + self.threshold_upper[1]
@@ -130,6 +133,10 @@ def get_logic_terms(dataset):
         ]
         return terms
 
+
+def get_experiment_params(dataset):
+    if dataset == "cifar10":
+        return {"num_classes": len(get_logic_terms(dataset))}
 
 def get_class_ixs(dataset):
     if dataset == "cifar10":
