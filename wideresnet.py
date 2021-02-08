@@ -72,6 +72,7 @@ class WideResNet(nn.Module):
                 m.bias.data.zero_()
             elif isinstance(m, nn.Linear):
                 m.bias.data.zero_()
+
     def forward(self, x, **kwargs):
         out = self.conv1(x)
         out = self.block1(out)
