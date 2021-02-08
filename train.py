@@ -61,7 +61,7 @@ parser.set_defaults(sloss=True)
 
 best_prec1 = 0
 
-device = "cuda"
+device = "cpu"
 
 def main():
     global args, best_prec1, class_ixs, sloss
@@ -191,7 +191,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             pred_loss = torch.stack(ll, dim=1)
             recon_losses, labels = pred_loss.min(dim=1)
 
-            loss = (logic_preds.exp() * (pred_loss.detach())).sum(dim=1).mean()
+            loss = (logic_preds.exp() * (pred_loss.detach()) + logic_preds).sum(dim=1).mean()
             loss += recon_losses.mean()
 
             class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]

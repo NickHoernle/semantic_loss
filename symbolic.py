@@ -32,7 +32,7 @@ class GEQConstant(nn.Module):
 
 
 class Between(nn.Module):
-    def __init__(self, ixs1, ixs_less_than, threshold_upper=[-1, 1], threshold_lower=-15):
+    def __init__(self, ixs1, ixs_less_than, threshold_upper=[-1, 1], threshold_lower=[-15, -20]):
         super(Between, self).__init__()
         self.ixs1 = ixs1
         self.ixs_less_than = ixs_less_than
@@ -46,8 +46,9 @@ class Between(nn.Module):
     def forward(self, x):
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_less_than]
-        restricted = -F.softplus(-(F.softplus(split1) + (self.threshold_upper[0] - self.threshold_upper[1]))) + self.threshold_upper[1]
-        return torch.cat((restricted, -F.softplus(-split2)+self.threshold_lower), dim=1)[:, self.reverse_transform]
+        restricted1 = -F.softplus(-(F.softplus(split1) + (self.threshold_upper[0] - self.threshold_upper[1]))) + self.threshold_upper[1]
+        restricted2 = -F.softplus(-(F.softplus(split2) + (self.threshold_lower[0] - self.threshold_lower[1]))) + self.threshold_lower[1]
+        return torch.cat((restricted1, restricted2), dim=1)[:, self.reverse_transform]
 #
 #
 # class GEQ(GEQConstant):
@@ -124,8 +125,8 @@ def get_logic_terms(dataset):
         #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         # ]
         terms = [
-            Between(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], threshold_upper=[0, 5], threshold_lower=-20),
-            Between(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], threshold_upper=[0, 5], threshold_lower=-20),
+            Between(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], threshold_upper=[0, 5], threshold_lower=[-15, -20]),
+            Between(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], threshold_upper=[0, 5], threshold_lower=[-15, -20]),
         ]
         return terms
 
