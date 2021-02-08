@@ -56,6 +56,8 @@ parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true')
 parser.add_argument('--no-sloss', dest='sloss', action='store_false',
                     help='whether to use semantic logic loss (default: True)')
+parser.add_argument('--no-superclass', dest='superclass', action='store_false',
+                    help='whether to test on baseline for superclass accuracy')
 parser.set_defaults(augment=True)
 parser.set_defaults(sloss=True)
 
@@ -72,7 +74,8 @@ def main():
                                      std=[x/255.0 for x in [63.0, 62.1, 66.7]])
 
     sloss = args.sloss
-    print(sloss)
+    superclass = args.superclass
+    print(sloss, superclass)
 
     if args.augment:
         transform_train = transforms.Compose([
@@ -109,9 +112,14 @@ def main():
     num_classes = (args.dataset == 'cifar10' and 10 or 100)
     class_ixs = get_class_ixs(args.dataset)
     if sloss:
+        print("Testing model")
         terms = get_logic_terms(args.dataset)
         model = ConstrainedModel(args.layers, num_classes, terms, args.widen_factor, dropRate=args.droprate)
+    elif superclass:
+        params = get_experiment_params(args.dataset)
+        model = WideResNet(args.layers, params["num_classes"], args.widen_factor, dropRate=args.droprate)
     else:
+        print("Baseline model")
         model = WideResNet(args.layers, num_classes, args.widen_factor, dropRate=args.droprate)
 
     # get the number of model parameters
@@ -145,7 +153,9 @@ def main():
                                 weight_decay=args.weight_decay)
 
     # cosine learning rate
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=25, gamma=.2)
+
 
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch
@@ -220,7 +230,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        scheduler.step()
+
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
@@ -234,6 +244,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
                       epoch, i, len(train_loader), batch_time=batch_time,
                       loss=losses, top1=top1, top1a=top1a))
 
+    scheduler.step()
     # if sloss:
     #     if epoch % 5 == 4:
     #         model.threshold1p()

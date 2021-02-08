@@ -92,7 +92,7 @@ class OrList(nn.Module):
         log_py = class_prediction.log_softmax(dim=1)
         pred = torch.stack([f(x) for f in self.layers], dim=1)
         if test:
-            return (pred[np.arange(len(log_py)), log_py.argmax(dim=1)])
+            return pred[np.arange(len(log_py)), log_py.argmax(dim=1)]
         return pred, log_py
 
 
