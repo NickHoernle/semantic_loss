@@ -46,7 +46,7 @@ class Between(nn.Module):
         self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
 
     def threshold1p(self):
-        if self.threshold_lower[1] > -20:
+        if self.threshold_lower[1] > -5:
             self.threshold_lower = [self.threshold_lower[0]-1, self.threshold_lower[1]-1]
 
     def forward(self, x):

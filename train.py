@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 import time
+import subprocess
 
 import torch
 import torch.nn as nn
@@ -64,18 +65,21 @@ parser.set_defaults(sloss=True)
 best_prec1 = 0
 
 device = "cuda"
+git_commit = subprocess.check_output(["git", "describe"]).strip()
 
 def main():
-    global args, best_prec1, class_ixs, sloss
-    args = parser.parse_args()
-    if args.tensorboard: configure(args.checkpoint_dir+"/%s"%(args.name))
-    # Data loading code
-    normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
-                                     std=[x/255.0 for x in [63.0, 62.1, 66.7]])
+    global args, best_prec1, class_ixs, sloss, params
 
+    args = parser.parse_args()
     sloss = args.sloss
     superclass = False
     print(sloss, superclass)
+    params = f"{args.name}_{sloss}_{lr}"
+
+    if args.tensorboard: configure(os.path.join(args.checkpoint_dir, git_commit, params))
+    # Data loading code
+    normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
+                                     std=[x/255.0 for x in [63.0, 62.1, 66.7]])
 
     if args.augment:
         transform_train = transforms.Compose([
@@ -116,8 +120,8 @@ def main():
         terms = get_logic_terms(args.dataset)
         model = ConstrainedModel(args.layers, num_classes, terms, args.widen_factor, dropRate=args.droprate)
     elif superclass:
-        params = get_experiment_params(args.dataset)
-        model = WideResNet(args.layers, params["num_classes"], args.widen_factor, dropRate=args.droprate)
+        exp_params = get_experiment_params(args.dataset)
+        model = WideResNet(args.layers, exp_params["num_classes"], args.widen_factor, dropRate=args.droprate)
     else:
         print("Baseline model")
         model = WideResNet(args.layers, num_classes, args.widen_factor, dropRate=args.droprate)
@@ -245,7 +249,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
                       epoch, i, len(train_loader), batch_time=batch_time,
                       loss=losses, top1=top1, top1a=top1a))
 
-    if epoch % 2 == 1:
+    if epoch % 5 == 4:
         if sloss:
             model.threshold1p()
 
@@ -320,13 +324,13 @@ def validate(val_loader, model, criterion, epoch):
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     """Saves checkpoint to disk"""
-    directory = args.checkpoint_dir+"/%s/"%(args.name)
+    directory = os.path.join(args.checkpoint_dir, git_commit, params)
     if not os.path.exists(directory):
         os.makedirs(directory)
-    fname = directory + filename
+    fname = os.path.join(directory, filename)
     torch.save(state, fname)
     if is_best:
-        shutil.copyfile(fname, args.checkpoint_dir + '/%s/' % (args.name) + "best_" + filename)
+        shutil.copyfile(fname, os.path.join(directory, "best_" + filename))
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
