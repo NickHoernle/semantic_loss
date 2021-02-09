@@ -2,7 +2,7 @@ import argparse
 import os
 import shutil
 import time
-import subprocess
+import git
 
 import torch
 import torch.nn as nn
@@ -64,8 +64,9 @@ parser.set_defaults(sloss=True)
 
 best_prec1 = 0
 
-device = "cuda"
-git_commit = subprocess.check_output(["git", "describe"]).strip()
+device = "cuda" if torch.cuda.is_available() else "cpu"
+repo = git.Repo(search_parent_directories=True)
+git_commit = repo.head.object.hexsha
 
 def main():
     global args, best_prec1, class_ixs, sloss, params
@@ -74,7 +75,7 @@ def main():
     sloss = args.sloss
     superclass = False
     print(sloss, superclass)
-    params = f"{args.name}_{sloss}_{lr}"
+    params = f"{args.name}_{sloss}_{args.lr}"
 
     if args.tensorboard: configure(os.path.join(args.checkpoint_dir, git_commit, params))
     # Data loading code
