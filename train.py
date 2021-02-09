@@ -74,7 +74,7 @@ def main():
                                      std=[x/255.0 for x in [63.0, 62.1, 66.7]])
 
     sloss = args.sloss
-    superclass = args.superclass
+    superclass = False
     print(sloss, superclass)
 
     if args.augment:
@@ -244,6 +244,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
                   'PrecSG@1 {top1a.val:.3f} ({top1a.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
                       loss=losses, top1=top1, top1a=top1a))
+
     if epoch % 2 == 1:
         if sloss:
             model.threshold1p()
