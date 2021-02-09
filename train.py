@@ -206,10 +206,11 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             pred_loss = torch.stack(ll, dim=1)
             recon_losses, labels = pred_loss.min(dim=1)
 
-            loss = (logic_preds.exp() * (pred_loss.detach() + logic_preds)).sum(dim=1).mean()
+            loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
             loss += recon_losses.mean()
 
             class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]
+
         else:
             class_pred = output
             loss = criterion(class_pred, target)
@@ -312,9 +313,9 @@ def validate(val_loader, model, criterion, epoch):
                 epoch, i, len(val_loader), batch_time=batch_time,
                 loss=losses, top1=top1, top1a=top1a))
 
-    print('{epoch} * Prec@1 {top1.avg:.3f}, '
-          'PrecSG@1 {top1a.avg:.3f}, '
-          'Loss {loss.avg:.3f}'.format(epoch=epoch, top1=top1, top1a=top1a, loss=losses))
+    print(f'{epoch} * Prec@1 {round(top1.avg, 3)}, '
+          f'PrecSG@1 {round(top1a.avg, 3)} ({top1a.sum}/{top1a.count}), '
+          f'Loss {round(losses.avg, 3)}')
     # log to TensorBoard
     if args.tensorboard:
         from tensorboard_logger import configure, log_value
