@@ -218,7 +218,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         # measure accuracy and record loss
         prec1 = accuracy(class_pred.data, target, topk=(1,))[0]
 
-        top1.update((class_pred.data.argmax(dim=1) == target).tolist())
+        top1.update((class_pred.data.argmax(dim=1) == target).tolist(), class_pred.data.shape[0])
         losses.update(loss.data.item(), input.size(0))
 
         # get the super class accuracy
@@ -285,9 +285,9 @@ def validate(val_loader, model, criterion, epoch):
         loss = criterion(output, target)
 
         # measure accuracy and record loss
-        prec1 = accuracy(output.data, target, topk=(1,))[0]
+        # prec1 = accuracy(output.data, target, topk=(1,))[0]
         losses.update(loss.data.item(), input.size(0))
-        top1.update((output.data.argmax(dim=1) == target).tolist())
+        top1.update((output.data.argmax(dim=1) == target).tolist(), input.size(0))
 
         # get the super class accuracy
         new_tgts = torch.zeros_like(target)
@@ -298,7 +298,7 @@ def validate(val_loader, model, criterion, epoch):
         split = output.log_softmax(dim=1)[:, forward_mapping].split([len(k) for k in class_ixs], dim=1)
         new_pred = torch.stack([s.logsumexp(dim=1) for s in split], dim=1)
 
-        top1a.update((new_pred.data.argmax(dim=1) == new_tgts).tolist())
+        top1a.update((new_pred.data.argmax(dim=1) == new_tgts).tolist(), input.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -369,11 +369,17 @@ class AccuracyMeter(object):
     def count(self):
         return len(self.vals)
 
+    @property
+    def val(self):
+        return np.mean(self.vals[-self.n:])
+
     def reset(self):
-        self.val = []
+        self.vals = []
+        self.n = 100
 
     def update(self, vals, n=1):
-        self.val += list(vals)
+        self.vals += list(vals)
+        self.n = n
 
 
 
