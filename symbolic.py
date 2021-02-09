@@ -47,7 +47,7 @@ class Between(nn.Module):
 
     def threshold1p(self):
         if self.threshold_lower[1] > -20:
-            self.threshold_lower -= [self.threshold_lower[0] - 1, self.threshold_lower[1] - 1]
+            self.threshold_lower = [self.threshold_lower[0]-1, self.threshold_lower[1]-1]
 
     def forward(self, x):
         x = self.fc(F.relu(x))
