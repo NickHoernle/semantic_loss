@@ -45,6 +45,10 @@ class Between(nn.Module):
 
         self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
 
+    def threshold1p(self):
+        if self.threshold_lower[1] > -20:
+            self.threshold_lower -= [self.threshold_lower[0] - 1, self.threshold_lower[1] - 1]
+
     def forward(self, x):
         x = self.fc(F.relu(x))
         split1 = x[:, self.ixs1]
@@ -88,6 +92,10 @@ class OrList(nn.Module):
         super(OrList, self).__init__()
         self.layers = nn.ModuleList(terms)
 
+    def threshold1p(self):
+        for layer in self.layers:
+            layer.threshold1p()
+
     def forward(self, x, class_prediction, test=False):
         log_py = class_prediction.log_softmax(dim=1)
         pred = torch.stack([f(x) for f in self.layers], dim=1)
@@ -128,8 +136,8 @@ def get_logic_terms(dataset):
         #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         # ]
         terms = [
-            Between(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], threshold_upper=[0, 5], threshold_lower=[-20, -15]),
-            Between(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], threshold_upper=[0, 5], threshold_lower=[-20, -15]),
+            Between(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], threshold_upper=[0, 5], threshold_lower=[-5, 0]),
+            Between(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], threshold_upper=[0, 5], threshold_lower=[-5, 0]),
         ]
         return terms
 

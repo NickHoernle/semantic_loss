@@ -63,7 +63,7 @@ parser.set_defaults(sloss=True)
 
 best_prec1 = 0
 
-device = "cpu"
+device = "cuda"
 
 def main():
     global args, best_prec1, class_ixs, sloss
@@ -153,8 +153,8 @@ def main():
                                 weight_decay=args.weight_decay)
 
     # cosine learning rate
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=25, gamma=.2)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=25, gamma=.2)
 
 
     for epoch in range(args.start_epoch, args.epochs):
@@ -230,6 +230,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        scheduler.step()
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -243,8 +244,10 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
                   'PrecSG@1 {top1a.val:.3f} ({top1a.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
                       loss=losses, top1=top1, top1a=top1a))
+    if epoch % 2 == 1:
+        if sloss:
+            model.threshold1p()
 
-    scheduler.step()
     # if sloss:
     #     if epoch % 5 == 4:
     #         model.threshold1p()
