@@ -121,8 +121,6 @@ def main():
     class_ixs = get_class_ixs(args.dataset)
     if sloss:
         print("Testing model")
-        import pdb
-        pdb.set_trace()
         terms = get_logic_terms(args.dataset, args.ll)
         model = ConstrainedModel(args.layers, num_classes, terms, args.widen_factor,
                                  dropRate=args.droprate)
