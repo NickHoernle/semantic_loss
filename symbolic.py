@@ -47,7 +47,7 @@ class Between(nn.Module):
 
     def threshold1p(self):
         # pass
-        if self.threshold_upper[1] < 10:
+        if self.threshold_upper[1] < 20:
             self.threshold_upper[1] += 1
 
     def forward(self, x):

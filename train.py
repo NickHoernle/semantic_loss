@@ -314,7 +314,7 @@ def validate(val_loader, model, criterion, epoch):
                 loss=losses, top1=top1, top1a=top1a))
 
     print(f'{epoch} * Prec@1 {round(top1.avg, 3)}, '
-          f'PrecSG@1 {round(top1a.avg, 3)} ({top1a.sum}/{top1a.count}), '
+          f'PrecSG@1 {round(top1a.avg, 3)} ({int(top1a.sum)}/{top1a.count}), '
           f'Loss {round(losses.avg, 3)}')
     # log to TensorBoard
     if args.tensorboard:
