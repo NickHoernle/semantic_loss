@@ -50,7 +50,7 @@ class Between(nn.Module):
             self.threshold_lower = [self.threshold_lower[0]-1, self.threshold_lower[1]-1]
 
     def forward(self, x):
-        x = self.fc(F.relu(x))
+        x = self.fc(x)
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_less_than]
         restricted1 = -F.softplus(-(F.softplus(split1) + (self.threshold_upper[0] - self.threshold_upper[1]))) + self.threshold_upper[1]
