@@ -23,12 +23,22 @@ learning_rate = [.1, .075, .05, 0.025]
 sloss = [True, False]
 lower_lim = [-5, -10, -15, -20]
 
+settings = [(lr, sloss_, l_lim, rep)
+            for lr in learning_rate
+            for sloss_ in sloss
+            for l_lim in lower_lim
+            for rep in range(repeats)]
+
+nr_expts = len(settings)
+
+nr_servers = 20
+avg_expt_time = 60*4  # mins
+print(f'Total experiments = {nr_expts}')
+print(f'Estimated time = {(nr_expts / nr_servers * avg_expt_time)/60} hrs')
+
 output_file = open("experiment.txt", "w")
 
-for (lr, sloss_, l_lim, rep) in zip(learning_rate, sloss, lower_lim, range(repeats)):
-    # Note that we don't set a seed for rep - a seed is selected at random
-    # and recorded in the output data by the python script
-
+for (lr, sloss_, l_lim, rep) in settings:
     expt_call = (
         f"{base_call} " +
         f"--lr {lr} " +
