@@ -3,6 +3,7 @@ import os
 import shutil
 import time
 import git
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -183,8 +184,8 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
     """Train for one epoch on the training set"""
     batch_time = AverageMeter()
     losses = AverageMeter()
-    top1 = AverageMeter()
-    top1a = AverageMeter()
+    top1 = AccuracyMeter()
+    top1a = AccuracyMeter()
 
     # switch to train mode
     model.train()
@@ -216,8 +217,8 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             loss = criterion(class_pred, target)
         # measure accuracy and record loss
         prec1 = accuracy(class_pred.data, target, topk=(1,))[0]
-        top1.update(prec1.item(), input.size(0))
 
+        top1.update((class_pred.data.argmax(dim=1) == target).tolist())
         losses.update(loss.data.item(), input.size(0))
 
         # get the super class accuracy
@@ -267,8 +268,8 @@ def validate(val_loader, model, criterion, epoch):
     """Perform validation on the validation set"""
     batch_time = AverageMeter()
     losses = AverageMeter()
-    top1 = AverageMeter()
-    top1a = AverageMeter()
+    top1 = AccuracyMeter()
+    top1a = AccuracyMeter()
 
     # switch to evaluate mode
     model.eval()
@@ -286,7 +287,7 @@ def validate(val_loader, model, criterion, epoch):
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
         losses.update(loss.data.item(), input.size(0))
-        top1.update(prec1.item(), input.size(0))
+        top1.update((output.data.argmax(dim=1) == target).tolist())
 
         # get the super class accuracy
         new_tgts = torch.zeros_like(target)
@@ -297,8 +298,7 @@ def validate(val_loader, model, criterion, epoch):
         split = output.log_softmax(dim=1)[:, forward_mapping].split([len(k) for k in class_ixs], dim=1)
         new_pred = torch.stack([s.logsumexp(dim=1) for s in split], dim=1)
 
-        prec_1a = accuracy(new_pred.data, new_tgts, topk=(1,))[0]
-        top1a.update(prec_1a.item(), input.size(0))
+        top1a.update((new_pred.data.argmax(dim=1) == new_tgts).tolist())
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -350,6 +350,32 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+
+class AccuracyMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    @property
+    def avg(self):
+        return np.mean(self.vals)
+
+    @property
+    def sum(self):
+        return np.sum(self.vals)
+
+    @property
+    def count(self):
+        return len(self.vals)
+
+    def reset(self):
+        self.val = []
+
+    def update(self, vals, n=1):
+        self.val += list(vals)
+
+
 
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
