@@ -77,7 +77,7 @@ def main():
     args = parser.parse_args()
     sloss = args.sloss
     superclass = False
-    print(sloss, superclass)
+    print(sloss, superclass, args.ll)
     params = f"{args.name}_{sloss}_{args.lr}"
 
     if args.tensorboard: configure(os.path.join(args.checkpoint_dir, git_commit, params))
@@ -121,7 +121,9 @@ def main():
     class_ixs = get_class_ixs(args.dataset)
     if sloss:
         print("Testing model")
-        terms = get_logic_terms(args.dataset, args.lower_limit)
+        import pdb
+        pdb.set_trace()
+        terms = get_logic_terms(args.dataset, args.ll)
         model = ConstrainedModel(args.layers, num_classes, terms, args.widen_factor,
                                  dropRate=args.droprate)
     elif superclass:
