@@ -126,7 +126,7 @@ class ConstrainedModel(nn.Module):
 
 # 0, 'airplane', 1 'automobile', 2 'bird', 3'cat', 4 'deer', 5 'dog', 6 'frog', 7 'horse', 8 'ship', 9 'truck'
 
-def get_logic_terms(dataset):
+def get_logic_terms(dataset, lower_lim=-10):
     if dataset == "cifar10":
         # terms2 = [
         #     GEQConstant(ixs_not=[0, 1, 8, 9], ixs_pos=[], ixs_neg=[2, 3, 4, 5, 6, 7], limit_threshold=-15),
@@ -137,8 +137,8 @@ def get_logic_terms(dataset):
         #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         # ]
         terms = [
-            Between(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], threshold_upper=[-1, 0], threshold_lower=-15),
-            Between(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], threshold_upper=[-1, 0], threshold_lower=-15),
+            Between(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], threshold_upper=[-1, 0], threshold_lower=lower_lim),
+            Between(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
         ]
         return terms
 

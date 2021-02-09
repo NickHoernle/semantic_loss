@@ -34,6 +34,8 @@ parser.add_argument('--start-epoch', default=0, type=int,
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=128, type=int,
                     help='mini-batch size (default: 128)')
+parser.add_argument('--ll', '--lower-limit', default=-10, type=int,
+                    help='mini-batch size (default: 128)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
@@ -119,8 +121,9 @@ def main():
     class_ixs = get_class_ixs(args.dataset)
     if sloss:
         print("Testing model")
-        terms = get_logic_terms(args.dataset)
-        model = ConstrainedModel(args.layers, num_classes, terms, args.widen_factor, dropRate=args.droprate)
+        terms = get_logic_terms(args.dataset, args.lower_limit)
+        model = ConstrainedModel(args.layers, num_classes, terms, args.widen_factor,
+                                 dropRate=args.droprate)
     elif superclass:
         exp_params = get_experiment_params(args.dataset)
         model = WideResNet(args.layers, exp_params["num_classes"], args.widen_factor, dropRate=args.droprate)
