@@ -25,7 +25,7 @@ lower_lim = [-5, -10, -15, -20]
 
 output_file = open("experiment.txt", "w")
 
-for (lr, sloss_, l_lim, rep) in zip(learning_rate, sloss, lower_lim, repeats):
+for (lr, sloss_, l_lim, rep) in zip(learning_rate, sloss, lower_lim, range(repeats)):
     # Note that we don't set a seed for rep - a seed is selected at random
     # and recorded in the output data by the python script
 
