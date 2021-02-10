@@ -19,7 +19,7 @@ class GEQConstant(nn.Module):
         self.reverse_transform = np.argsort(self.forward_transform)
 
     def threshold1p(self):
-        if self.limit_threshold < 10:
+        if self.limit_threshold < 20:
             self.limit_threshold += 1
 
     def forward(self, x):

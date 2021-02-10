@@ -19,7 +19,7 @@ base_call = (f"python train.py --dataset cifar10 "
 
 repeats = 1
 
-learning_rate = [.1, .075, .05, 0.025]
+learning_rate = [.5, .3, .2]
 sloss = [True, False]
 lower_lim = [-5, -10, -15, -20]
 
