@@ -158,12 +158,12 @@ def main():
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum, nesterov=args.nesterov,
+                                momentum=args.momentum,
                                 weight_decay=args.weight_decay)
 
     # cosine learning rate
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
-    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=25, gamma=.2)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=.2)
 
 
     for epoch in range(args.start_epoch, args.epochs):
@@ -219,7 +219,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             class_pred = output
             loss = criterion(class_pred, target)
         # measure accuracy and record loss
-        prec1 = accuracy(class_pred.data, target, topk=(1,))[0]
+        # prec1 = accuracy(class_pred.data, target, topk=(1,))[0]
 
         top1.update((class_pred.data.argmax(dim=1) == target).tolist(), class_pred.data.shape[0])
         losses.update(loss.data.item(), input.size(0))
@@ -240,7 +240,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        scheduler.step()
+        # scheduler.step()
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -259,6 +259,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         if sloss:
             model.threshold1p()
 
+    scheduler.step()
     # if sloss:
     #     if epoch % 5 == 4:
     #         model.threshold1p()
