@@ -137,8 +137,12 @@ def get_logic_terms(dataset, lower_lim=-10):
         #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         # ]
         terms = [
-            Between(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], threshold_upper=[-1, 0], threshold_lower=lower_lim),
-            Between(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
+            Between(ixs1=[0, 8], ixs_less_than=[1, 2, 3, 4, 5, 6, 7, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
+            Between(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], threshold_upper=[-1, 0], threshold_lower=lower_lim),
+            Between(ixs1=[3, 5], ixs_less_than=[0, 1, 2, 4, 6, 7, 8, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
+            Between(ixs1=[4, 7], ixs_less_than=[0, 1, 2, 3, 5, 6, 8, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
+            Between(ixs1=[2], ixs_less_than=[0, 1, 3, 4, 5, 6, 7, 8, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
+            Between(ixs1=[6], ixs_less_than=[0, 1, 2, 3, 4, 5, 7, 8, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
         ]
         return terms
 

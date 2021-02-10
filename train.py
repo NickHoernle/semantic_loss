@@ -158,7 +158,7 @@ def main():
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum, nesterov = args.nesterov,
+                                momentum=args.momentum, nesterov=args.nesterov,
                                 weight_decay=args.weight_decay)
 
     # cosine learning rate
