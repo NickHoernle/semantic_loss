@@ -32,7 +32,7 @@ parser.add_argument('--epochs', default=200, type=int,
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int,
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=128, type=int,
+parser.add_argument('-b', '--batch-size', default=256, type=int,
                     help='mini-batch size (default: 128)')
 parser.add_argument('--ll', '--lower-limit', default=-10, type=int,
                     help='mini-batch size (default: 128)')
