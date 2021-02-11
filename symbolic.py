@@ -26,9 +26,9 @@ class GEQConstant(nn.Module):
     def forward(self, x):
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_neg]
-        split3 =x[:, self.ixs_not]
+        split3 = x[:, self.ixs_not]
 
-        restricted1 = F.softplus(split1 - self.threshold_upper) + self.threshold_upper
+        restricted1 = F.softplus(split1) + self.threshold_upper
         restricted2 = torch.ones_like(split2) * self.threshold_lower
 
         return torch.cat((restricted1, restricted2, split3), dim=1)[:, self.reverse_transform]
@@ -55,7 +55,7 @@ class GEQ_Interaction(nn.Module):
 
         split1 = F.softplus(split1-self.threshold_lower)+self.threshold_lower
         # find the perpendicular vector to the line defined by weights
-        a = -torch.tensor(self.weights).to(self.device).float().unsqueeze(1)
+        a = -torch.tensor(self.weights).float().to(self.device).unsqueeze(1)
         dot_prod = split1.mm(a)
         distance = (dot_prod - self.intercept) / torch.norm(a)
         corrected_distance = -F.softplus(-distance)
@@ -180,11 +180,11 @@ def get_logic_terms(dataset, lower_lim=-10, device="cuda"):
         #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         # ]
         terms = [
-            GEQ_Interaction(ixs1=[0, 8], ixs_less_than=[1, 2, 3, 4, 5, 6, 7, 9], weights=[1, 1], intercept=10, threshold_lower=-10, device=device),
-            GEQ_Interaction(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], weights=[1, 1], intercept=10, threshold_lower=-10, device=device),
-            GEQ_Interaction(ixs1=[3, 5, 4, 7], ixs_less_than=[0, 1, 2, 6, 8, 9], weights=[1, 1], intercept=10, threshold_lower=-10, device=device),
-            GEQConstant(ixs1=[2], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], ixs_not=[], threshold_upper=-10, threshold_lower=-10),
-            GEQConstant(ixs1=[6], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=-10, threshold_lower=-10),
+            GEQ_Interaction(ixs1=[0, 8], ixs_less_than=[1, 2, 3, 4, 5, 6, 7, 9], weights=[1., 1.], intercept=0., threshold_lower=-10, device=device),
+            GEQ_Interaction(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], weights=[1., 1.], intercept=0., threshold_lower=-10, device=device),
+            GEQ_Interaction(ixs1=[3, 4, 5, 7], ixs_less_than=[0, 1, 2, 6, 8, 9], weights=[1., 1., 1., 1.], intercept=0., threshold_lower=-10, device=device),
+            GEQConstant(ixs1=[2], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], ixs_not=[], threshold_upper=0., threshold_lower=-10),
+            GEQConstant(ixs1=[6], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=0., threshold_lower=-10),
         ]
         return terms
 
