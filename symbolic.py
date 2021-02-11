@@ -7,13 +7,14 @@ from wideresnet import WideResNet
 
 
 class GEQConstant(nn.Module):
-    def __init__(self, ixs1, ixs_not, ixs_neg, limit_threshold):
+    def __init__(self, ixs1, ixs_not, ixs_neg, threshold_upper, threshold_lower):
         super(GEQConstant, self).__init__()
         self.ixs1 = ixs1
         self.ixs_neg = ixs_neg
         self.ixs_not = ixs_not
 
-        self.limit_threshold = limit_threshold
+        self.threshold_upper = threshold_upper
+        self.threshold_lower = threshold_lower
 
         self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
         self.reverse_transform = np.argsort(self.forward_transform)
@@ -26,9 +27,48 @@ class GEQConstant(nn.Module):
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_neg]
         split3 =x[:, self.ixs_not]
-        return torch.cat((F.softplus(split1),
-                          -F.softplus(-split2) + self.limit_threshold,
+        return torch.cat((F.softplus(split1) + self.threshold_upper,
+                          -F.softplus(-split2) + self.threshold_lower,
                           split3), dim=1)[:, self.reverse_transform]
+
+
+class GEQ_Interaction(nn.Module):
+    def __init__(self, ixs1, ixs_less_than, weights, intercept, threshold_lower=-10):
+        super(GEQ_Interaction, self).__init__()
+        self.ixs1 = ixs1
+        self.ixs_less_than = ixs_less_than
+
+        self.weights = weights
+        self.intercept = intercept
+        self.threshold_lower = threshold_lower
+
+        self.forward_transform = self.ixs1 + self.ixs_less_than
+        self.reverse_transform = np.argsort(self.forward_transform)
+
+    def forward(self, x):
+        split1 = x[:, self.ixs1]
+        split2 = x[:, self.ixs_less_than]
+
+        #         split1 = F.softplus(split1)
+        # find the perpendicular vector to the line defined by weights
+        a = -torch.tensor(self.weights).float().unsqueeze(1)
+        dot_prod = split1.mm(a)
+        distance = (dot_prod - self.intercept) / torch.norm(a)
+        corrected_distance = -F.softplus(-distance)
+
+        # find the point on the plane that is closest to the point specified
+        pp_ = (dot_prod - self.intercept) / (torch.norm(a) ** 2)
+        plane_point = split1 - pp_ * (a.transpose(0, 1))
+
+        # distance along direction vector
+        corrected_distance_vec = corrected_distance * (a.transpose(0, 1) / torch.norm(a))
+        new_point = plane_point + corrected_distance_vec
+
+        restricted1 = new_point
+        restricted2 = torch.ones_like(split2) * self.threshold_lower
+
+        return torch.cat((restricted1, restricted2), dim=1)[:, self.reverse_transform]
+
 
 
 class Between(nn.Module):
@@ -137,12 +177,12 @@ def get_logic_terms(dataset, lower_lim=-10):
         #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         # ]
         terms = [
-            Between(ixs1=[0, 8], ixs_less_than=[1, 2, 3, 4, 5, 6, 7, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
-            Between(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], threshold_upper=[-1, 0], threshold_lower=lower_lim),
-            Between(ixs1=[3, 5], ixs_less_than=[0, 1, 2, 4, 6, 7, 8, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
-            Between(ixs1=[4, 7], ixs_less_than=[0, 1, 2, 3, 5, 6, 8, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
-            Between(ixs1=[2], ixs_less_than=[0, 1, 3, 4, 5, 6, 7, 8, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
-            Between(ixs1=[6], ixs_less_than=[0, 1, 2, 3, 4, 5, 7, 8, 9], threshold_upper=[-1, 0], threshold_lower=lower_lim),
+            GEQ_Interaction(ixs1=[0, 8], ixs_less_than=[1, 2, 3, 4, 5, 6, 7, 9], weights=[1, 1], intercept=10, threshold_lower=-10),
+            GEQ_Interaction(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], weights=[1, 1], intercept=10, threshold_lower=-10),
+            GEQ_Interaction(ixs1=[3, 5], ixs_less_than=[0, 1, 2, 4, 6, 7, 8, 9], weights=[1, 1], intercept=10, threshold_lower=-10),
+            GEQ_Interaction(ixs1=[4, 7], ixs_less_than=[0, 1, 2, 3, 5, 6, 8, 9], weights=[1, 1], intercept=10, threshold_lower=-10),
+            GEQConstant(ixs1=[2], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], ixs_not=[], threshold_upper=10, threshold_lower=-10),
+            GEQConstant(ixs1=[6], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=10, threshold_lower=-10),
         ]
         return terms
 

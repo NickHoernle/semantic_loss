@@ -157,8 +157,8 @@ def main():
 
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().to(device)
-    # optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum)
-    optimizer = torch.optim.Adam(model.parameters(), args.lr)
+    optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum)
+    # optimizer = torch.optim.Adam(model.parameters(), args.lr)
 
     # cosine learning rate
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
