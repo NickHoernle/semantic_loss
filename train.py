@@ -121,7 +121,7 @@ def main():
     class_ixs = get_class_ixs(args.dataset)
     if sloss:
         print("Testing model")
-        terms = get_logic_terms(args.dataset, args.ll)
+        terms = get_logic_terms(args.dataset, args.ll, device=device)
         model = ConstrainedModel(args.layers, num_classes, terms, args.widen_factor,
                                  dropRate=args.droprate)
     elif superclass:
