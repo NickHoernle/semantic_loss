@@ -79,7 +79,7 @@ class GEQ_Interaction(nn.Module):
 
 
 class Between(nn.Module):
-    def __init__(self, ixs1, ixs_less_than, threshold_upper=[-1, 1], threshold_lower=-10):
+    def __init__(self, ixs1, ixs_less_than, threshold_upper=[-1, 1], threshold_lower=-10, **kwargs):
         super(Between, self).__init__()
         self.ixs1 = ixs1
         self.ixs_less_than = ixs_less_than
