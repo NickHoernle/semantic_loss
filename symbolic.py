@@ -27,9 +27,11 @@ class GEQConstant(nn.Module):
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_neg]
         split3 =x[:, self.ixs_not]
-        return torch.cat((F.softplus(split1 - self.threshold_upper) + self.threshold_upper,
-                          -F.softplus(-(split2 - self.threshold_lower)) + self.threshold_lower,
-                          split3), dim=1)[:, self.reverse_transform]
+
+        restricted1 = F.softplus(split1 - self.threshold_upper) + self.threshold_upper
+        restricted2 = torch.ones_like(split2) * self.threshold_lower
+
+        return torch.cat((restricted1, restricted2, split3), dim=1)[:, self.reverse_transform]
 
 
 class GEQ_Interaction(nn.Module):
@@ -182,8 +184,8 @@ def get_logic_terms(dataset, lower_lim=-10, device="cuda"):
             GEQ_Interaction(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], weights=[1, 1], intercept=10, threshold_lower=-10, device=device),
             GEQ_Interaction(ixs1=[3, 5], ixs_less_than=[0, 1, 2, 4, 6, 7, 8, 9], weights=[1, 1], intercept=10, threshold_lower=-10, device=device),
             GEQ_Interaction(ixs1=[4, 7], ixs_less_than=[0, 1, 2, 3, 5, 6, 8, 9], weights=[1, 1], intercept=10, threshold_lower=-10, device=device),
-            GEQConstant(ixs1=[2], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], ixs_not=[], threshold_upper=10, threshold_lower=-10),
-            GEQConstant(ixs1=[6], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=10, threshold_lower=-10),
+            GEQConstant(ixs1=[2], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], ixs_not=[], threshold_upper=-10, threshold_lower=-10),
+            GEQConstant(ixs1=[6], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=-10, threshold_lower=-10),
         ]
         return terms
 
