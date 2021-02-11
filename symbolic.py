@@ -33,7 +33,7 @@ class GEQConstant(nn.Module):
 
 
 class GEQ_Interaction(nn.Module):
-    def __init__(self, ixs1, ixs_less_than, weights, intercept, threshold_lower=-10):
+    def __init__(self, ixs1, ixs_less_than, weights, intercept, threshold_lower=-10, device="cuda"):
         super(GEQ_Interaction, self).__init__()
         self.ixs1 = ixs1
         self.ixs_less_than = ixs_less_than
@@ -45,13 +45,15 @@ class GEQ_Interaction(nn.Module):
         self.forward_transform = self.ixs1 + self.ixs_less_than
         self.reverse_transform = np.argsort(self.forward_transform)
 
+        self.device=device
+
     def forward(self, x):
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_less_than]
 
         #         split1 = F.softplus(split1)
         # find the perpendicular vector to the line defined by weights
-        a = -torch.tensor(self.weights).float().unsqueeze(1)
+        a = -torch.tensor(self.weights).to(self.device).float().unsqueeze(1)
         dot_prod = split1.mm(a)
         distance = (dot_prod - self.intercept) / torch.norm(a)
         corrected_distance = -F.softplus(-distance)
@@ -68,7 +70,6 @@ class GEQ_Interaction(nn.Module):
         restricted2 = torch.ones_like(split2) * self.threshold_lower
 
         return torch.cat((restricted1, restricted2), dim=1)[:, self.reverse_transform]
-
 
 
 class Between(nn.Module):
