@@ -254,9 +254,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
                       epoch, i, len(train_loader), batch_time=batch_time,
                       loss=losses, top1=top1, top1a=top1a))
 
-    # if epoch % 5 == 4:
-    #     if sloss:
-    #         model.threshold1p()
+    if epoch % 10 == 9:
+        if sloss:
+            model.threshold1p()
 
     scheduler.step()
     # if sloss:
