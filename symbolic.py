@@ -19,12 +19,16 @@ class GEQConstant(nn.Module):
         self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
         self.reverse_transform = np.argsort(self.forward_transform)
 
+        self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
+
     def threshold1p(self):
         pass
     #     if self.threshold_lower > -10:
     #         self.threshold_lower -= 1
 
     def forward(self, x):
+        x = self.fc(F.leaky_relu(x))
+
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_neg]
         split3 = x[:, self.ixs_not]
