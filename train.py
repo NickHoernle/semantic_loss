@@ -161,8 +161,8 @@ def main():
     # optimizer = torch.optim.Adam(model.parameters(), args.lr)
 
     # cosine learning rate
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=25, gamma=.5)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=25, gamma=.5)
 
 
     for epoch in range(args.start_epoch, args.epochs):
