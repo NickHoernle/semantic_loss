@@ -198,10 +198,10 @@ def get_logic_terms(dataset, lower_lim=-10, device="cuda"):
         #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         # ]
         terms = [
-            GEQConstant(ixs1=[0, 8], ixs_less_than=[1, 2, 3, 4, 5, 6, 7, 9], ixs_not=[], threshold_upper=0, threshold_lower=-10., device=device),
-            GEQConstant(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], ixs_not=[], threshold_upper=0, threshold_lower=-10, device=device),
-            GEQConstant(ixs1=[3, 4, 5, 7], ixs_less_than=[0, 1, 2, 6, 8, 9], ixs_not=[], threshold_upper=0, threshold_lower=-10, device=device),
-            Identity(ixs1=[2, 6], ixs_less_than=[0, 1, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=0., threshold_lower=-10),
+            GEQConstant(ixs1=[0, 8], ixs_less_than=[1, 2, 3, 4, 5, 6, 7, 9], ixs_not=[], threshold_upper=0, threshold_lower=lower_lim, device=device),
+            GEQConstant(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], ixs_not=[], threshold_upper=0, threshold_lower=lower_lim, device=device),
+            GEQConstant(ixs1=[3, 4, 5, 7], ixs_less_than=[0, 1, 2, 6, 8, 9], ixs_not=[], threshold_upper=0, threshold_lower=lower_lim, device=device),
+            Identity(ixs1=[2, 6], ixs_less_than=[0, 1, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=0., threshold_lower=lower_lim),
         ]
         return terms
 
