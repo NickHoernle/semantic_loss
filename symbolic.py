@@ -193,9 +193,9 @@ def get_logic_terms(dataset, lower_lim=-10, device="cuda"):
         #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         # ]
         terms = [
-            Between(ixs1=[0, 8], ixs_less_than=[1, 2, 3, 4, 5, 6, 7, 9], threshold_upper=[0., 1.], threshold_lower=-100., device=device),
-            Between(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], threshold_upper=[0., 1.], threshold_lower=-100, device=device),
-            Between(ixs1=[3, 4, 5, 7], ixs_less_than=[0, 1, 2, 6, 8, 9], threshold_upper=[0., 1.], threshold_lower=-100, device=device),
+            Between(ixs1=[0, 8], ixs_less_than=[1, 2, 3, 4, 5, 6, 7, 9], threshold_upper=[0., 1.], threshold_lower=-20., device=device),
+            Between(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], threshold_upper=[0., 1.], threshold_lower=-20, device=device),
+            Between(ixs1=[3, 4, 5, 7], ixs_less_than=[0, 1, 2, 6, 8, 9], threshold_upper=[0., 1.], threshold_lower=-20, device=device),
             Identity(ixs1=[2, 6], ixs_neg=[0, 1, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=0., threshold_lower=0.),
         ]
         return terms
