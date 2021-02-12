@@ -114,7 +114,7 @@ def main():
         batch_size=args.batch_size,
         augment=True,
         random_seed=11,
-        valid_size=0.1,
+        valid_size=0.3,
         shuffle=True,
         dataset="cifar10",
         num_workers=4,
@@ -215,7 +215,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
 
     end = time.time()
     lambda_ = epoch // 25 + 1
-    
+
     for i, (input, target) in enumerate(train_loader):
         target = target.to(device)
         input = input.to(device)
