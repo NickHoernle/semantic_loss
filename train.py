@@ -15,6 +15,7 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from torch.autograd import Variable
+from utils import get_train_valid_loader, get_test_loader
 
 from wideresnet import WideResNet
 
@@ -108,13 +109,25 @@ def main():
 
     kwargs = {'num_workers': 1, 'pin_memory': True}
     assert(args.dataset == 'cifar10' or args.dataset == 'cifar100')
-    train_loader = torch.utils.data.DataLoader(
-        datasets.__dict__[args.dataset.upper()](args.dataset_path, train=True, download=True,
-                         transform=transform_train),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
-    val_loader = torch.utils.data.DataLoader(
-        datasets.__dict__[args.dataset.upper()](args.dataset_path, train=False, transform=transform_test),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
+    train_loader, val_loader = get_train_valid_loader(
+        data_dir=args.dataset_path,
+        batch_size=args.batch_size,
+        augment=True,
+        random_seed=11,
+        valid_size=0.1,
+        shuffle=True,
+        dataset="cifar10",
+        num_workers=4,
+        pin_memory=False
+    )
+
+    test_loader = get_test_loader(
+        data_dir=args.dataset_path,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=4,
+        pin_memory=False
+    )
 
     # create model
     num_classes = (args.dataset == 'cifar10' and 10 or 100)
@@ -181,6 +194,14 @@ def main():
             'best_prec1': best_prec1,
         }, is_best)
     print('Best accuracy: ', best_prec1)
+
+    # load the best model and evaluate on the test set
+    print("======== TESTING ON UNSEEN DATA =========")
+    directory = os.path.join(args.checkpoint_dir, git_commit, params,  "best_checkpoint.pth.tar")
+    checkpoint = torch.load(directory)
+    model.load_state_dict(checkpoint['state_dict'])
+    prec1 = validate(test_loader, model, criterion, 0)
+    print('Test accuracy ====> ', prec1)
 
 def train(train_loader, model, criterion, optimizer, scheduler, epoch):
     """Train for one epoch on the training set"""
@@ -296,7 +317,7 @@ def validate(val_loader, model, criterion, epoch):
         # get the super class accuracy
         new_tgts = torch.zeros_like(target)
         for j, ixs in enumerate(class_ixs[1:]):
-            new_tgts += (j + 1) * (torch.stack([target == k for k in ixs], dim=1).any(dim=1))
+            new_tgts += (j + 1) * (torch.stack([target == k for k in ixs], dim=1).any(dim=1)).long()
 
         forward_mapping = [int(c) for ixs in class_ixs for c in ixs]
         split = output.log_softmax(dim=1)[:, forward_mapping].split([len(k) for k in class_ixs], dim=1)
