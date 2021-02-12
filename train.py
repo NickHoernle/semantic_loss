@@ -231,7 +231,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             recon_losses, labels = pred_loss.min(dim=1)
 
             if epoch > 50:
-                loss = (logic_preds.exp() * (pred_loss.detach() + logic_preds)).sum(dim=1).mean()
+                loss = (logic_preds.exp() * (pred_loss.detach())).sum(dim=1).mean()
                 loss += recon_losses.mean()
             else:
                 loss = recon_losses.mean()
