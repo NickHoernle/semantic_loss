@@ -232,8 +232,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             pred_loss = torch.stack(ll, dim=1)
             recon_losses, labels = pred_loss.min(dim=1)
 
-            loss = recon_losses.mean()
-            loss += lambda_*F.nll_loss(logic_preds, labels)
+            loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
+            loss += recon_losses.mean()
+            loss += F.nll_loss(logic_preds, labels)
 
             class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]
 
