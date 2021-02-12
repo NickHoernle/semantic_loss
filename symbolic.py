@@ -133,9 +133,15 @@ class Between(nn.Module):
 #         return self.term2(self.term1(x))
 
 
-class Identity(nn.Module):
+class Identity(GEQConstant):
     def forward(self, x):
-        return x
+        split1 = x[:, self.ixs1]
+        split2 = x[:, self.ixs_neg]
+        split3 = x[:, self.ixs_not]
+
+        restricted2 = -F.softplus(-split2)
+
+        return torch.cat((split1, restricted2, split3), dim=1)[:, self.reverse_transform]
 
 
 class OrList(nn.Module):
@@ -190,8 +196,7 @@ def get_logic_terms(dataset, lower_lim=-10, device="cuda"):
             Between(ixs1=[0, 8], ixs_less_than=[1, 2, 3, 4, 5, 6, 7, 9], threshold_upper=[0., 1.], threshold_lower=-100., device=device),
             Between(ixs1=[1, 9], ixs_less_than=[0, 2, 3, 4, 5, 6, 7, 8], threshold_upper=[0., 1.], threshold_lower=-100, device=device),
             Between(ixs1=[3, 4, 5, 7], ixs_less_than=[0, 1, 2, 6, 8, 9], threshold_upper=[0., 1.], threshold_lower=-100, device=device),
-            GEQConstant(ixs1=[2], ixs_neg=[0, 1, 3, 4, 5, 6, 7, 8, 9], ixs_not=[], threshold_upper=0., threshold_lower=-1),
-            GEQConstant(ixs1=[6], ixs_neg=[0, 1, 2, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=0., threshold_lower=-1),
+            Identity(ixs1=[2, 6], ixs_neg=[0, 1, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=0., threshold_lower=0.),
         ]
         return terms
 
