@@ -214,7 +214,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
     model.train()
 
     end = time.time()
-    lambda_ = epoch // 25 + 1
+    lambda_ = 5.
 
     for i, (input, target) in enumerate(train_loader):
         target = target.to(device)
