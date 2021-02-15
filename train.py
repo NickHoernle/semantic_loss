@@ -79,7 +79,8 @@ def main():
     sloss = args.sloss
     superclass = False
     print(sloss, superclass, args.ll)
-    params = f"{args.name}_{sloss}_{args.lr}"
+    
+    params = f"{args.name}_{sloss}_{args.lr}_{args.ll}"
 
     if args.tensorboard: configure(os.path.join(args.checkpoint_dir, git_commit, params))
     # Data loading code
@@ -269,7 +270,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0:
+        if i % args.print_freq == args.print_freq-1:
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -331,7 +332,7 @@ def validate(val_loader, model, criterion, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0:
+        if i % args.print_freq == args.print_freq-1:
             print('Test: [{0}/{1}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
