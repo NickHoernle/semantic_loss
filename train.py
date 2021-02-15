@@ -386,7 +386,7 @@ class AccuracyMeter(object):
 
     @property
     def avg(self):
-        return np.mean(self.vals)
+        return np.mean(self.vals)*100
 
     @property
     def sum(self):
@@ -398,7 +398,7 @@ class AccuracyMeter(object):
 
     @property
     def val(self):
-        return np.mean(self.vals[-self.n:])
+        return np.mean(self.vals[-self.n:])*100
 
     def reset(self):
         self.vals = []
