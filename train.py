@@ -222,7 +222,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         input = input.to(device)
 
         # compute output
-        output = model(input)
+        output = model(input, negative_slope=1e-2/((epoch+1)**2))
 
         if sloss:
             class_preds, logic_preds = output
