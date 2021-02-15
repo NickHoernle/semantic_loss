@@ -63,7 +63,6 @@ class WideResNet(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.fc = nn.Linear(nChannels[3], output_dim)
         self.nChannels = nChannels[3]
-        self.bnfc = nn.BatchNorm1d(self.nChannels)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -82,4 +81,4 @@ class WideResNet(nn.Module):
         out = self.relu(self.bn1(out))
         out = F.avg_pool2d(out, 8)
         out = out.view(-1, self.nChannels)
-        return self.bnfc(self.fc(out))
+        return self.fc(out)
