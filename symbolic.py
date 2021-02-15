@@ -27,7 +27,7 @@ class GEQConstant(nn.Module):
             self.threshold_lower += 1
 
     def forward(self, x):
-        x = self.fc(F.leaky_relu(x))
+        x = self.fc(x)
 
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_neg]
