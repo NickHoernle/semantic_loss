@@ -22,19 +22,19 @@ class GEQConstant(nn.Module):
         self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
 
     def threshold1p(self):
-        pass
-    #     if self.threshold_lower > -10:
-    #         self.threshold_lower -= 1
+        # pass
+        if self.threshold_upper < 5:
+            self.threshold_lower += 1
 
-    def forward(self, x, negative_slope=1e-4):
+    def forward(self, x):
         x = self.fc(F.leaky_relu(x))
 
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_neg]
         split3 = x[:, self.ixs_not]
 
-        restricted1 = F.leaky_relu(split1 - self.threshold_upper, negative_slope) + self.threshold_upper
-        restricted2 = -F.leaky_relu(-split2 + self.threshold_lower, negative_slope) + self.threshold_lower
+        restricted1 = F.softplus(split1) + self.threshold_upper
+        restricted2 = -F.softplus(-split2) + self.threshold_lower
 
         return torch.cat((restricted1, restricted2, split3), dim=1)[:, self.reverse_transform]
 
@@ -158,9 +158,9 @@ class OrList(nn.Module):
         for layer in self.layers:
             layer.threshold1p()
 
-    def forward(self, x, class_prediction, test=False, negative_slope=1e-4):
+    def forward(self, x, class_prediction, test=False):
         log_py = class_prediction.log_softmax(dim=1)
-        pred = torch.stack([f(x, (not test)*negative_slope) for f in self.layers], dim=1)
+        pred = torch.stack([f(x) for f in self.layers], dim=1)
         if test:
             return pred[np.arange(len(log_py)), log_py.argmax(dim=1)]
         return pred, log_py
@@ -179,10 +179,10 @@ class ConstrainedModel(nn.Module):
     def threshold1p(self):
         self.decoder.threshold1p()
 
-    def forward(self, x, test=False, negative_slope=1e-4):
+    def forward(self, x, test=False):
         enc = self.encoder(x)
         ps, preds = enc.split((self.nclasses, self.nterms), dim=1)
-        return self.decoder(ps, preds, test, negative_slope)
+        return self.decoder(ps, preds, test)
 
 
 # 0, 'airplane', 1 'automobile', 2 'bird', 3'cat', 4 'deer', 5 'dog', 6 'frog', 7 'horse', 8 'ship', 9 'truck'
