@@ -222,7 +222,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         input = input.to(device)
 
         # compute output
-        output = model(input, negative_slope=1e-2/((epoch+1)**2))
+        output = model(input, negative_slope=1./((epoch+1)**2))
 
         if sloss:
             class_preds, logic_preds = output
@@ -234,8 +234,8 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             recon_losses, labels = pred_loss.min(dim=1)
 
             loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
-            loss += recon_losses.mean()
-            loss += F.nll_loss(logic_preds, labels)
+            # loss += recon_losses.mean()
+            # loss += F.nll_loss(logic_preds, labels)
 
             class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]
 
