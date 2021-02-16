@@ -88,26 +88,26 @@ def main():
     normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
                                      std=[x/255.0 for x in [63.0, 62.1, 66.7]])
 
-    if args.augment:
-        transform_train = transforms.Compose([
-        	transforms.ToTensor(),
-        	transforms.Lambda(lambda x: F.pad(x.unsqueeze(0),
-        						(4,4,4,4),mode='reflect').squeeze()),
-            transforms.ToPILImage(),
-            transforms.RandomCrop(32),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize,
-            ])
-    else:
-        transform_train = transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-            ])
-    transform_test = transforms.Compose([
-        transforms.ToTensor(),
-        normalize
-        ])
+    # if args.augment:
+    #     transform_train = transforms.Compose([
+    #     	transforms.ToTensor(),
+    #     	transforms.Lambda(lambda x: F.pad(x.unsqueeze(0),
+    #     						(4,4,4,4),mode='reflect').squeeze()),
+    #         transforms.ToPILImage(),
+    #         transforms.RandomCrop(32),
+    #         transforms.RandomHorizontalFlip(),
+    #         transforms.ToTensor(),
+    #         normalize,
+    #         ])
+    # else:
+    #     transform_train = transforms.Compose([
+    #         transforms.ToTensor(),
+    #         normalize,
+    #         ])
+    # transform_test = transforms.Compose([
+    #     transforms.ToTensor(),
+    #     normalize
+    #     ])
 
     kwargs = {'num_workers': 1, 'pin_memory': True}
     assert(args.dataset == 'cifar10' or args.dataset == 'cifar100')
@@ -116,7 +116,7 @@ def main():
         batch_size=args.batch_size,
         augment=True,
         random_seed=11,
-        valid_size=0.3,
+        valid_size=0.5,
         shuffle=True,
         dataset="cifar10",
         num_workers=4,
@@ -130,6 +130,9 @@ def main():
         num_workers=4,
         pin_memory=False
     )
+
+    import pdb
+    pdb.set_trace()
 
     # create model
     num_classes = (args.dataset == 'cifar10' and 10 or 100)
