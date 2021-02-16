@@ -199,6 +199,10 @@ def main():
 
     # load the best model and evaluate on the test set
     print("======== TESTING ON UNSEEN DATA =========")
+    print("======== USE FINAL MODEL =========")
+    prec1 = validate(test_loader, model, criterion, 0)
+    print('Final Model accuracy ====> ', prec1)
+    print("======== USE BEST MODEL =========")
     directory = os.path.join(args.checkpoint_dir, git_commit, params,  "best_checkpoint.pth.tar")
     checkpoint = torch.load(directory)
     model.load_state_dict(checkpoint['state_dict'])
