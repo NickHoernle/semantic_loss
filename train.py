@@ -131,9 +131,6 @@ def main():
         pin_memory=False
     )
 
-    import pdb
-    pdb.set_trace()
-
     # create model
     num_classes = (args.dataset == 'cifar10' and 10 or 100)
     class_ixs = get_class_ixs(args.dataset)
