@@ -80,7 +80,8 @@ def main():
     superclass = False
     print(sloss, superclass, args.ll)
     
-    params = f"{args.name}_{sloss}_{args.lr}_{args.ll}"
+    params = f"{args.layers}_{args.widen_factor}_{sloss}_{args.lr}_{args.ll}"
+    print(params)
 
     if args.tensorboard: configure(os.path.join(args.checkpoint_dir, git_commit, params))
     # Data loading code
@@ -233,11 +234,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             pred_loss = torch.stack(ll, dim=1)
             recon_losses, labels = pred_loss.min(dim=1)
 
-            if epoch < 100:
-                loss = recon_losses.mean()
-                loss += F.nll_loss(logic_preds, labels)
-            else:
-                loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
+            loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
+            loss += recon_losses.mean()
+            loss += F.nll_loss(logic_preds, labels)
 
             class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]
 
