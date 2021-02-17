@@ -151,7 +151,7 @@ class OrList(nn.Module):
     def __init__(self, terms):
         super(OrList, self).__init__()
         self.layers = nn.ModuleList(terms)
-        self.fc = nn.Linear(len(terms), len(terms))
+        self.fc = nn.Linear(2*len(terms), len(terms))
 
     def threshold1p(self):
         for layer in self.layers:
@@ -159,7 +159,7 @@ class OrList(nn.Module):
 
     def forward(self, x, class_prediction, test=False):
         pred = torch.stack([f(x) for f in self.layers], dim=1)
-        log_py = self.fc(torch.cat((class_prediction, pred.max(dim=-1)), dim=1)).log_softmax(dim=1)
+        log_py = self.fc(torch.cat((class_prediction, pred.max(dim=-1)[0]), dim=1)).log_softmax(dim=1)
 
         if test:
             return pred[np.arange(len(log_py)), log_py.argmax(dim=1)]
