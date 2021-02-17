@@ -31,7 +31,7 @@ class GEQConstant(nn.Module):
         split2 = x[:, self.ixs_neg]
         split3 = x[:, self.ixs_not]
 
-        restricted1 = F.softplus(split1)+self.threshold_upper
+        restricted1 = F.softplus(split1-self.threshold_upper)+self.threshold_upper
         # restricted2 = -F.softplus(-split2)+self.threshold_lower
         restricted2 = torch.ones_like(split2)*self.threshold_lower
 
@@ -188,7 +188,7 @@ class ConstrainedModel(nn.Module):
 
 # 0, 'airplane', 1 'automobile', 2 'bird', 3'cat', 4 'deer', 5 'dog', 6 'frog', 7 'horse', 8 'ship', 9 'truck'
 
-def get_logic_terms(dataset, lower_lim=-10, device="cuda"):
+def get_logic_terms(dataset, lower_lim=-10, upper_lim=-2, device="cuda"):
     if dataset == "cifar10":
         # terms2 = [
         #     GEQConstant(ixs_not=[0, 1, 8, 9], ixs_pos=[], ixs_neg=[2, 3, 4, 5, 6, 7], limit_threshold=-15),
@@ -199,8 +199,8 @@ def get_logic_terms(dataset, lower_lim=-10, device="cuda"):
         #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         # ]
         terms = [
-            GEQConstant(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], ixs_not=[], threshold_upper=-4., threshold_lower=lower_lim, device=device),
-            GEQConstant(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], ixs_not=[], threshold_upper=-4., threshold_lower=lower_lim, device=device),
+            GEQConstant(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], ixs_not=[], threshold_upper=upper_lim, threshold_lower=lower_lim, device=device),
+            GEQConstant(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], ixs_not=[], threshold_upper=upper_lim, threshold_lower=lower_lim, device=device),
             # Between(ixs1=[2, 6], ixs_less_than=[0, 1, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=[0., 2.], threshold_lower=lower_lim, device=device),
         ]
         return terms

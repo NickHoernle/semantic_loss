@@ -35,7 +35,9 @@ parser.add_argument('--start-epoch', default=0, type=int,
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=256, type=int,
                     help='mini-batch size (default: 128)')
-parser.add_argument('--ll', '--lower-limit', default=-10, type=int,
+parser.add_argument('--ll', '--lower-limit', default=-10., type=float,
+                    help='mini-batch size (default: 128)')
+parser.add_argument('--ul', '--upper-limit', default=-2., type=float,
                     help='mini-batch size (default: 128)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     help='initial learning rate')
@@ -78,9 +80,9 @@ def main():
     args = parser.parse_args()
     sloss = args.sloss
     superclass = False
-    print(sloss, superclass, args.ll)
+    print(sloss, superclass, args.ll, args.ul)
     
-    params = f"{args.layers}_{args.widen_factor}_{sloss}_{args.lr}_{args.ll}"
+    params = f"{args.layers}_{args.widen_factor}_{sloss}_{args.lr}_{args.ll}_{args.ul}"
     print(params)
 
     if args.tensorboard: configure(os.path.join(args.checkpoint_dir, git_commit, params))
@@ -136,7 +138,7 @@ def main():
     class_ixs = get_class_ixs(args.dataset)
     if sloss:
         print("Testing model")
-        terms = get_logic_terms(args.dataset, args.ll, device=device)
+        terms = get_logic_terms(args.dataset, args.ll, args.ul, device=device)
         model = ConstrainedModel(args.layers, num_classes, terms, args.widen_factor,
                                  dropRate=args.droprate)
     elif superclass:
@@ -238,11 +240,11 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
                 ll += [F.binary_cross_entropy_with_logits(p.squeeze(1), y_onehot, reduction="none").sum(dim=1)]
 
             pred_loss = torch.stack(ll, dim=1)
-            # recon_losses, labels = pred_loss.min(dim=1)
+            recon_losses, labels = pred_loss.min(dim=1)
 
             loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
-            # loss += recon_losses.mean()
-            # loss += F.nll_loss(logic_preds, labels)
+            loss += recon_losses.mean()
+            loss += F.nll_loss(logic_preds, labels)
 
             class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]
 

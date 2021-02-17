@@ -11,7 +11,7 @@ SCRATCH_HOME = f'{SCRATCH_DISK}/{USER}'
 DATA_HOME = f'{SCRATCH_HOME}/sloss'
 base_call = (f"python train.py --dataset cifar10 "
              f"--dataset_path {DATA_HOME}/data "
-             f"--layers 28 --widen-factor 10 "
+             f"--layers 10 --widen-factor 1 "
              f"--epochs 200 "
              f"--print-freq 200 "
              f"--batch-size 250 "
@@ -21,12 +21,14 @@ repeats = 1
 
 learning_rate = [0.25, .1, .075, .01]
 sloss = [True]
-lower_lim = [-10, -25, -100]
+lower_lim = [-5, -10, -20]
+upper_lim = [-1, -2, -3]
 
-settings = [(lr, sloss_, l_lim, rep)
+settings = [(lr, sloss_, l_lim, u_lim, rep)
             for lr in learning_rate
             for sloss_ in sloss
             for l_lim in lower_lim
+            for u_lim in upper_lim
             for rep in range(repeats)]
 
 nr_expts = len(settings)
@@ -38,11 +40,12 @@ print(f'Estimated time = {(nr_expts / nr_servers * avg_expt_time)/60} hrs')
 
 output_file = open("experiment.txt", "w")
 
-for (lr, sloss_, l_lim, rep) in settings:
+for (lr, sloss_, l_lim, u_lim, rep) in settings:
     expt_call = (
         f"{base_call} " +
         f"--lr {lr} " +
         f"--lower-limit {l_lim} " +
+        f"--upper-limit {u_lim} " +
         (f"--no-sloss " if not sloss_ else "")
     )
     print(expt_call, file=output_file)
