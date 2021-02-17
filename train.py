@@ -116,7 +116,7 @@ def main():
         batch_size=args.batch_size,
         augment=True,
         random_seed=11,
-        valid_size=0.5,
+        valid_size=0.1,
         shuffle=True,
         dataset="cifar10",
         num_workers=4,
@@ -233,14 +233,16 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             class_preds, logic_preds = output
             ll = []
             for j, p in enumerate(class_preds.split(1, dim=1)):
-                ll += [F.cross_entropy(p.squeeze(1), target, reduction="none")]
+                y_onehot = torch.zeros_like(p.squeeze(1))
+                y_onehot.scatter_(1, target[:, None], 1)
+                ll += [F.binary_cross_entropy_with_logits(p.squeeze(1), y_onehot, reduction="none").sum(dim=1)]
 
             pred_loss = torch.stack(ll, dim=1)
-            recon_losses, labels = pred_loss.min(dim=1)
+            # recon_losses, labels = pred_loss.min(dim=1)
 
             loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
-            loss += recon_losses.mean()
-            loss += F.nll_loss(logic_preds, labels)
+            # loss += recon_losses.mean()
+            # loss += F.nll_loss(logic_preds, labels)
 
             class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]
 
