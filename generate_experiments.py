@@ -21,7 +21,7 @@ repeats = 1
 
 learning_rate = [0.25, .1, .075, .01]
 sloss = [True]
-lower_lim = [0, -1]
+lower_lim = [-1, -50, -150]
 
 settings = [(lr, sloss_, l_lim, rep)
             for lr in learning_rate
