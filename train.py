@@ -118,7 +118,7 @@ def main():
         batch_size=args.batch_size,
         augment=True,
         random_seed=11,
-        valid_size=0.5,
+        valid_size=0.1,
         shuffle=True,
         dataset="cifar10",
         num_workers=4,

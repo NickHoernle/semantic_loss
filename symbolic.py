@@ -7,7 +7,7 @@ from wideresnet import WideResNet
 
 
 class GEQConstant(nn.Module):
-    def __init__(self, ixs1, ixs_not, ixs_less_than, threshold_upper, threshold_lower, **kwargs):
+    def __init__(self, ixs1, ixs_not, ixs_less_than, threshold_upper, threshold_lower, threshold_limit, **kwargs):
         super(GEQConstant, self).__init__()
         self.ixs1 = ixs1
         self.ixs_neg = ixs_less_than
@@ -15,6 +15,7 @@ class GEQConstant(nn.Module):
 
         self.threshold_upper = threshold_upper
         self.threshold_lower = threshold_lower
+        self.threshold_limit = threshold_limit
 
         self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
         self.reverse_transform = np.argsort(self.forward_transform)
@@ -22,7 +23,8 @@ class GEQConstant(nn.Module):
         self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
 
     def threshold1p(self):
-        pass
+        if self.threshold_lower > self.threshold_limit:
+            self.threshold_lower -= 1
 
     def forward(self, x):
         x = self.fc(x)
@@ -199,8 +201,8 @@ def get_logic_terms(dataset, lower_lim=-10, upper_lim=-2, device="cuda"):
         #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         # ]
         terms = [
-            GEQConstant(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], ixs_not=[], threshold_upper=upper_lim, threshold_lower=lower_lim, device=device),
-            GEQConstant(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], ixs_not=[], threshold_upper=upper_lim, threshold_lower=lower_lim, device=device),
+            GEQConstant(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim, threshold_limit=lower_lim, device=device),
+            GEQConstant(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim, threshold_limit=lower_lim, device=device),
             # Between(ixs1=[2, 6], ixs_less_than=[0, 1, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=[0., 2.], threshold_lower=lower_lim, device=device),
         ]
         return terms
