@@ -31,6 +31,8 @@ parser.add_argument('--dataset_path', default='../data', type=str,
 parser.add_argument("--checkpoint_dir", default="runs")
 parser.add_argument('--epochs', default=200, type=int,
                     help='number of total epochs to run')
+parser.add_argument('--seed', default=12, type=int,
+                    help='Random seed')
 parser.add_argument('--start-epoch', default=0, type=int,
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=256, type=int,
@@ -63,10 +65,12 @@ parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true')
 parser.add_argument('--no-sloss', dest='sloss', action='store_false',
                     help='whether to use semantic logic loss (default: True)')
-parser.add_argument('--no-superclass', dest='superclass', action='store_false',
-                    help='whether to test on baseline for superclass accuracy')
+parser.add_argument('--superclass', dest='superclass', action='store_true',
+                    help='whether to test on baseline for superclass accuracy (default: False')
+
 parser.set_defaults(augment=True)
 parser.set_defaults(sloss=True)
+parser.set_defaults(superclass=False)
 
 best_prec1 = 0
 
@@ -75,11 +79,12 @@ repo = git.Repo(search_parent_directories=True)
 git_commit = repo.head.object.hexsha
 
 def main():
-    global args, best_prec1, class_ixs, sloss, params
+    global args, best_prec1, class_ixs, sloss, params, superclass
 
     args = parser.parse_args()
     sloss = args.sloss
-    superclass = False
+    superclass = args.superclass
+
     print(sloss, superclass, args.ll, args.ul)
     
     params = f"{args.layers}_{args.widen_factor}_{sloss}_{args.lr}_{args.ll}_{args.ul}"
@@ -90,34 +95,13 @@ def main():
     normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
                                      std=[x/255.0 for x in [63.0, 62.1, 66.7]])
 
-    # if args.augment:
-    #     transform_train = transforms.Compose([
-    #     	transforms.ToTensor(),
-    #     	transforms.Lambda(lambda x: F.pad(x.unsqueeze(0),
-    #     						(4,4,4,4),mode='reflect').squeeze()),
-    #         transforms.ToPILImage(),
-    #         transforms.RandomCrop(32),
-    #         transforms.RandomHorizontalFlip(),
-    #         transforms.ToTensor(),
-    #         normalize,
-    #         ])
-    # else:
-    #     transform_train = transforms.Compose([
-    #         transforms.ToTensor(),
-    #         normalize,
-    #         ])
-    # transform_test = transforms.Compose([
-    #     transforms.ToTensor(),
-    #     normalize
-    #     ])
-
     kwargs = {'num_workers': 1, 'pin_memory': True}
     assert(args.dataset == 'cifar10' or args.dataset == 'cifar100')
     train_loader, val_loader = get_train_valid_loader(
         data_dir=args.dataset_path,
         batch_size=args.batch_size,
         augment=True,
-        random_seed=11,
+        random_seed=args.seed,
         valid_size=0.1,
         shuffle=True,
         dataset="cifar10",
@@ -248,6 +232,14 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
 
             class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]
 
+        elif superclass:
+            class_pred = output
+            new_tgts = torch.zeros_like(target)
+            for j, ixs in enumerate(class_ixs[1:]):
+                new_tgts += (j + 1) * (torch.stack([target == k for k in ixs], dim=1).any(dim=1)).long()
+            target = new_tgts
+            loss = criterion(class_pred, target)
+
         else:
             class_pred = output
             loss = criterion(class_pred, target)
@@ -322,6 +314,15 @@ def validate(val_loader, model, criterion, epoch):
         # compute output
         with torch.no_grad():
             output = model(input, test=True)
+
+        # get the super class accuracy
+        new_tgts = torch.zeros_like(target)
+        for j, ixs in enumerate(class_ixs[1:]):
+            new_tgts += (j + 1) * (torch.stack([target == k for k in ixs], dim=1).any(dim=1)).long()
+
+        if superclass:
+            target = new_tgts
+
         loss = criterion(output, target)
 
         # measure accuracy and record loss
@@ -329,16 +330,12 @@ def validate(val_loader, model, criterion, epoch):
         losses.update(loss.data.item(), input.size(0))
         top1.update((output.data.argmax(dim=1) == target).tolist(), input.size(0))
 
-        # get the super class accuracy
-        new_tgts = torch.zeros_like(target)
-        for j, ixs in enumerate(class_ixs[1:]):
-            new_tgts += (j + 1) * (torch.stack([target == k for k in ixs], dim=1).any(dim=1)).long()
+        if not superclass:
+            forward_mapping = [int(c) for ixs in class_ixs for c in ixs]
+            split = output.log_softmax(dim=1)[:, forward_mapping].split([len(k) for k in class_ixs], dim=1)
+            new_pred = torch.stack([s.logsumexp(dim=1) for s in split], dim=1)
 
-        forward_mapping = [int(c) for ixs in class_ixs for c in ixs]
-        split = output.log_softmax(dim=1)[:, forward_mapping].split([len(k) for k in class_ixs], dim=1)
-        new_pred = torch.stack([s.logsumexp(dim=1) for s in split], dim=1)
-
-        top1a.update((new_pred.data.argmax(dim=1) == new_tgts).tolist(), input.size(0))
+            top1a.update((new_pred.data.argmax(dim=1) == new_tgts).tolist(), input.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
