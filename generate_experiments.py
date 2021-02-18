@@ -11,7 +11,7 @@ SCRATCH_HOME = f'{SCRATCH_DISK}/{USER}'
 DATA_HOME = f'{SCRATCH_HOME}/sloss'
 base_call = (f"python train.py --dataset cifar10 "
              f"--dataset_path {DATA_HOME}/data "
-             f"--layers 10 --widen-factor 1 "
+             f"--layers 28 --widen-factor 2 "
              f"--epochs 200 "
              f"--print-freq 200 "
              f"--batch-size 250 "
