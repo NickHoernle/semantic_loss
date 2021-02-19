@@ -166,7 +166,6 @@ def main():
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=25, gamma=.5)
 
-
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch
         train(train_loader, model, criterion, optimizer, scheduler, epoch)
@@ -225,11 +224,11 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
                 ll += [F.binary_cross_entropy_with_logits(p.squeeze(1), y_onehot, reduction="none").sum(dim=1)]
 
             pred_loss = torch.stack(ll, dim=1)
-            # recon_losses, labels = pred_loss.min(dim=1)
+            recon_losses, labels = pred_loss.min(dim=1)
 
             loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
-            # loss += recon_losses.mean()
-            # loss += F.nll_loss(logic_preds, labels)
+            loss += recon_losses.mean()
+            loss += F.nll_loss(logic_preds, labels)
 
             class_pred = class_preds[np.arange(len(target)), logic_preds.argmax(dim=1)]
 
