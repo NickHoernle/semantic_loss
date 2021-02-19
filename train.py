@@ -97,14 +97,14 @@ def main():
 
     kwargs = {'num_workers': 1, 'pin_memory': True}
     assert(args.dataset == 'cifar10' or args.dataset == 'cifar100')
-    train_loader, val_loader = get_train_valid_loader(
+    train_loader, val_loader, classes = get_train_valid_loader(
         data_dir=args.dataset_path,
         batch_size=args.batch_size,
         augment=True,
         random_seed=args.seed,
         valid_size=0.1,
         shuffle=True,
-        dataset="cifar10",
+        dataset=args.dataset,
         num_workers=4,
         pin_memory=False
     )
@@ -112,6 +112,7 @@ def main():
     test_loader = get_test_loader(
         data_dir=args.dataset_path,
         batch_size=args.batch_size,
+        dataset=args.dataset,
         shuffle=True,
         num_workers=4,
         pin_memory=False
@@ -119,14 +120,14 @@ def main():
 
     # create model
     num_classes = (args.dataset == 'cifar10' and 10 or 100)
-    class_ixs = get_class_ixs(args.dataset)
+    class_ixs = get_class_ixs(args.dataset, classes)
     if sloss:
         print("Testing model")
-        terms = get_logic_terms(args.dataset, args.ll, args.ul, device=device)
+        terms = get_logic_terms(args.dataset, classes, args.ll, args.ul, device=device)
         model = ConstrainedModel(args.layers, num_classes, terms, args.widen_factor,
                                  dropRate=args.droprate)
     elif superclass:
-        exp_params = get_experiment_params(args.dataset)
+        exp_params = get_experiment_params(args.dataset, classes)
         model = WideResNet(args.layers, exp_params["num_classes"], args.widen_factor, dropRate=args.droprate)
     else:
         print("Baseline model")
@@ -167,6 +168,8 @@ def main():
 
 
     for epoch in range(args.start_epoch, args.epochs):
+        prec1 = validate(val_loader, model, criterion, epoch)
+
         # train for one epoch
         train(train_loader, model, criterion, optimizer, scheduler, epoch)
 

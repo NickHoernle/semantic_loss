@@ -5,6 +5,8 @@ from torch.nn import functional as F
 
 from wideresnet import WideResNet
 
+from class_mapping import *
+
 
 class GEQConstant(nn.Module):
     def __init__(self, ixs1, ixs_not, ixs_less_than, threshold_upper, threshold_lower, threshold_limit, **kwargs):
@@ -153,7 +155,7 @@ class OrList(nn.Module):
     def __init__(self, terms):
         super(OrList, self).__init__()
         self.layers = nn.ModuleList(terms)
-        self.fc = nn.Linear(2*len(terms), len(terms))
+        # self.fc = nn.Linear(2*len(terms), len(terms))
 
     def threshold1p(self):
         for layer in self.layers:
@@ -161,7 +163,8 @@ class OrList(nn.Module):
 
     def forward(self, x, class_prediction, test=False):
         pred = torch.stack([f(x) for f in self.layers], dim=1)
-        log_py = self.fc(torch.cat((class_prediction, pred.max(dim=-1)[0]), dim=1)).log_softmax(dim=1)
+        # log_py = self.fc(torch.cat((class_prediction, pred.max(dim=-1)[0]), dim=1)).log_softmax(dim=1)
+        log_py = class_prediction.log_softmax(dim=1)
 
         if test:
             return pred[np.arange(len(log_py)), log_py.argmax(dim=1)]
@@ -190,7 +193,8 @@ class ConstrainedModel(nn.Module):
 
 # 0, 'airplane', 1 'automobile', 2 'bird', 3'cat', 4 'deer', 5 'dog', 6 'frog', 7 'horse', 8 'ship', 9 'truck'
 
-def get_logic_terms(dataset, lower_lim=-10, upper_lim=-2, device="cuda"):
+def get_logic_terms(dataset, classes, lower_lim=-10, upper_lim=-2, device="cuda"):
+    terms = []
     if dataset == "cifar10":
         # terms2 = [
         #     GEQConstant(ixs_not=[0, 1, 8, 9], ixs_pos=[], ixs_neg=[2, 3, 4, 5, 6, 7], limit_threshold=-15),
@@ -205,14 +209,22 @@ def get_logic_terms(dataset, lower_lim=-10, upper_lim=-2, device="cuda"):
             GEQConstant(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim, threshold_limit=lower_lim, device=device),
             # Between(ixs1=[2, 6], ixs_less_than=[0, 1, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=[0., 2.], threshold_lower=lower_lim, device=device),
         ]
-        return terms
+    elif dataset == "cifar100":
+        idxs = [[i for i, c in enumerate(classes) if superclass_mapping[c] == label] for label, ix in sorted(super_class_label.items(), key=lambda x: x[1])]
+
+        terms = []
+        for i, ixs in enumerate(idxs):
+            all_idsx = np.arange(len(classes))
+            not_idxs = all_idsx[~np.isin(all_idsx, ixs)].tolist()
+            terms += [GEQConstant(ixs1=ixs, ixs_less_than=not_idxs, ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim, threshold_limit=lower_lim, device=device)]
+
+    return terms
 
 
-def get_experiment_params(dataset):
-    if dataset == "cifar10":
-        return {"num_classes": len(get_logic_terms(dataset))}
+def get_experiment_params(dataset, classes):
+    return {"num_classes": len(get_logic_terms(dataset, classes))}
 
-def get_class_ixs(dataset):
-    if dataset == "cifar10":
-        return [t.ixs1 for t in get_logic_terms(dataset)]
+
+def get_class_ixs(dataset, classes):
+    return [t.ixs1 for t in get_logic_terms(dataset, classes)]
 

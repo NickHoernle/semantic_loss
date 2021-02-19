@@ -1,7 +1,10 @@
+import pickle
+import os
+
 import torch
 import numpy as np
 
-from torchvision import datasets
+import torchvision.datasets as datasets
 from torchvision import transforms
 from torch.utils.data.sampler import SubsetRandomSampler
 
@@ -76,6 +79,12 @@ def get_train_valid_loader(data_dir,
         download=True, transform=valid_transform,
     )
 
+    meta_name = "batches.meta" if dataset.upper() == "CIFAR10" else "meta"
+    with open(os.path.join(data_dir, train_dataset.base_folder, meta_name), 'rb') as infile:
+        key = "label_names" if dataset.upper() == "CIFAR10" else "fine_label_names"
+        data = pickle.load(infile, encoding='latin1')
+        classes = data[key]
+
     num_train = len(train_dataset)
     indices = list(range(num_train))
     split = int(np.floor(valid_size * num_train))
@@ -97,11 +106,12 @@ def get_train_valid_loader(data_dir,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 
-    return (train_loader, valid_loader)
+    return train_loader, valid_loader, classes
 
 
 def get_test_loader(data_dir,
                     batch_size,
+                    dataset="cifar10",
                     shuffle=True,
                     num_workers=4,
                     pin_memory=False):
@@ -132,7 +142,7 @@ def get_test_loader(data_dir,
         normalize,
     ])
 
-    dataset = datasets.CIFAR10(
+    dataset = datasets.__dict__[dataset.upper()](
         root=data_dir, train=False,
         download=True, transform=transform,
     )
