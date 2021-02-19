@@ -168,8 +168,6 @@ def main():
 
 
     for epoch in range(args.start_epoch, args.epochs):
-        prec1 = validate(val_loader, model, criterion, epoch)
-
         # train for one epoch
         train(train_loader, model, criterion, optimizer, scheduler, epoch)
 
