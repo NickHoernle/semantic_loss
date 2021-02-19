@@ -20,19 +20,21 @@ base_call = (f"python train.py --dataset cifar10 "
 repeats = 1
 
 learning_rate = [0.25, .1, .075]
-sloss = [True]
-lower_lim = [-8, -9, -10, -11, 12]
-upper_lim = [-4]
+# sloss = [True]
+# lower_lim = [-8, -9, -10, -11, 12]
+# upper_lim = [-4]
 
-# sloss = [False]
-# lower_lim = [0]
-# upper_lim = [0]
+superclass = [True, False]
+sloss = [False]
+lower_lim = [0]
+upper_lim = [0]
 
-settings = [(lr, sloss_, l_lim, u_lim, rep)
+settings = [(lr, sloss_, l_lim, u_lim, sclass, rep)
             for lr in learning_rate
             for sloss_ in sloss
             for l_lim in lower_lim
             for u_lim in upper_lim
+            for sclass in superclass
             for rep in range(repeats)]
 
 nr_expts = len(settings)
@@ -44,12 +46,13 @@ print(f'Estimated time = {(nr_expts / nr_servers * avg_expt_time)/60} hrs')
 
 output_file = open("experiment.txt", "w")
 
-for (lr, sloss_, l_lim, u_lim, rep) in settings:
+for (lr, sloss_, l_lim, u_lim, sclass, rep) in settings:
     expt_call = (
         f"{base_call} " +
         f"--lr {lr} " +
         f"--lower-limit {l_lim} " +
         f"--upper-limit {u_lim} " +
+        (f"--superclass " if sclass else "") +
         (f"--no-sloss " if not sloss_ else "")
     )
     print(expt_call, file=output_file)
