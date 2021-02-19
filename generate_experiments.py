@@ -11,7 +11,7 @@ SCRATCH_HOME = f'{SCRATCH_DISK}/{USER}'
 DATA_HOME = f'{SCRATCH_HOME}/sloss'
 base_call = (f"python train.py --dataset cifar100 "
              f"--dataset_path {DATA_HOME}/data "
-             f"--layers 100 --widen-factor 2 "
+             f"--layers 28 --widen-factor 10 "
              f"--epochs 200 "
              f"--print-freq 200 "
              f"--batch-size 250 "
@@ -19,15 +19,16 @@ base_call = (f"python train.py --dataset cifar100 "
 
 repeats = 1
 
-learning_rate = [0.25, .1, .075]
-# sloss = [True]
-# lower_lim = [-8, -9, -10, -11, 12]
-# upper_lim = [-4]
+learning_rate = [0.1, .075]
+sloss = [True]
+lower_lim = [-7, -7.5, -8, -8.5, -9]
+upper_lim = [-3.5, -4, -4.5]
+superclass = [False]
 
-superclass = [True, False]
-sloss = [False]
-lower_lim = [0]
-upper_lim = [0]
+# superclass = [True, False]
+# sloss = [False]
+# lower_lim = [0]
+# upper_lim = [0]
 
 settings = [(lr, sloss_, l_lim, u_lim, sclass, rep)
             for lr in learning_rate
