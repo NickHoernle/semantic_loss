@@ -205,8 +205,8 @@ def get_logic_terms(dataset, classes, lower_lim=-10, upper_lim=-2, device="cuda"
         #     Between(ixs_to_constrain=[2, 3, 4, 5, 6, 7], ixs_not=[0, 1, 8, 9], thresholds=[0, 5]),
         # ]
         terms = [
-            GEQConstant(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim, threshold_limit=lower_lim, device=device),
-            GEQConstant(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim, threshold_limit=lower_lim, device=device),
+            GEQConstant(ixs1=[0, 1, 8, 9], ixs_less_than=[2, 3, 4, 5, 6, 7], ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim-1, threshold_limit=lower_lim, device=device),
+            GEQConstant(ixs1=[2, 3, 4, 5, 6, 7], ixs_less_than=[0, 1, 8, 9], ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim-1, threshold_limit=lower_lim, device=device),
             # Between(ixs1=[2, 6], ixs_less_than=[0, 1, 3, 4, 5, 7, 8, 9], ixs_not=[], threshold_upper=[0., 2.], threshold_lower=lower_lim, device=device),
         ]
     elif dataset == "cifar100":
@@ -216,7 +216,7 @@ def get_logic_terms(dataset, classes, lower_lim=-10, upper_lim=-2, device="cuda"
         for i, ixs in enumerate(idxs):
             all_idsx = np.arange(len(classes))
             not_idxs = all_idsx[~np.isin(all_idsx, ixs)].tolist()
-            terms += [GEQConstant(ixs1=ixs, ixs_less_than=not_idxs, ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim, threshold_limit=lower_lim, device=device)]
+            terms += [GEQConstant(ixs1=ixs, ixs_less_than=not_idxs, ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim-1, threshold_limit=lower_lim, device=device)]
 
     return terms
 

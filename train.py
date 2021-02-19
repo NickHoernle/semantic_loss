@@ -195,6 +195,7 @@ def main():
     prec1 = validate(test_loader, model, criterion, 0)
     print('Test accuracy ====> ', prec1)
 
+
 def train(train_loader, model, criterion, optimizer, scheduler, epoch):
     """Train for one epoch on the training set"""
     batch_time = AverageMeter()
@@ -332,9 +333,8 @@ def validate(val_loader, model, criterion, epoch):
 
         if not superclass:
             forward_mapping = [int(c) for ixs in class_ixs for c in ixs]
-            split = output.log_softmax(dim=1)[:, forward_mapping].split([len(k) for k in class_ixs], dim=1)
-            new_pred = torch.stack([s.logsumexp(dim=1) for s in split], dim=1)
-
+            split = output.softmax(dim=1)[:, forward_mapping].split([len(k) for k in class_ixs], dim=1)
+            new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
             top1a.update((new_pred.data.argmax(dim=1) == new_tgts).tolist(), input.size(0))
 
         # measure elapsed time
