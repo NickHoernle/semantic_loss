@@ -79,7 +79,7 @@ repo = git.Repo(search_parent_directories=True)
 git_commit = repo.head.object.hexsha
 
 def main():
-    global args, best_prec1, class_ixs, sloss, params, superclass
+    global args, best_prec1, class_ixs, sloss, params, superclass, map
 
     args = parser.parse_args()
     sloss = args.sloss
@@ -124,6 +124,7 @@ def main():
     if sloss:
         print("Testing model")
         terms = get_logic_terms(args.dataset, classes, args.ll, args.ul, device=device)
+        map = get_map_matrix(args.dataset, classes).to(device)
         model = ConstrainedModel(args.layers, num_classes, terms, args.widen_factor,
                                  dropRate=args.droprate)
     elif superclass:
@@ -222,6 +223,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
             for j, p in enumerate(class_preds.split(1, dim=1)):
                 y_onehot = torch.zeros_like(p.squeeze(1))
                 y_onehot.scatter_(1, target[:, None], 1)
+                y_onehot = y_onehot.mm(map)
                 ll += [F.binary_cross_entropy_with_logits(p.squeeze(1), y_onehot, reduction="none").sum(dim=1)]
 
             pred_loss = torch.stack(ll, dim=1)

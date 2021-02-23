@@ -216,10 +216,18 @@ def get_logic_terms(dataset, classes, lower_lim=-10, upper_lim=-2, device="cuda"
         for i, ixs in enumerate(idxs):
             all_idsx = np.arange(len(classes))
             not_idxs = all_idsx[~np.isin(all_idsx, ixs)].tolist()
-            terms += [GEQConstant(ixs1=ixs, ixs_less_than=not_idxs, ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim-1, threshold_limit=lower_lim, device=device)]
+            terms += [GEQConstant(ixs1=ixs, ixs_less_than=not_idxs, ixs_not=[], threshold_upper=upper_lim, threshold_lower=upper_lim-5, threshold_limit=lower_lim, device=device)]
 
     return terms
 
+
+def get_map_matrix(dataset, classes):
+    map = torch.eye(len(classes))
+    terms = [t.ixs1 for t in get_logic_terms(dataset, classes)]
+    for idxs in terms:
+        for ix in idxs:
+            map[ix, idxs[0]] = 1.
+    return map
 
 def get_experiment_params(dataset, classes):
     return {"num_classes": len(get_logic_terms(dataset, classes))}
