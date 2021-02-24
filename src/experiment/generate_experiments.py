@@ -59,3 +59,11 @@ for (lr, sloss_, l_lim, u_lim, sclass, rep) in settings:
     print(expt_call, file=output_file)
 
 output_file.close()
+
+
+# def get_experiment_params(dataset, classes):
+#     return {"num_classes": len(get_logic_terms(dataset, classes))}
+
+
+# def get_class_ixs(dataset, classes):
+#     return [t.ixs1 for t in get_logic_terms(dataset, classes)]

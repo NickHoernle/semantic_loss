@@ -1,0 +1,279 @@
+from symbolic import symbolic
+from symbolic import train
+from symbolic.utils import *
+from experiment.datasets import *
+from experiment.constrainedwideresnet import ConstrainedModel
+from experiment.wideresnet import WideResNet
+from experiment.class_mapping import *
+
+
+class BaseImageExperiment(train.Experiment):
+    def __init__(self, **kwargs):
+        self.classes = []
+        self.class_mapping_ = None
+        self.class_idxs_ = []
+        super().__init__(**kwargs)
+
+    @property
+    def class_mapping(self):
+        if type(self.class_mapping_) == type(None):
+            self.class_mapping_ = torch.eye(len(self.classes)).to(self.device)
+            for idxs in self.class_idxs:
+                for ix in idxs:
+                    self.class_mapping_[ix, idxs[0]] = 1.0
+        return self.class_mapping_
+
+    @property
+    def class_idxs(self):
+        if len(self.class_idxs_) == 0:
+            self.class_idxs_ = [t.ixs1 for t in self.logic_terms]
+        return self.class_idxs_
+
+    def get_loaders(self):
+        train_loader, val_loader, classes = get_train_valid_loader(
+            data_dir=self.dataset_path,
+            batch_size=self.batch_size,
+            augment=self.augment,
+            random_seed=self.seed,
+            valid_size=0.1,
+            shuffle=True,
+            dataset=self.dataset,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+        )
+
+        test_loader = get_test_loader(
+            data_dir=self.dataset_path,
+            batch_size=self.batch_size,
+            dataset=self.dataset,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+        )
+
+        self.classes = classes
+
+        return train_loader, val_loader, test_loader
+
+    def create_model(self):
+        if self.sloss:
+            return ConstrainedModel(
+                self.layers,
+                self.num_classes,
+                self.logic_terms,
+                self.widen_factor,
+                dropRate=self.droprate,
+            )
+
+        if self.superclass:
+            return WideResNet(
+                self.layers,
+                self.num_super_classes,
+                self.widen_factor,
+                dropRate=self.droprate,
+            )
+        return WideResNet(
+            self.layers, self.num_classes, self.widen_factor, dropRate=self.droprate
+        )
+
+    def get_optimizer_and_scheduler(self, model, train_loader):
+        optimizer = torch.optim.SGD(model.parameters(), self.lr, momentum=self.momentum)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, len(train_loader) * self.epochs
+        )
+        return optimizer, scheduler
+
+    def init_meters(self):
+        loss = AverageMeter()
+        accuracy = AccuracyMeter()
+        superclass_accuracy = AccuracyMeter()
+        self.losses = {
+            "loss": loss,
+            "accuracy": accuracy,
+            "superclass_accuracy": superclass_accuracy,
+        }
+
+    def get_input_data(self, data):
+        input_imgs, targets = data
+        input_imgs = input_imgs.to(self.device)
+        return input_imgs
+
+    def get_target_data(self, data):
+        input_imgs, targets = data
+        targets = targets.to(self.device)
+        return targets
+
+    def criterion(self, output, target, train=True):
+        if self.sloss and train:
+            class_preds, logic_preds = output
+            ll = []
+            for j, p in enumerate(class_preds.split(1, dim=1)):
+                y_onehot = torch.zeros_like(p.squeeze(1))
+                y_onehot.scatter_(1, target[:, None], 1)
+                y_onehot = y_onehot.mm(self.class_mapping)
+                ll += [
+                    F.binary_cross_entropy_with_logits(
+                        p.squeeze(1), y_onehot, reduction="none"
+                    ).sum(dim=1)
+                ]
+
+            pred_loss = torch.stack(ll, dim=1)
+            recon_losses, labels = pred_loss.min(dim=1)
+
+            loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
+            loss += recon_losses.mean()
+            loss += F.nll_loss(logic_preds, labels)
+
+        elif self.superclass:
+            class_pred = output
+            new_tgts = torch.zeros_like(target)
+            for j, ixs in enumerate(self.class_idxs[1:]):
+                new_tgts += (j + 1) * (
+                    torch.stack([target == k for k in ixs], dim=1).any(dim=1)
+                ).long()
+            target = new_tgts
+            loss = F.cross_entropy(class_pred, target)
+
+        else:
+            class_preds = output
+            loss = F.cross_entropy(class_preds, target)
+
+        return loss
+
+    def update_train_meters(self, loss, output, target):
+        self.losses["loss"].update(loss.data.item(), target.size(0))
+
+        if self.sloss:
+            class_preds, logic_preds = output
+        else:
+            class_preds = output
+
+        ixs = np.arange(target.size(0))
+        cp = class_preds[ixs, logic_preds.argmax(dim=1)].argmax(dim=1)
+
+        self.losses["accuracy"].update((cp == target).tolist(), target.size(0))
+
+        new_tgts = torch.zeros_like(target)
+        for i, ixs in enumerate(self.class_idxs[1:]):
+            new_tgts += (i + 1) * (
+                torch.stack([target == i for i in ixs], dim=1).any(dim=1)
+            )
+
+        self.losses["superclass_accuracy"].update(
+            (logic_preds.argmax(dim=1) == new_tgts).tolist(), target.data.shape[0]
+        )
+
+    def update_test_meters(self, loss, output, target):
+        self.losses["loss"].update(loss.data.item(), target.size(0))
+        self.losses["accuracy"].update(
+            (output.data.argmax(dim=1) == target).tolist(), target.size(0)
+        )
+
+        new_tgts = torch.zeros_like(target)
+        for i, ixs in enumerate(self.class_idxs[1:]):
+            new_tgts += (i + 1) * (
+                torch.stack([target == i for i in ixs], dim=1).any(dim=1)
+            )
+        forward_mapping = [int(c) for ixs in self.class_idxs for c in ixs]
+
+        split = output.softmax(dim=1)[:, forward_mapping].split(
+            [len(i) for i in self.class_idxs], dim=1
+        )
+        new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
+
+        self.losses["superclass_accuracy"].update(
+            (new_pred.data.argmax(dim=1) == target).tolist(), output.data.shape[0]
+        )
+
+    def log(self, epoch, batch_time):
+        print(
+            f"Epoch: [{0}][{1}/{2}]\t"
+            f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
+            f'Loss {self.losses["loss"].val:.4f} ({self.losses["loss"].avg:.4f})\t'
+            f'Acc {self.losses["accuracy"].val:.4f} ({self.losses["accuracy"].avg:.4f})\t'
+            f'AccSC {self.losses["superclass_accuracy"].val:.4f} ({self.losses["superclass_accuracy"].avg:.4f})'
+        )
+
+    def iter_done(self, type="Train"):
+        print(
+            f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t'
+            f'Acc {round(self.losses["accuracy"].avg)}\t'
+            f'AccSC {round(self.losses["superclass_accuracy"].avg)}'
+        )
+
+
+class Cifar10Experiment(BaseImageExperiment):
+    @property
+    def num_classes(self):
+        return 10
+
+    @property
+    def num_super_classes(self):
+        return 2
+
+    @property
+    def logic_terms(self):
+        return [
+            symbolic.GEQConstant(
+                ixs1=[0, 1, 8, 9],
+                ixs_less_than=[2, 3, 4, 5, 6, 7],
+                ixs_not=[],
+                threshold_upper=self.upper_limit,
+                threshold_lower=self.upper_limit - 5,
+                threshold_limit=self.upper_limit,
+                device=self.device,
+            ),
+            symbolic.GEQConstant(
+                ixs1=[2, 3, 4, 5, 6, 7],
+                ixs_less_than=[0, 1, 8, 9],
+                ixs_not=[],
+                threshold_upper=self.upper_limit,
+                threshold_lower=self.upper_limit - 5,
+                threshold_limit=self.upper_limit,
+                device=self.device,
+            ),
+        ]
+
+
+class Cifar100Experiment(BaseImageExperiment):
+    @property
+    def logic_terms(self):
+        idxs = [
+            [i for i, c in enumerate(self.classes) if superclass_mapping[c] == label]
+            for label, ix in sorted(super_class_label.items(), key=lambda x: x[1])
+        ]
+
+        terms = []
+        for i, ixs in enumerate(idxs):
+            all_idsx = np.arange(len(self.classes))
+            not_idxs = all_idsx[~np.isin(all_idsx, ixs)].tolist()
+            terms += [
+                symbolic.GEQConstant(
+                    ixs1=ixs,
+                    ixs_less_than=not_idxs,
+                    ixs_not=[],
+                    threshold_upper=self.upper_lim,
+                    threshold_lower=self.upper_lim - 5,
+                    threshold_limit=self.lower_lim,
+                    device=self.device,
+                )
+            ]
+
+        return terms
+
+
+class SyntheticExperiment(BaseImageExperiment):
+    pass
+
+
+experiment_options = {
+    "cifar10": Cifar10Experiment,
+    "cifar100": Cifar100Experiment,
+    "synthetic": SyntheticExperiment,
+}
+
+
+def run_experiment(on: str = "cifar10", **kwargs):
+    assert on.lower() in ["cifar10", "cifar100", "synthetic"]
+    experiment = experiment_options[on.lower()](**kwargs)
+    train.main(experiment)

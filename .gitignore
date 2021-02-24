@@ -1,0 +1,7 @@
+**/__pycache__
+**/.DS_Store
+**/.egg-info
+**/.eggs
+**/.idea
+data/*
+**/neurosymbolic_study.egg-info
