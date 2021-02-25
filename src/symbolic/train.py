@@ -19,55 +19,40 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 class Experiment(ABC):
     """Experimental setup for training with domain knowledge specified by a DNF logic formula.
 
-    Base Experiment Flags:
-        dataset         dataset that will be used for the experiment
+    Base Experiment Parameters:
         dataset_path    path to the data
         checkpoint_dir  directory where the checkpoints and logs will be stored
         epochs          number of epochs for training
         seed            random seed for initialising experiments
         start_epoch     start the training from this epoch (default = 0)
         batch_size      minibatch size for training
-        lower_limit     lower limit for the logic thresholds that are applied
-        upper_limit     uppser limit for the logic thresholds that are applied
         learning_rate   learning rate for training
         momentum        momentum for SGD
         weight_decay    weight decay param in SGD
         print_freq      how often to log results
-        layers          number layers in WideResNet
-        widen_factor    widen factor in WideResNet
         droprate        dropout rate to use
-        augment         apply standard augmentation to the data (flips, rotations to images)
         resume          resume training from checkpoint
         name            name to use in logging the results
         tensorboard     to use tensorboard
-        sloss           to use semantic loss
-        superclass      to use the superclass accuracy
     """
+
     @initializer
     def __init__(
         self,
-        dataset: str = "cifar10",
         dataset_path: str = "../data",
         checkpoint_dir: str = "runs",
         epochs: int = 200,
         seed: int = 12,
         start_epoch: int = 0,
         batch_size: int = 256,
-        lower_limit: float = -10.0,
-        upper_limit: float = -2.0,
         learning_rate: float = 1e-1,
         momentum: float = 0.9,
         weight_decay: float = 5e-4,
         print_freq: int = 10,
-        layers: int = 28,
-        widen_factor: int = 10,
         droprate: float = 0.0,
-        augment: bool = True,
         resume: bool = False,
         name: str = "WideResNet",
         tensorboard: bool = False,
-        sloss: bool = True,
-        superclass: bool = False,
     ):
         """
         Creates the experiment object that contains all of the experiment configuration parameters
@@ -77,7 +62,8 @@ class Experiment(ABC):
         self.device = None
         self.start_epoch = 0
         self.losses = AverageMeter()
-        pass
+
+        main(self)
 
     @property
     def lr(self):
@@ -97,7 +83,7 @@ class Experiment(ABC):
 
     @property
     def params(self):
-        return f"{self.name}-{self.layers}-{self.widen_factor}_{self.lr}_{self.seed}"
+        return f"{self.name}_{self.lr}_{self.seed}"
 
     @property
     def checkpoint_directory(self):

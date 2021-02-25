@@ -52,11 +52,17 @@ def get_train_valid_loader(
     assert (valid_size >= 0) and (valid_size <= 1), error_msg
 
     normalize = transforms.Normalize(
-        mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010],
+        mean=[0.4914, 0.4822, 0.4465],
+        std=[0.2023, 0.1994, 0.2010],
     )
 
     # define transforms
-    valid_transform = transforms.Compose([transforms.ToTensor(), normalize,])
+    valid_transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            normalize,
+        ]
+    )
     if augment:
         train_transform = transforms.Compose(
             [
@@ -67,15 +73,26 @@ def get_train_valid_loader(
             ]
         )
     else:
-        train_transform = transforms.Compose([transforms.ToTensor(), normalize,])
+        train_transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                normalize,
+            ]
+        )
 
     # load the dataset
     train_dataset = datasets.__dict__[dataset.upper()](
-        root=data_dir, train=True, download=True, transform=train_transform,
+        root=data_dir,
+        train=True,
+        download=True,
+        transform=train_transform,
     )
 
     valid_dataset = datasets.__dict__[dataset.upper()](
-        root=data_dir, train=True, download=True, transform=valid_transform,
+        root=data_dir,
+        train=True,
+        download=True,
+        transform=valid_transform,
     )
 
     meta_name = "batches.meta" if dataset.upper() == "CIFAR10" else "meta"
@@ -141,14 +158,23 @@ def get_test_loader(
     - data_loader: test set iterator.
     """
     normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225],
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225],
     )
 
     # define transform
-    transform = transforms.Compose([transforms.ToTensor(), normalize,])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            normalize,
+        ]
+    )
 
     dataset = datasets.__dict__[dataset.upper()](
-        root=data_dir, train=False, download=True, transform=transform,
+        root=data_dir,
+        train=False,
+        download=True,
+        transform=transform,
     )
 
     data_loader = torch.utils.data.DataLoader(
@@ -202,7 +228,10 @@ class ConstraintedSampler(GaussianMixture):
 
     def rotate(self, x, theta=np.pi / 4):
         rotation = np.array(
-            [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)],]
+            [
+                [np.cos(theta), -np.sin(theta)],
+                [np.sin(theta), np.cos(theta)],
+            ]
         )
         return self.term1(x.dot(rotation))
 

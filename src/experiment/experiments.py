@@ -12,16 +12,44 @@ from experiment.class_mapping import *
 class BaseImageExperiment(train.Experiment):
     """Experimental setup for training with domain knowledge specified by a DNF logic formula on the CIFAR10 and CIFAR100 datasets. Wraps: train.Experiment.
 
-    Image Experiment Flags:
-        None
+    Image Experiment Parameters:
+        dataset         dataset that will be used for the experiment (cifar10 or cifar100)
+        lower_limit     lower limit for the logic thresholds that are applied
+        upper_limit     uppser limit for the logic thresholds that are applied
+        layers          number layers in WideResNet
+        widen_factor    widen factor in WideResNet
+        augment         apply standard augmentation to the data (flips, rotations to images)
+        superclass      to use the superclass accuracy
     \n
     """
+
     __doc__ += train.Experiment.__doc__
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self,
+        dataset: str = "cifar10",
+        lower_limit: float = -10.0,
+        upper_limit: float = -2.0,
+        layers: int = 28,
+        widen_factor: int = 10,
+        augment: bool = True,
+        sloss: bool = True,
+        superclass: bool = False,
+        **kwargs,
+    ):
+        self.dataset = dataset
+        self.lower_limit = lower_limit
+        self.upper_limit = upper_limit
+        self.layers = layers
+        self.widen_factor = widen_factor
+        self.augment = augment
+        self.sloss = sloss
+        self.superclass = superclass
+
         self.classes = []
         self.class_mapping_ = None
         self.class_idxs_ = []
+
         super().__init__(**kwargs)
 
     @property
@@ -32,6 +60,10 @@ class BaseImageExperiment(train.Experiment):
                 for ix in idxs:
                     self.class_mapping_[ix, idxs[0]] = 1.0
         return self.class_mapping_
+
+    @property
+    def params(self):
+        return f"{self.name}-{self.lr}_{self.seed}-{self.layers}-{self.widen_factor}"
 
     @property
     def class_idxs(self):
@@ -289,10 +321,3 @@ experiment_options = {
     "cifar100": Cifar100Experiment,
     "synthetic": SyntheticExperiment,
 }
-
-
-# def run_experiment(on: str = "cifar10"):
-#     assert on.lower() in ["cifar10", "cifar100", "synthetic"]
-#     # kwargs["dataset"] = on.lower()
-#     experiment = experiment_options[on.lower()](**kwargs)
-#     train.main(experiment)

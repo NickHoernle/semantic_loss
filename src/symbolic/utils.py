@@ -53,11 +53,9 @@ def initializer(func):
     return wrapper
 
 
-def wrappedHelpText(wrappedFunc):
-    def decorator(f):
-        f.__doc__ = 'This method wraps the following method:\n\n' + pydoc.text.document(wrappedFunc)
-        return f
-    return decorator
+def inherit_doc_for_fire(func):
+
+    return lambda a, b: (a, b)
 
 
 class AverageMeter(object):
