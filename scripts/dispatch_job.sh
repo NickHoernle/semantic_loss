@@ -82,7 +82,7 @@ conda activate ${CONDA_ENV_NAME}
 # the scratch space on the nodes, see:
 #     http://computing.help.inf.ed.ac.uk/cluster-tips
 
-echo "Moving input data to the compute node's scratch space: $SCRATCH_DISK"
+echo "Moving input data to the compute node's scratch space: $SCRATCH_HOME"
 
 # input data directory path on the DFS - change line below if loc different
 repo_home=/home/${USER}/git/semantic_loss
