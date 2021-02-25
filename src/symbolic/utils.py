@@ -1,4 +1,5 @@
 import os
+import pydoc
 import shutil
 import numpy as np
 import torch
@@ -50,6 +51,13 @@ def initializer(func):
         func(self, *args, **kargs)
 
     return wrapper
+
+
+def wrappedHelpText(wrappedFunc):
+    def decorator(f):
+        f.__doc__ = 'This method wraps the following method:\n\n' + pydoc.text.document(wrappedFunc)
+        return f
+    return decorator
 
 
 class AverageMeter(object):

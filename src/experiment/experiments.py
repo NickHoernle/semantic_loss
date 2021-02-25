@@ -1,3 +1,5 @@
+import torch.nn.functional as F
+
 from symbolic import symbolic
 from symbolic import train
 from symbolic.utils import *
@@ -8,6 +10,14 @@ from experiment.class_mapping import *
 
 
 class BaseImageExperiment(train.Experiment):
+    """Experimental setup for training with domain knowledge specified by a DNF logic formula on the CIFAR10 and CIFAR100 datasets. Wraps: train.Experiment.
+
+    Image Experiment Flags:
+        None
+    \n
+    """
+    __doc__ += train.Experiment.__doc__
+
     def __init__(self, **kwargs):
         self.classes = []
         self.class_mapping_ = None
@@ -237,6 +247,14 @@ class Cifar10Experiment(BaseImageExperiment):
 
 class Cifar100Experiment(BaseImageExperiment):
     @property
+    def num_classes(self):
+        return 100
+
+    @property
+    def num_super_classes(self):
+        return 20
+
+    @property
     def logic_terms(self):
         idxs = [
             [i for i, c in enumerate(self.classes) if superclass_mapping[c] == label]
@@ -252,9 +270,9 @@ class Cifar100Experiment(BaseImageExperiment):
                     ixs1=ixs,
                     ixs_less_than=not_idxs,
                     ixs_not=[],
-                    threshold_upper=self.upper_lim,
-                    threshold_lower=self.upper_lim - 5,
-                    threshold_limit=self.lower_lim,
+                    threshold_upper=self.upper_limit,
+                    threshold_lower=self.upper_limit - 5,
+                    threshold_limit=self.lower_limit,
                     device=self.device,
                 )
             ]
@@ -273,7 +291,8 @@ experiment_options = {
 }
 
 
-def run_experiment(on: str = "cifar10", **kwargs):
-    assert on.lower() in ["cifar10", "cifar100", "synthetic"]
-    experiment = experiment_options[on.lower()](**kwargs)
-    train.main(experiment)
+# def run_experiment(on: str = "cifar10"):
+#     assert on.lower() in ["cifar10", "cifar100", "synthetic"]
+#     # kwargs["dataset"] = on.lower()
+#     experiment = experiment_options[on.lower()](**kwargs)
+#     train.main(experiment)

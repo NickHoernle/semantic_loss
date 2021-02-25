@@ -1,6 +1,6 @@
 import fire
 
-from experiment.experiments import run_experiment
+from experiment.experiments import experiment_options
 
 if __name__ == '__main__':
-    fire.Fire(run_experiment)
+    fire.Fire(experiment_options)

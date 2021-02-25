@@ -17,6 +17,32 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 class Experiment(ABC):
+    """Experimental setup for training with domain knowledge specified by a DNF logic formula.
+
+    Base Experiment Flags:
+        dataset         dataset that will be used for the experiment
+        dataset_path    path to the data
+        checkpoint_dir  directory where the checkpoints and logs will be stored
+        epochs          number of epochs for training
+        seed            random seed for initialising experiments
+        start_epoch     start the training from this epoch (default = 0)
+        batch_size      minibatch size for training
+        lower_limit     lower limit for the logic thresholds that are applied
+        upper_limit     uppser limit for the logic thresholds that are applied
+        learning_rate   learning rate for training
+        momentum        momentum for SGD
+        weight_decay    weight decay param in SGD
+        print_freq      how often to log results
+        layers          number layers in WideResNet
+        widen_factor    widen factor in WideResNet
+        droprate        dropout rate to use
+        augment         apply standard augmentation to the data (flips, rotations to images)
+        resume          resume training from checkpoint
+        name            name to use in logging the results
+        tensorboard     to use tensorboard
+        sloss           to use semantic loss
+        superclass      to use the superclass accuracy
+    """
     @initializer
     def __init__(
         self,
@@ -186,7 +212,7 @@ def main(experiment):
     for epoch in range(experiment.start_epoch, experiment.epochs):
 
         # train for one epoch
-        # train(train_loader, model, optimizer, scheduler, epoch, experiment)
+        train(train_loader, model, optimizer, scheduler, epoch, experiment)
 
         # evaluate on validation set
         val1 = validate(val_loader, model, epoch, experiment)
@@ -286,6 +312,8 @@ def validate(val_loader, model, epoch, experiment):
             experiment.log(epoch, batch_time)
 
     experiment.iter_done(type="Test")
+
+    return loss
     # TODO: setup tensorboard
     # log to TensorBoard
     # if args.tensorboard:
