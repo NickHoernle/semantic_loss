@@ -57,8 +57,8 @@ for (lr, sloss_, l_lim, u_lim, sclass, rep) in settings:
         + f"--learning_rate={lr} "
         + f"--lower_limit={l_lim} "
         + f"--upper_limit={u_lim} "
-        + (f"--superclass=True" if sclass else "")
-        + (f"--sloss=True" if sloss_ else "")
+        + f"--superclass={sclass}"
+        + f"--sloss={sloss_}"
     )
     print(expt_call, file=output_file)
 

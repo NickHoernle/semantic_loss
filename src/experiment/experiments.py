@@ -186,11 +186,13 @@ class BaseImageExperiment(train.Experiment):
         if self.sloss:
             cp, logic_preds = output
             ixs = np.arange(target.size(0))
-            class_preds = cp[ixs, logic_preds.argmax(dim=1)].argmax(dim=1)
+            class_preds = cp[ixs, logic_preds.argmax(dim=1)]
         else:
             class_preds = output
 
-        self.losses["accuracy"].update((class_preds == target).tolist(), target.size(0))
+        self.losses["accuracy"].update(
+            (class_preds.argmax(dim=1) == target).tolist(), target.size(0)
+        )
 
         if not self.superclass:
             new_tgts = torch.zeros_like(target)
@@ -199,9 +201,22 @@ class BaseImageExperiment(train.Experiment):
                     torch.stack([target == i for i in ixs], dim=1).any(dim=1)
                 )
 
-            self.losses["superclass_accuracy"].update(
-                (logic_preds.argmax(dim=1) == new_tgts).tolist(), target.data.shape[0]
-            )
+            if self.sloss:
+                self.losses["superclass_accuracy"].update(
+                    (logic_preds.argmax(dim=1) == new_tgts).tolist(),
+                    target.data.shape[0],
+                )
+            else:
+                forward_mapping = [int(c) for ixs in self.class_idxs for c in ixs]
+
+                split = class_preds.softmax(dim=1)[:, forward_mapping].split(
+                    [len(i) for i in self.class_idxs], dim=1
+                )
+                new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
+                self.losses["superclass_accuracy"].update(
+                    (new_pred.data.argmax(dim=1) == new_tgts).tolist(),
+                    output.data.shape[0],
+                )
 
     def update_test_meters(self, loss, output, target):
         self.losses["loss"].update(loss.data.item(), target.size(0))
