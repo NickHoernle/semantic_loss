@@ -13,6 +13,11 @@ Run CIFAR100 experiment:
 ```
 run_image_experiments.py cifar100 --layers=10 --widen_factor=1
 ```
+# Generate experiment conditions:
+```
+cd scripts
+python generate_experiments.py
+```
 
 # Help functions:
 ```
