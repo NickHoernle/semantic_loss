@@ -46,6 +46,7 @@ class BaseImageExperiment(train.Experiment):
         self.classes = []
         self.class_mapping_ = None
         self.class_idxs_ = []
+        self.best_loss = np.infty
 
         super().__init__(**kwargs)
 
@@ -236,9 +237,15 @@ class BaseImageExperiment(train.Experiment):
     def iter_done(self, type="Train"):
         print(
             f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t'
-            f'Acc {round(self.losses["accuracy"].avg)}\t'
-            f'AccSC {round(self.losses["superclass_accuracy"].avg)}'
+            f'Acc {round(self.losses["accuracy"].avg, 3)}\t'
+            f'AccSC {round(self.losses["superclass_accuracy"].avg, 3)}'
         )
+
+    def update_best(self, val):
+        if val < self.best_loss:
+            self.best_loss = val
+            return True
+        return False
 
 
 class Cifar10Experiment(BaseImageExperiment):

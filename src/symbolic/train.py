@@ -311,7 +311,7 @@ def validate(val_loader, model, epoch, experiment):
         if i % experiment.print_freq == experiment.print_freq - 1:
             experiment.log(epoch, batch_time)
 
-    experiment.iter_done(type="Test")
+    experiment.iter_done(type="Test ")
 
     return loss
     # TODO: setup tensorboard
