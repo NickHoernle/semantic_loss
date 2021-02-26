@@ -13,7 +13,6 @@ class BaseImageExperiment(train.Experiment):
     """Experimental setup for training with domain knowledge specified by a DNF logic formula on the CIFAR10 and CIFAR100 datasets. Wraps: train.Experiment.
 
     Image Experiment Parameters:
-        dataset         dataset that will be used for the experiment (cifar10 or cifar100)
         lower_limit     lower limit for the logic thresholds that are applied
         upper_limit     uppser limit for the logic thresholds that are applied
         layers          number layers in WideResNet
@@ -27,7 +26,6 @@ class BaseImageExperiment(train.Experiment):
 
     def __init__(
         self,
-        dataset: str = "cifar10",
         lower_limit: float = -10.0,
         upper_limit: float = -2.0,
         layers: int = 28,
@@ -37,7 +35,6 @@ class BaseImageExperiment(train.Experiment):
         superclass: bool = False,
         **kwargs,
     ):
-        self.dataset = dataset
         self.lower_limit = lower_limit
         self.upper_limit = upper_limit
         self.layers = layers
@@ -245,13 +242,12 @@ class BaseImageExperiment(train.Experiment):
 
 
 class Cifar10Experiment(BaseImageExperiment):
-    @property
-    def num_classes(self):
-        return 10
+    def __init__(self, **kwargs):
+        self.dataset = "cifar10"
+        self.num_classes = 10
+        self.num_super_classes = 2
 
-    @property
-    def num_super_classes(self):
-        return 2
+        super().__init__(self, **kwargs)
 
     @property
     def logic_terms(self):
@@ -278,13 +274,12 @@ class Cifar10Experiment(BaseImageExperiment):
 
 
 class Cifar100Experiment(BaseImageExperiment):
-    @property
-    def num_classes(self):
-        return 100
+    def __init__(self, **kwargs):
+        self.dataset = "cifar100"
+        self.num_classes = 100
+        self.num_super_classes = 20
 
-    @property
-    def num_super_classes(self):
-        return 20
+        super().__init__(self, **kwargs)
 
     @property
     def logic_terms(self):

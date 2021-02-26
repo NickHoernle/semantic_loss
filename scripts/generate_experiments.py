@@ -54,9 +54,9 @@ output_file = open("experiment.txt", "w")
 for (lr, sloss_, l_lim, u_lim, sclass, rep) in settings:
     expt_call = (
         f"{base_call} "
-        + f"--lr={lr} "
+        + f"--learning_rate={lr} "
         + f"--lower_limit={l_lim} "
-        + f"--upper=limit={u_lim} "
+        + f"--upper_limit={u_lim} "
         + (f"--superclass=True" if sclass else "")
         + (f"--sloss=True" if sloss_ else "")
     )
