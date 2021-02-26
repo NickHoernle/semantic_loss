@@ -247,7 +247,7 @@ class Cifar10Experiment(BaseImageExperiment):
         self.num_classes = 10
         self.num_super_classes = 2
 
-        super().__init__(self, **kwargs)
+        super().__init__(**kwargs)
 
     @property
     def logic_terms(self):
@@ -279,7 +279,7 @@ class Cifar100Experiment(BaseImageExperiment):
         self.num_classes = 100
         self.num_super_classes = 20
 
-        super().__init__(self, **kwargs)
+        super().__init__(**kwargs)
 
     @property
     def logic_terms(self):
