@@ -222,7 +222,7 @@ class BaseImageExperiment(train.Experiment):
         new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
 
         self.losses["superclass_accuracy"].update(
-            (new_pred.data.argmax(dim=1) == target).tolist(), output.data.shape[0]
+            (new_pred.data.argmax(dim=1) == new_tgts).tolist(), output.data.shape[0]
         )
 
     def log(self, epoch, batch_time):
