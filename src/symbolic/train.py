@@ -36,7 +36,6 @@ class Experiment(ABC):
         tensorboard     to use tensorboard
     """
 
-    @initializer
     def __init__(
         self,
         dataset_path: str = "../data",
@@ -58,6 +57,21 @@ class Experiment(ABC):
         Creates the experiment object that contains all of the experiment configuration parameters
         """
         super().__init__()
+        self.dataset_path = dataset_path
+        self.checkpoint_dir = checkpoint_dir
+        self.epochs = epochs
+        self.seed = seed
+        self.start_epoch = start_epoch
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.momentum = momentum
+        self.weight_decay = weight_decay
+        self.print_freq = print_freq
+        self.droprate = droprate
+        self.resume = resume
+        self.name = name
+        self.tensorboard = tensorboard
+
         self.git_commit = ""
         self.device = None
         self.start_epoch = 0
