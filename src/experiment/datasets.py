@@ -189,18 +189,17 @@ def get_test_loader(
 
 
 class generator:
-    def plot(self, samples=2500):
-        fig = plt.figure(figsize=(4, 4))
-
-        ax = fig.gca()
+    def plot(self, ax=None, samples=2500):
+        if type(ax) == type(None):
+            fig = plt.figure(figsize=(4, 4))
+            ax = fig.gca()
         x = self.sample(samples)
         ax.scatter(x[:, 0], x[:, 1], s=5, alpha=0.1)
 
         ax.set_xlim([-5, 5])
         ax.set_ylim([-5, 5])
         ax.grid(True)
-
-        plt.show()
+        return ax
 
 
 class GaussianMixture(generator):
@@ -227,6 +226,19 @@ class Gaussian(generator):
 
 
 class ConstraintedSampler(Gaussian):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.rotations = [
+            0,
+            np.pi / 4,
+            2 * np.pi / 4,
+            3 * np.pi / 4,
+            np.pi,
+            5 * np.pi / 4,
+            6 * np.pi / 4,
+            7 * np.pi / 4,
+        ]
+
     def term1(self, x):
         valid = (x[:, 1] > 2.5) & (x[:, 1] < 5.5) & (x[:, 0] > -0.5) & (x[:, 0] < 0.5)
         return valid
@@ -241,19 +253,9 @@ class ConstraintedSampler(Gaussian):
         return self.term1(x.dot(rotation))
 
     def sample(self, n, get_term_labels=False):
-        rotations = [
-            # 0,
-            np.pi / 4,
-            2 * np.pi / 4,
-            3 * np.pi / 4,
-            # np.pi,
-            5 * np.pi / 4,
-            6 * np.pi / 4,
-            7 * np.pi / 4,
-        ]
         terms = []
 
-        for i, theta in enumerate(rotations):
+        for i, theta in enumerate(self.rotations):
             constrained = []
             count = 1
             while len(constrained) < n:
@@ -275,13 +277,14 @@ class ConstraintedSampler(Gaussian):
             return samples[:n], labels[:n]
         return samples[:n]
 
-    def plot(self, with_term_labels=False):
+    def plot(self, ax=None, with_term_labels=False):
         if not with_term_labels:
-            return super().plot()
+            return super().plot(ax=ax)
 
-        fig = plt.figure(figsize=(4, 4))
+        if type(ax) == type(None):
+            fig = plt.figure(figsize=(4, 4))
+            ax = fig.gca()
 
-        ax = fig.gca()
         x, labels = self.sample(5000, get_term_labels=True)
         for i in range(np.max(labels) + 1):
             ax.scatter(x[labels == i, 0], x[labels == i, 1], s=5, alpha=0.1, label=i)
@@ -290,8 +293,7 @@ class ConstraintedSampler(Gaussian):
         ax.set_ylim([-5, 5])
         ax.grid(True)
 
-        plt.show()
-        return
+        return ax
 
 
 class SyntheticDataset(data.Dataset):
@@ -303,6 +305,7 @@ class SyntheticDataset(data.Dataset):
 
         self.samples = torch.tensor(samples).float()
         self.labels = torch.tensor(labels).long()
+        self.sampler = sampler
 
         self.listIDs = np.arange(len(self.labels))
 
