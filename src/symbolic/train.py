@@ -32,7 +32,6 @@ class Experiment(ABC):
         print_freq      how often to log results
         droprate        dropout rate to use
         resume          resume training from checkpoint
-        name            name to use in logging the results
         tensorboard     to use tensorboard
     """
 
@@ -50,7 +49,6 @@ class Experiment(ABC):
         print_freq: int = 10,
         droprate: float = 0.0,
         resume: bool = False,
-        name: str = "WideResNet",
         tensorboard: bool = False,
     ):
         """
@@ -69,7 +67,6 @@ class Experiment(ABC):
         self.print_freq = print_freq
         self.droprate = droprate
         self.resume = resume
-        self.name = name
         self.tensorboard = tensorboard
 
         self.git_commit = ""
