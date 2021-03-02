@@ -3,6 +3,7 @@ import pydoc
 import shutil
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
 from functools import wraps
 import inspect
 
@@ -14,6 +15,14 @@ def save_checkpoint(state, is_best, experiment):
     torch.save(state, experiment.checkpoint)
     if is_best:
         shutil.copyfile(experiment.checkpoint, experiment.best_checkpoint)
+
+
+def save_figure(fig, f_path, experiment):
+    """Saves checkpoint to disk"""
+    if not os.path.exists(experiment.figures_directory):
+        os.makedirs(experiment.figures_directory)
+    fig.savefig(f_path)
+    plt.close(fig)
 
 
 class AverageMeter(object):
