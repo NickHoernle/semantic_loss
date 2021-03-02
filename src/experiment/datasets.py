@@ -221,9 +221,14 @@ class GaussianMixture(generator):
         return r.astype(np.float32)
 
 
-class ConstraintedSampler(GaussianMixture):
+class Gaussian(generator):
+    def sample(self, n):
+        return 5 * np.random.randn(n, 2)
+
+
+class ConstraintedSampler(Gaussian):
     def term1(self, x):
-        valid = (x[:, 1] > 0.5) & (x[:, 1] < 5.5) & (x[:, 0] > -0.25) & (x[:, 0] < 0.25)
+        valid = (x[:, 1] > 2.5) & (x[:, 1] < 5.5) & (x[:, 0] > -0.5) & (x[:, 0] < 0.5)
         return valid
 
     def rotate(self, x, theta=np.pi / 4):
@@ -236,26 +241,39 @@ class ConstraintedSampler(GaussianMixture):
         return self.term1(x.dot(rotation))
 
     def sample(self, n, get_term_labels=False):
-        x = super().sample(n)
         rotations = [
-            0,
+            # 0,
             np.pi / 4,
             2 * np.pi / 4,
             3 * np.pi / 4,
-            np.pi,
+            # np.pi,
             5 * np.pi / 4,
             6 * np.pi / 4,
             7 * np.pi / 4,
         ]
-        terms = [x[self.rotate(x, theta=theta)] for i, theta in enumerate(rotations)]
+        terms = []
+
+        for i, theta in enumerate(rotations):
+            constrained = []
+            count = 1
+            while len(constrained) < n:
+                x = super().sample(n * 2 ** count)
+                constrained = x[self.rotate(x, theta=theta)]
+                count += 1
+
+            terms.append(constrained)
+
+        samples = np.concatenate(terms, axis=0)
+        labels = np.concatenate(
+            [i * np.ones_like(t[:, 0]).astype(int) for i, t in enumerate(terms)]
+        )
+        idxs = np.random.choice(np.arange(len(labels)), size=len(labels), replace=False)
+        samples = samples[idxs]
+        labels = labels[idxs]
+
         if get_term_labels:
-            return (
-                np.concatenate(terms, axis=0),
-                np.concatenate(
-                    [i * np.ones_like(t[:, 0]).astype(int) for i, t in enumerate(terms)]
-                ),
-            )
-        return np.concatenate(terms, axis=0)
+            return samples[:n], labels[:n]
+        return samples[:n]
 
     def plot(self, with_term_labels=False):
         if not with_term_labels:
@@ -277,11 +295,15 @@ class ConstraintedSampler(GaussianMixture):
 
 
 class SyntheticDataset(data.Dataset):
-    def __init__(self, sampler, include_labels: bool = False, nsamples: int = 5000):
+    def __init__(self, sampler, nsamples: int = 5000):
 
         super(SyntheticDataset, self).__init__()
 
-        self.samples, self.labels = sampler.sample(nsamples, include_labels)
+        samples, labels = sampler.sample(nsamples, get_term_labels=True)
+
+        self.samples = torch.tensor(samples).float()
+        self.labels = torch.tensor(labels).long()
+
         self.listIDs = np.arange(len(self.labels))
 
     def __len__(self):
@@ -289,8 +311,36 @@ class SyntheticDataset(data.Dataset):
 
     def __getitem__(self, index):
         id = self.listIDs[index]
-        x = torch.tensor(self.samples[id])
-        return x
+        x = self.samples[id]
+        l = self.labels[id]
+        return x, l
+
+
+def get_synthetic_loaders(
+    train_size: int = 5000,
+    valid_size: int = 1000,
+    test_size: int = 1000,
+    batch_size: int = 128,
+    num_workers: int = 4,
+    pin_memory: bool = False,
+):
+    c = ConstraintedSampler()
+    kwargs = {
+        "batch_size": batch_size,
+        "num_workers": num_workers,
+        "pin_memory": pin_memory,
+    }
+    train = torch.utils.data.DataLoader(
+        SyntheticDataset(c, nsamples=train_size), **kwargs
+    )
+    valid = torch.utils.data.DataLoader(
+        SyntheticDataset(c, nsamples=valid_size), **kwargs
+    )
+    test = torch.utils.data.DataLoader(
+        SyntheticDataset(c, nsamples=test_size), **kwargs
+    )
+
+    return train, valid, test
 
 
 if __name__ == "__main__":

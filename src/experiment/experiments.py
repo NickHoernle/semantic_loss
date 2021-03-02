@@ -6,6 +6,7 @@ from symbolic.utils import *
 from experiment.datasets import *
 from experiment.constrainedwideresnet import ConstrainedModel
 from experiment.wideresnet import WideResNet
+from experiment.generative import LinearVAE, ConstrainedVAE
 from experiment.class_mapping import *
 
 
@@ -19,6 +20,7 @@ class BaseImageExperiment(train.Experiment):
         widen_factor    widen factor in WideResNet
         augment         apply standard augmentation to the data (flips, rotations to images)
         superclass      to use the superclass accuracy
+        name            name to use in logging the results
     \n
     """
 
@@ -33,6 +35,7 @@ class BaseImageExperiment(train.Experiment):
         augment: bool = True,
         sloss: bool = False,
         superclass: bool = False,
+        name: str = "WideResNet",
         **kwargs,
     ):
         self.lower_limit = lower_limit
@@ -42,6 +45,7 @@ class BaseImageExperiment(train.Experiment):
         self.augment = augment
         self.sloss = sloss
         self.superclass = superclass
+        self.name = name
 
         self.classes = []
         self.class_mapping_ = None
@@ -330,12 +334,181 @@ class Cifar100Experiment(BaseImageExperiment):
         return terms
 
 
-class SyntheticExperiment(BaseImageExperiment):
+class BaseSyntheticExperiment(train.Experiment):
+    """Experimental setup for training with domain knowledge specified by a DNF logic formula on the synthetic dataset with continuous constraints. Wraps: train.Experiment.
+
+    Synthetic Experiment Parameters:
+        nhidden     num hidden units in the encoder / decoder respectively
+        ndims       how many dimensions are we modeling
+        name            name to use in logging the results
+    \n
+    """
+
+    __doc__ += train.Experiment.__doc__
+
+    def __init__(
+        self,
+        nhidden: int = 250,
+        nlatent: int = 25,
+        ndims: int = 2,
+        name: str = "Synthetic",
+        baseline: bool = False,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.nhidden = nhidden
+        self.ndims = ndims
+        self.nlatent = nlatent
+        self.name = name
+        self.baseline = baseline
+
+    @property
+    def params(self):
+        return f"{self.name}-{self.lr}_{self.seed}"
+
+    def get_loaders(self):
+        train_size = 5000
+        valid_size = 1000
+        test_size = 1000
+
+        return get_synthetic_loaders(train_size, valid_size, test_size)
+
+    def create_model(self):
+        if self.baseline:
+            return LinearVAE(
+                terms=self.logic_terms,
+                ndims=self.ndims,
+                nhidden=self.nhidden,
+                nlatent=self.nlatent,
+            )
+        return ConstrainedVAE(
+            terms=self.logic_terms,
+            ndims=self.ndims,
+            nhidden=self.nhidden,
+            nlatent=self.nlatent,
+        )
+
+    def get_optimizer_and_scheduler(self, model, train_loader):
+        optimizer = torch.optim.Adam(model.parameters(), self.lr)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, len(train_loader) * self.epochs
+        )
+        return optimizer, scheduler
+
+    def init_meters(self):
+        loss = AverageMeter()
+        constraint = AccuracyMeter()
+        self.losses = {
+            "loss": loss,
+            "constraint": constraint,
+        }
+
+    def get_input_data(self, data):
+        pass
+
+    def get_target_data(self, data):
+        pass
+
+    def criterion(self, output, target, train=True):
+        pass
+        return loss
+
+    def update_train_meters(self, loss, output, target):
+        pass
+
+    def update_test_meters(self, loss, output, target):
+        pass
+
+    def log(self, epoch, batch_time):
+        # TODO
+        print(
+            f"Epoch: [{0}][{1}/{2}]\t"
+            f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
+            f'Loss {self.losses["loss"].val:.4f} ({self.losses["loss"].avg:.4f})\t'
+            f'Acc {self.losses["accuracy"].val:.4f} ({self.losses["accuracy"].avg:.4f})\t'
+            f'AccSC {self.losses["superclass_accuracy"].val:.4f} ({self.losses["superclass_accuracy"].avg:.4f})'
+        )
+
+    def iter_done(self, type="Train"):
+        # TODO
+        print(
+            f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t'
+            f'Acc {round(self.losses["accuracy"].avg, 3)}\t'
+            f'AccSC {round(self.losses["superclass_accuracy"].avg, 3)}'
+        )
+
+    def update_best(self, val):
+        # TODO
+        if val < self.best_loss:
+            self.best_loss = val
+            return True
+        return False
+
+
+class FullyKnownConstraintsSyntheticExperiment(BaseSyntheticExperiment):
+    @property
+    def logic_terms(self):
+        ll = 0.5
+        return [
+            symbolic.RotatedBox(
+                constrained_ixs=[0, 1],
+                not_constrained_ixs=[],
+                lims=((-ll, ll), (-5.5, -2.5)),
+                theta=np.pi,
+            ),
+            symbolic.RotatedBox(
+                constrained_ixs=[0, 1],
+                not_constrained_ixs=[],
+                lims=((-ll, ll), (-5.5, -2.5)),
+                theta=np.pi / 4,
+            ),
+            symbolic.RotatedBox(
+                constrained_ixs=[0, 1],
+                not_constrained_ixs=[],
+                lims=((-ll, ll), (-5.5, -2.5)),
+                theta=2 * np.pi / 4,
+            ),
+            symbolic.RotatedBox(
+                constrained_ixs=[0, 1],
+                not_constrained_ixs=[],
+                lims=((-ll, ll), (-5.5, -2.5)),
+                theta=3 * np.pi / 4,
+            ),
+            symbolic.Box(
+                constrained_ixs=[0, 1],
+                not_constrained_ixs=[],
+                lims=((-ll, ll), (-5.5, -2.5)),
+            ),
+            symbolic.RotatedBox(
+                constrained_ixs=[0, 1],
+                not_constrained_ixs=[],
+                lims=((-ll, ll), (-5.5, -2.5)),
+                theta=5 * np.pi / 4,
+            ),
+            symbolic.RotatedBox(
+                constrained_ixs=[0, 1],
+                not_constrained_ixs=[],
+                lims=((-ll, ll), (-5.5, -2.5)),
+                theta=6 * np.pi / 4,
+            ),
+            symbolic.RotatedBox(
+                constrained_ixs=[0, 1],
+                not_constrained_ixs=[],
+                lims=((-ll, ll), (-5.5, -2.5)),
+                theta=7 * np.pi / 4,
+            ),
+        ]
+
+
+class PartiallyKnownConstraintsSyntheticExperiment(
+    FullyKnownConstraintsSyntheticExperiment
+):
     pass
 
 
 experiment_options = {
     "cifar10": Cifar10Experiment,
     "cifar100": Cifar100Experiment,
-    "synthetic": SyntheticExperiment,
+    "synthetic_full": FullyKnownConstraintsSyntheticExperiment,
+    "synthetic_partial": PartiallyKnownConstraintsSyntheticExperiment,
 }
