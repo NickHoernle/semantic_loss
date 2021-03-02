@@ -41,7 +41,6 @@ class GEQConstant(nn.Module):
         split3 = x[:, self.ixs_not]
 
         restricted1 = F.softplus(split1 - self.threshold_upper) + self.threshold_upper
-        # restricted2 = -F.softplus(-split2+self.threshold_lower)+self.threshold_lower
         restricted2 = torch.ones_like(split2) * self.threshold_lower
 
         return torch.cat((restricted1, restricted2, split3), dim=1)[
@@ -145,30 +144,96 @@ class Between(nn.Module):
         return torch.cat((less_than, restricted2), dim=1)[:, self.reverse_transform]
 
 
-#
-#
-# class GEQ(GEQConstant):
-#
-#     def forward(self, x):
-#         x_ = x[:, self.forward_transform]
-#         split1, split2, split3 = x_.split([len(self.ixs_pos), len(self.ixs_neg), len(self.ixs_not)], dim=1)
-#
-#         max_val = F.relu(split2).max(dim=1)[0]
-#         min_val = (F.relu(-split1).max(dim=1)[0])
-#
-#         return torch.cat((split1 + min_val.unsqueeze(1) + max_val.unsqueeze(1),
-#                           split2 - self.limit_threshold,
-#                           split3), dim=1)[:, self.reverse_transform]
-#
-#
-# class AndDisjoint(nn.Module):
-#     def __init__(self, term1, term2):
-#         super(AndDisjoint, self).__init__()
-#         self.term1 = term1
-#         self.term2 = term2
-#
-#     def forward(self, x):
-#         return self.term2(self.term1(x))
+class Box(nn.Module):
+    def __init__(
+        self,
+        constrained_ixs,
+        not_constrained_ixs,
+        lims=((0.25, -0.25), (0.5, 5.5)),
+        **kwargs
+    ):
+        super(Box, self).__init__()
+        self.constrained_ixs = constrained_ixs
+        self.not_constrained_ixs = not_constrained_ixs
+        self.lims = torch.tensor(lims).float()
+
+        assert len(lims) == len(constrained_ixs)
+
+        self.forward_transform = self.constrained_ixs + self.not_constrained_ixs
+        self.reverse_transform = np.argsort(self.forward_transform)
+
+    def valid(self, x):
+        split1 = x[:, self.constrained_ixs]
+        return (
+            (split1 + 1e-5 >= self.lims[:, 0][None, :])
+            & (split1 - 1e-5 <= self.lims[:, 1][None, :])
+        ).all(dim=-1)
+
+    def forward(self, x, m=0.5):
+        split1 = x[:, self.constrained_ixs]
+        split2 = x[:, self.not_constrained_ixs]
+
+        greater_than = F.softplus(split1 - self.lims[:, 0][None, :])
+        offset = torch.log(
+            torch.exp(self.lims[:, 1][None, :] - self.lims[:, 0][None, :]) - 1
+        )
+        less_than = -F.softplus(-greater_than + offset) + self.lims[:, 1][None, :]
+
+        return torch.cat((less_than, split2), dim=1)[:, self.reverse_transform]
+
+
+class RotatedBox(Box):
+    def __init__(
+        self,
+        constrained_ixs,
+        not_constrained_ixs,
+        lims=((0.25, -0.25), (0.5, 5.5)),
+        theta=0.0,
+        **kwargs
+    ):
+        super(RotatedBox, self).__init__(constrained_ixs, not_constrained_ixs, lims)
+        self.theta = theta
+        self.inverse_rotation_matrix = torch.tensor(
+            [
+                [np.cos(-theta), -np.sin(-theta)],
+                [np.sin(-theta), np.cos(-theta)],
+            ]
+        ).float()
+        self.rotation_matrix = torch.tensor(
+            [
+                [np.cos(theta), -np.sin(theta)],
+                [np.sin(theta), np.cos(theta)],
+            ]
+        ).float()
+
+    def rotate(self, x):
+        return x.mm(self.rotation_matrix)
+
+    def rotate_inverse(self, x):
+        return x.mm(self.inverse_rotation_matrix)
+
+    def valid(self, x):
+        split1 = x[:, self.constrained_ixs]
+        return (
+            (self.rotate(split1) + 1e-5 >= self.lims[:, 0][None, :])
+            & (self.rotate(split1) - 1e-5 <= self.lims[:, 1][None, :])
+        ).all(dim=-1)
+
+    def forward(self, x, m=0.5):
+        split1 = x[:, self.constrained_ixs]
+        split2 = x[:, self.not_constrained_ixs]
+
+        greater_than = F.softplus(
+            self.rotate_inverse(split1) - self.lims[:, 0][None, :]
+        )
+        offset = torch.log(
+            torch.exp(self.lims[:, 1][None, :] - self.lims[:, 0][None, :]) - 1
+        )
+        less_than = -F.softplus(-greater_than + offset) + self.lims[:, 1][None, :]
+
+        return torch.cat((self.rotate(less_than), split2), dim=1)[
+            :, self.reverse_transform
+        ]
 
 
 class Identity(GEQConstant):
@@ -186,19 +251,23 @@ class Identity(GEQConstant):
 
 class OrList(nn.Module):
     def __init__(self, terms):
-        super(OrList, self).__init__()
+        super().__init__()
         self.layers = nn.ModuleList(terms)
-        self.fc = nn.Linear(2 * len(terms), len(terms))
+        # self.fc = nn.Linear(10 * len(terms), len(terms))
 
     def threshold1p(self):
         for layer in self.layers:
             layer.threshold1p()
 
+    def all_predictions(self, x):
+        return torch.stack([f(x) for f in self.layers], dim=1)
+
     def forward(self, x, class_prediction, test=False):
-        pred = torch.stack([f(x) for f in self.layers], dim=1)
-        log_py = self.fc(
-            torch.cat((class_prediction, pred.max(dim=-1)[0]), dim=1)
-        ).log_softmax(dim=1)
+        pred = self.all_predictions(x)
+        # log_py = self.fc(
+        #     torch.cat((class_prediction, pred.max(dim=-1)[0]), dim=1)
+        # ).log_softmax(dim=1)
+        log_py = class_prediction.log_softmax(dim=1)
         # log_py = class_prediction.log_softmax(dim=1)
 
         if test:

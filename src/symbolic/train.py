@@ -73,6 +73,7 @@ class Experiment(ABC):
         self.device = None
         self.start_epoch = 0
         self.losses = AverageMeter()
+        self.best_loss = np.infty
 
         main(self)
 
@@ -102,6 +103,10 @@ class Experiment(ABC):
         return os.path.join(self.checkpoint_dir, self.git_commit, self.params)
 
     @property
+    def figures_directory(self):
+        return os.path.join(self.checkpoint_directory, "figures")
+
+    @property
     def best_checkpoint(self):
         return os.path.join(self.checkpoint_directory, "best_checkpoint.pt")
 
@@ -117,6 +122,15 @@ class Experiment(ABC):
 
     def update_test_meters(self, loss, model_output, targets):
         self.losses.update(loss.data.item(), model_output.size(0))
+
+    def pre_train_hook(self, *args, **kwargs):
+        pass
+
+    def post_train_hook(self, *args, **kwargs):
+        pass
+
+    def epoch_finished_hook(self, *args, **kwargs):
+        pass
 
     @abstractmethod
     def get_loaders(self):
@@ -206,6 +220,8 @@ def main(experiment):
 
     optimizer, scheduler = experiment.get_optimizer_and_scheduler(model, train_loader)
 
+    experiment.pre_train_hook(train_loader)
+
     for epoch in range(experiment.start_epoch, experiment.epochs):
 
         # train for one epoch
@@ -225,6 +241,9 @@ def main(experiment):
             is_best,
             experiment,
         )
+        experiment.epoch_finished_hook(epoch, model, val_loader)
+
+    experiment.post_train_hook()
     print("Best loss: ", experiment.best_loss)
 
     # load the best model and evaluate on the test set
