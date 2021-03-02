@@ -50,7 +50,6 @@ class BaseImageExperiment(train.Experiment):
         self.classes = []
         self.class_mapping_ = None
         self.class_idxs_ = []
-        self.best_loss = np.infty
 
         super().__init__(**kwargs)
 
@@ -340,7 +339,7 @@ class BaseSyntheticExperiment(train.Experiment):
     Synthetic Experiment Parameters:
         nhidden     num hidden units in the encoder / decoder respectively
         ndims       how many dimensions are we modeling
-        name            name to use in logging the results
+        name        name to use in logging the results
     \n
     """
 
@@ -355,16 +354,49 @@ class BaseSyntheticExperiment(train.Experiment):
         baseline: bool = False,
         **kwargs,
     ):
-        super().__init__(**kwargs)
         self.nhidden = nhidden
         self.ndims = ndims
         self.nlatent = nlatent
         self.name = name
         self.baseline = baseline
+        self.weight = 10.0
+        super().__init__(**kwargs)
 
     @property
     def params(self):
-        return f"{self.name}-{self.lr}_{self.seed}"
+        return f"{self.name}-{self.lr}_{self.seed}_{self.baseline}"
+
+    def pre_train_hook(self, train_loader):
+        fig = plt.figure(figsize=(4, 4))
+        ax = fig.gca()
+        train_loader.dataset.sampler.plot(ax=ax, with_term_labels=True)
+        fig_file = os.path.join(self.figures_directory, f"generated_data.png")
+        save_figure(fig, fig_file, self)
+
+    def plot_validation_reconstructions(self, epoch, model, loader):
+        fig = plt.figure(figsize=(4, 4))
+        ax = fig.gca()
+        recons = []
+        for i, data in enumerate(loader):
+            model_input = self.get_input_data(data)
+            with torch.no_grad():
+                output = model(model_input, test=True)
+                recon, (m, lv) = output
+            recons += [recon]
+
+        recons = torch.cat(recons, dim=0)
+        valid_constraints = [t.valid(recons) for t in self.logic_terms]
+        v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
+        ax.scatter(*recons[v_c].numpy().T, s=0.5, label="valid", c="C2")
+        ax.scatter(*recons[~v_c].numpy().T, s=0.5, label="invalid", c="C3")
+
+        fig_file = os.path.join(self.figures_directory, f"{epoch}_reconstruction.png")
+        save_figure(fig, fig_file, self)
+
+    def epoch_finished_hook(self, *args, **kwargs):
+        if not args[0] % 10 == 0:
+            return
+        self.plot_validation_reconstructions(*args)
 
     def get_loaders(self):
         train_size = 5000
@@ -404,41 +436,78 @@ class BaseSyntheticExperiment(train.Experiment):
         }
 
     def get_input_data(self, data):
-        pass
+        samples = data[0].to(self.device)
+        # labels = data[1].to(self.device)
+        return samples
 
     def get_target_data(self, data):
-        pass
+        samples = data[0].to(self.device)
+        labels = data[1].to(self.device)
+        return samples
 
     def criterion(self, output, target, train=True):
-        pass
+
+        if not self.baseline and train:
+            (recon, log_py), (mu, lv) = output
+            ll = []
+            for j, p in enumerate(recon.split(1, dim=1)):
+                ll += [
+                    self.weight
+                    * F.mse_loss(p.squeeze(1), target, reduction="none").sum(dim=1)
+                ]
+            pred_loss = torch.stack(ll, dim=1)
+            recon_losses, labels = pred_loss.min(dim=1)
+
+            kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1).mean()
+            loss = (log_py.exp() * (pred_loss + log_py)).sum(dim=1).mean()
+            loss += recon_losses.mean()
+            loss += F.nll_loss(log_py, labels)
+            loss += kld
+
+            return loss
+
+        recon, (mu, lv) = output
+        loss = (
+            self.weight
+            * F.mse_loss(recon.squeeze(1), target, reduction="none").sum(dim=1).mean()
+        )
+        loss += -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1).mean()
         return loss
 
     def update_train_meters(self, loss, output, target):
-        pass
+        if not self.baseline:
+            (recon, log_py), (mu, lv) = output
+            preds = recon[np.arange(len(log_py)), log_py.argmax(dim=1)]
+        else:
+            preds, (mu, lv) = output
+
+        self.losses["loss"].update(loss.data.item(), target.size(0))
+        valid_constraints = [t.valid(preds) for t in self.logic_terms]
+        v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
+        self.losses["constraint"].update(v_c.tolist(), v_c.size(0))
 
     def update_test_meters(self, loss, output, target):
-        pass
+        preds, (mu, lv) = output
+        self.losses["loss"].update(loss.data.item(), target.size(0))
+        valid_constraints = [t.valid(preds) for t in self.logic_terms]
+        v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
+        self.losses["constraint"].update(v_c.tolist(), v_c.size(0))
 
     def log(self, epoch, batch_time):
-        # TODO
         print(
-            f"Epoch: [{0}][{1}/{2}]\t"
+            f"Epoch: [{epoch}/{self.epochs}]\t"
             f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
             f'Loss {self.losses["loss"].val:.4f} ({self.losses["loss"].avg:.4f})\t'
-            f'Acc {self.losses["accuracy"].val:.4f} ({self.losses["accuracy"].avg:.4f})\t'
-            f'AccSC {self.losses["superclass_accuracy"].val:.4f} ({self.losses["superclass_accuracy"].avg:.4f})'
+            f'Constraint {self.losses["constraint"].val:.4f} ({self.losses["constraint"].avg:.4f})\t'
         )
 
     def iter_done(self, type="Train"):
-        # TODO
         print(
             f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t'
-            f'Acc {round(self.losses["accuracy"].avg, 3)}\t'
-            f'AccSC {round(self.losses["superclass_accuracy"].avg, 3)}'
+            f'Constraint {round(self.losses["constraint"].avg, 3)}\t'
         )
 
     def update_best(self, val):
-        # TODO
         if val < self.best_loss:
             self.best_loss = val
             return True
@@ -506,9 +575,12 @@ class PartiallyKnownConstraintsSyntheticExperiment(
     pass
 
 
-experiment_options = {
+image_experiment_options = {
     "cifar10": Cifar10Experiment,
     "cifar100": Cifar100Experiment,
+}
+
+synthetic_experiment_options = {
     "synthetic_full": FullyKnownConstraintsSyntheticExperiment,
     "synthetic_partial": PartiallyKnownConstraintsSyntheticExperiment,
 }
