@@ -89,8 +89,7 @@ class ConstrainedVAE(LinearVAE):
             idxs = np.arange(len(pred))
             return pred[idxs, labelz]
 
-        p_mus, log_prob = self.logic(decoded, labels, test, **kwargs)
-        return p_mus, log_prob
+        return self.logic(decoded, labels, test, **kwargs)
 
     def forward(self, x, test=False, **kwargs):
         # encoding
@@ -103,5 +102,4 @@ class ConstrainedVAE(LinearVAE):
         z = self.reparameterize(mu, log_var)
 
         # decoding
-        (decoded, log_prob) = self.decode(z, pred_y, **kwargs)
-        return (decoded, log_prob), (mu, log_var)
+        return self.decode(z, pred_y, test, **kwargs), (mu, log_var)
