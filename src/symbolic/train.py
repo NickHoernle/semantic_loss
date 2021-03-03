@@ -74,6 +74,7 @@ class Experiment(ABC):
         self.start_epoch = 0
         self.losses = AverageMeter()
         self.best_loss = np.infty
+        self.logfile_ = None
 
         main(self)
 
@@ -323,11 +324,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
         end = time.time()
 
         if i % experiment.print_freq == experiment.print_freq - 1:
-            experiment.log_iter(
-                f"Epoch: [{0}][{1}/{2}]\t"
-                f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
-                f"Loss {experiment.losses.val:.4f} ({experiment.losses.avg:.4f})"
-            )
+            experiment.log_iter(epoch, batch_time)
 
     experiment.iter_done(type="Train")
 
@@ -338,7 +335,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
     #     log_value('train_acc', top1.avg, epoch)
 
 
-def validate(val_loader, model, epoch, experiment, logfile):
+def validate(val_loader, model, epoch, experiment):
     """Perform validation on the validation set"""
     batch_time = AverageMeter()
     experiment.init_meters()

@@ -502,10 +502,10 @@ class BaseSyntheticExperiment(train.Experiment):
         )
 
     def iter_done(self, type="Train"):
-        print(
-            f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t'
-            f'Constraint {round(self.losses["constraint"].avg, 3)}\t'
-        )
+        text = f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t ' \
+               f'Constraint {round(self.losses["constraint"].avg, 3)}\t'
+        print(text)
+        self.logfile.write(text+"\n")
 
     def update_best(self, val):
         if val < self.best_loss:
