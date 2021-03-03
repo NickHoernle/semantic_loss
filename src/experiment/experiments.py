@@ -350,16 +350,18 @@ class BaseSyntheticExperiment(train.Experiment):
         nhidden: int = 250,
         nlatent: int = 25,
         ndims: int = 2,
-        name: str = "Synthetic",
         baseline: bool = False,
+        name: str = "Synthetic",
+        size_of_train_set: int = 5000,
         **kwargs,
     ):
         self.nhidden = nhidden
         self.ndims = ndims
         self.nlatent = nlatent
-        self.name = name
         self.baseline = baseline
+        self.name = name
         self.weight = 10.0
+        self.size_of_train_set = size_of_train_set
         super().__init__(**kwargs)
 
     @property
@@ -399,9 +401,9 @@ class BaseSyntheticExperiment(train.Experiment):
         self.plot_validation_reconstructions(*args)
 
     def get_loaders(self):
-        train_size = 5000
+        train_size = self.size_of_train_set
         valid_size = 1000
-        test_size = 1000
+        test_size = 5000
 
         return get_synthetic_loaders(train_size, valid_size, test_size)
 
@@ -515,6 +517,9 @@ class BaseSyntheticExperiment(train.Experiment):
 
 
 class FullyKnownConstraintsSyntheticExperiment(BaseSyntheticExperiment):
+    def __init__(self, name: str = "SyntheticFull", **kwargs):
+        super().__init__(name=name, **kwargs)
+
     @property
     def logic_terms(self):
         ll = 0.5
@@ -572,7 +577,26 @@ class FullyKnownConstraintsSyntheticExperiment(BaseSyntheticExperiment):
 class PartiallyKnownConstraintsSyntheticExperiment(
     FullyKnownConstraintsSyntheticExperiment
 ):
-    pass
+    def __init__(self, name: str = "SyntheticPartial", **kwargs):
+        super().__init__(name=name, **kwargs)
+
+    def get_loaders(self):
+        train_size = self.size_of_train_set
+        valid_size = 1000
+        test_size = 5000
+        sampler_params = {
+            "rotations": [
+                # 0,
+                np.pi / 4,
+                2 * np.pi / 4,
+                3 * np.pi / 4,
+                # np.pi,
+                5 * np.pi / 4,
+                6 * np.pi / 4,
+                7 * np.pi / 4,
+            ]
+        }
+        return get_synthetic_loaders(train_size, valid_size, test_size, sampler_params=sampler_params)
 
 
 image_experiment_options = {

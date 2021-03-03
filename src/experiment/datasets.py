@@ -227,8 +227,8 @@ class Gaussian(generator):
 
 class ConstraintedSampler(Gaussian):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.rotations = [
+        super().__init__()
+        self.rotations = kwargs.get("rotations", [
             0,
             np.pi / 4,
             2 * np.pi / 4,
@@ -237,7 +237,7 @@ class ConstraintedSampler(Gaussian):
             5 * np.pi / 4,
             6 * np.pi / 4,
             7 * np.pi / 4,
-        ]
+        ])
 
     def term1(self, x):
         valid = (x[:, 1] > 2.5) & (x[:, 1] < 5.5) & (x[:, 0] > -0.5) & (x[:, 0] < 0.5)
@@ -326,8 +326,9 @@ def get_synthetic_loaders(
     batch_size: int = 128,
     num_workers: int = 4,
     pin_memory: bool = False,
+    sampler_params: dict = {}
 ):
-    c = ConstraintedSampler()
+    c = ConstraintedSampler(**sampler_params)
     kwargs = {
         "batch_size": batch_size,
         "num_workers": num_workers,
