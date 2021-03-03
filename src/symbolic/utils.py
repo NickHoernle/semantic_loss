@@ -10,8 +10,6 @@ import inspect
 
 def save_checkpoint(state, is_best, experiment):
     """Saves checkpoint to disk"""
-    if not os.path.exists(experiment.checkpoint_directory):
-        os.makedirs(experiment.checkpoint_directory)
     torch.save(state, experiment.checkpoint)
     if is_best:
         shutil.copyfile(experiment.checkpoint, experiment.best_checkpoint)
@@ -19,8 +17,6 @@ def save_checkpoint(state, is_best, experiment):
 
 def save_figure(fig, f_path, experiment):
     """Saves checkpoint to disk"""
-    if not os.path.exists(experiment.figures_directory):
-        os.makedirs(experiment.figures_directory)
     fig.savefig(f_path)
     plt.close(fig)
 

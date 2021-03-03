@@ -100,11 +100,24 @@ class Experiment(ABC):
     @property
     def checkpoint_directory(self):
         assert self.git_commit != ""
-        return os.path.join(self.checkpoint_dir, self.git_commit, self.params)
+        path = os.path.join(self.checkpoint_dir, self.git_commit, self.params)
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
+        return path
 
     @property
     def figures_directory(self):
-        return os.path.join(self.checkpoint_directory, "figures")
+        figs_dir = os.path.join(self.checkpoint_directory, "figures")
+        if not os.path.exists(figs_dir):
+            os.mkdir(figs_dir)
+        return figs_dir
+
+    @property
+    def logs_directory(self):
+        logs_dir = os.path.join(self.checkpoint_directory, "logs")
+        if not os.path.exists(logs_dir):
+            os.mkdir(logs_dir)
+        return logs_dir
 
     @property
     def best_checkpoint(self):
@@ -113,6 +126,14 @@ class Experiment(ABC):
     @property
     def checkpoint(self):
         return os.path.join(self.checkpoint_directory, "checkpoint.pt")
+
+    @property
+    def logfile(self):
+        if type(self.logfile_) == type(None):
+            self.logfile_ = open(
+                os.path.join(self.logs_directory, "logs.txt"), "w", buffering=1
+            )
+        return self.logfile_
 
     def init_meters(self):
         self.losses = AverageMeter()
@@ -168,20 +189,20 @@ class Experiment(ABC):
     def get_target_data(self, data):
         pass
 
-    def log(self, epoch, batch_time):
-        print(
-            f"Epoch: [{0}][{1}/{2}]\t"
+    def log(self, text):
+        self.logfile.write(f"{text}\n")
+
+    def log_iter(self, epoch, batch_time):
+        self.logfile.write(
+            f"Epoch: [{epoch}/{self.epochs}]\t"
             f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
-            f"Loss {self.losses.val:.4f} ({self.losses.avg:.4f})"
         )
 
     def iter_done(self, type="Train"):
-        print(f"{type}: Loss {round(self.losses.avg, 3)}")
+        self.logfile.write(f"{type}: Loss {round(self.losses.avg, 3)}")
 
 
 def main(experiment):
-
-    print(experiment.params)
 
     repo = git.Repo(search_parent_directories=True)
     # set the git commit for logging purposes
@@ -195,8 +216,12 @@ def main(experiment):
     # create model
     model = experiment.create_model()
 
+    experiment.log(f"Starting experiment with params: {experiment.params}")
+
     # get the number of model parameters
-    print(f"Number of model parameters: {sum([p.numel() for p in model.parameters()])}")
+    experiment.log(
+        f"Number of model parameters: {sum([p.numel() for p in model.parameters()])}"
+    )
 
     # no current support for parallel GPU execution
     model = model.to(device)
@@ -204,16 +229,16 @@ def main(experiment):
     # optionally resume from a checkpoint
     if experiment.resume:
         if os.path.isfile(experiment.checkpoint):
-            print(f"=> loading checkpoint from '{experiment.checkpoint}'")
+            experiment.log(f"=> loading checkpoint from '{experiment.checkpoint}'")
             checkpoint = torch.load(experiment.checkpoint)
             experiment.start_epoch = checkpoint["epoch"]
             experiment.best_loss = checkpoint["best_loss"]
             model.load_state_dict(checkpoint["state_dict"])
-            print(
+            experiment.log(
                 f"=> loaded checkpoint '{experiment.checkpoint}' (epoch {checkpoint['epoch']})"
             )
         else:
-            print(f"=> no checkpoint found at '{experiment.checkpoint}'")
+            experiment.log(f"=> no checkpoint found at '{experiment.checkpoint}'")
 
     # TODO: why do I need this again?
     cudnn.benchmark = True
@@ -244,18 +269,27 @@ def main(experiment):
         experiment.epoch_finished_hook(epoch, model, val_loader)
 
     experiment.post_train_hook()
-    print("Best loss: ", experiment.best_loss)
 
-    # load the best model and evaluate on the test set
-    print("======== TESTING ON UNSEEN DATA =========")
-    print("======== USE FINAL MODEL =========")
-    prec1 = validate(test_loader, model, 0, experiment)
-    print("Final Model accuracy ====> ", prec1)
-    print("======== USE BEST MODEL =========")
+    all_results_file = open(
+        os.path.join(experiment.checkpoint_dir, "results.txt"), "a", buffering=1
+    )
+
+    experiment.log(f"Best loss: {experiment.best_loss}")
+
+    final_model_val_acc = validate(test_loader, model, 0, experiment)
     checkpoint = torch.load(experiment.best_checkpoint_directory)
     model.load_state_dict(checkpoint["state_dict"])
-    prec1 = validate(test_loader, model, 0, experiment)
-    print("Test accuracy ====> ", prec1)
+    best_model_val_acc = validate(test_loader, model, 0, experiment)
+
+    experiment.log("======== TESTING ON UNSEEN DATA =========")
+    experiment.log("======== USE FINAL MODEL =========")
+    experiment.log(f"Final Model accuracy ====> {final_model_val_acc}")
+    experiment.log("======== USE BEST MODEL =========")
+    experiment.log(f"Final Model accuracy ====> {best_model_val_acc}")
+
+    all_results_file.write(f"{experiment.params}: {best_model_val_acc}")
+    all_results_file.close()
+    experiment.logfile.close()
 
 
 def train(train_loader, model, optimizer, scheduler, epoch, experiment):
@@ -289,7 +323,11 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
         end = time.time()
 
         if i % experiment.print_freq == experiment.print_freq - 1:
-            experiment.log(epoch, batch_time)
+            experiment.log_iter(
+                f"Epoch: [{0}][{1}/{2}]\t"
+                f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
+                f"Loss {experiment.losses.val:.4f} ({experiment.losses.avg:.4f})"
+            )
 
     experiment.iter_done(type="Train")
 
@@ -300,7 +338,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
     #     log_value('train_acc', top1.avg, epoch)
 
 
-def validate(val_loader, model, epoch, experiment):
+def validate(val_loader, model, epoch, experiment, logfile):
     """Perform validation on the validation set"""
     batch_time = AverageMeter()
     experiment.init_meters()

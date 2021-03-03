@@ -244,9 +244,9 @@ class BaseImageExperiment(train.Experiment):
                 (new_pred.data.argmax(dim=1) == new_tgts).tolist(), output.data.shape[0]
             )
 
-    def log(self, epoch, batch_time):
-        print(
-            f"Epoch: [{0}][{1}/{2}]\t"
+    def log_iter(self, epoch, batch_time):
+        self.logfile.write(
+            f"Epoch: [{epoch}/{self.epochs}]\t"
             f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
             f'Loss {self.losses["loss"].val:.4f} ({self.losses["loss"].avg:.4f})\t'
             f'Acc {self.losses["accuracy"].val:.4f} ({self.losses["accuracy"].avg:.4f})\t'
@@ -254,7 +254,7 @@ class BaseImageExperiment(train.Experiment):
         )
 
     def iter_done(self, type="Train"):
-        print(
+        self.logfile.write(
             f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t'
             f'Acc {round(self.losses["accuracy"].avg, 3)}\t'
             f'AccSC {round(self.losses["superclass_accuracy"].avg, 3)}'
@@ -493,8 +493,8 @@ class BaseSyntheticExperiment(train.Experiment):
         v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
         self.losses["constraint"].update(v_c.tolist(), v_c.size(0))
 
-    def log(self, epoch, batch_time):
-        print(
+    def log_iter(self, epoch, batch_time):
+        self.logfile.write(
             f"Epoch: [{epoch}/{self.epochs}]\t"
             f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
             f'Loss {self.losses["loss"].val:.4f} ({self.losses["loss"].avg:.4f})\t'
