@@ -249,15 +249,15 @@ class BaseImageExperiment(train.Experiment):
             f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
             f'Loss {self.losses["loss"].val:.4f} ({self.losses["loss"].avg:.4f})\t'
             f'Acc {self.losses["accuracy"].val:.4f} ({self.losses["accuracy"].avg:.4f})\t'
-            f'AccSC {self.losses["superclass_accuracy"].val:.4f} ({self.losses["superclass_accuracy"].avg:.4f})'
+            f'AccSC {self.losses["superclass_accuracy"].val:.4f} ({self.losses["superclass_accuracy"].avg:.4f}\n)'
         )
 
     def iter_done(self, type="Train"):
-        self.logfile.write(
-            f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t'
-            f'Acc {round(self.losses["accuracy"].avg, 3)}\t'
-            f'AccSC {round(self.losses["superclass_accuracy"].avg, 3)}'
-        )
+        text = f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t ' \
+               f'Acc {round(self.losses["accuracy"].avg, 3)}\t' \
+               f'AccSC {round(self.losses["superclass_accuracy"].avg, 3)}\n'
+        self.logfile.write(text)
+        print(text, end="")
 
     def update_best(self, val):
         if val < self.best_loss:

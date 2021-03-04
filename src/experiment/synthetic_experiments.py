@@ -64,7 +64,7 @@ class BaseSyntheticExperiment(train.Experiment):
         v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
         ax.scatter(*recons[v_c].numpy().T, s=0.5, label="valid", c="C2")
         ax.scatter(*recons[~v_c].numpy().T, s=0.5, label="invalid", c="C3")
-
+        ax.legend(loc="best")
         fig_file = os.path.join(self.figures_directory, f"{epoch}_reconstruction.png")
         save_figure(fig, fig_file, self)
 
@@ -173,13 +173,13 @@ class BaseSyntheticExperiment(train.Experiment):
             f"Epoch: [{epoch}/{self.epochs}]\t"
             f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
             f'Loss {self.losses["loss"].val:.4f} ({self.losses["loss"].avg:.4f})\t'
-            f'Constraint {self.losses["constraint"].val:.4f} ({self.losses["constraint"].avg:.4f})\t'
+            f'Constraint {self.losses["constraint"].val:.4f} ({self.losses["constraint"].avg:.4f})\n'
         )
 
     def iter_done(self, type="Train"):
         text = f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t ' \
-               f'Constraint {round(self.losses["constraint"].avg, 3)}\t'
-        print(text)
+               f'Constraint {round(self.losses["constraint"].avg, 3)}\n'
+        print(text, end="")
         self.logfile.write(text+"\n")
 
     def update_best(self, val):

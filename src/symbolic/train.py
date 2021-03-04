@@ -360,7 +360,7 @@ def validate(val_loader, model, epoch, experiment):
         end = time.time()
 
         if i % experiment.print_freq == experiment.print_freq - 1:
-            experiment.log(epoch, batch_time)
+            experiment.log_iter(epoch, batch_time)
 
     experiment.iter_done(type="Test ")
 
