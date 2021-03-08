@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from symbolic import train
 from symbolic.utils import *
 from experiment.datasets import *
-from experiment.generative import MnistVAE
+from experiment.generative import MnistVAE, ConstrainedMnistVAE
 from torch.distributions.normal import Normal
 from experiment.class_mapping import mnist_domain_knowledge as knowledge
 
@@ -221,6 +221,16 @@ class ConstrainedMNIST(BaseMNISTExperiment):
     ):
         kwargs["sloss"] = True
         super().__init__(**kwargs)
+
+    def create_model(self):
+        return ConstrainedMnistVAE(
+            x_dim=784,
+            h_dim1=self.hidden_dim1,
+            h_dim2=self.hidden_dim2,
+            z_dim=self.zdim,
+            num_labels=10,
+            num_terms=55
+        )
 
     def criterion(self, output, target, train=True):
 
