@@ -21,7 +21,7 @@ base_call = (
 
 repeats = 1
 
-learning_rate = [0.05, .01]
+learning_rate = [0.05, 0.01]
 sloss = [True]
 lower_lim = [-15]
 upper_lim = [-4, -4.5]
