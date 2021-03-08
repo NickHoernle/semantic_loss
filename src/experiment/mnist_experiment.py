@@ -204,8 +204,6 @@ def calc_ll(params, target):
 
 
 class ConstrainedMNIST(BaseMNISTExperiment):
-    __doc__ += train.Experiment.__doc__
-
     def __init__(
         self,
         **kwargs,
@@ -239,7 +237,6 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                 ll += [ll1 + ll2 + ll3]
 
         preds = torch.stack(ll, dim=1)
-        logpy = torch.stack(logpy, dim=1)
 
         return (logpy.exp() * (preds + logpy)).sum(dim=1).mean()
 
