@@ -155,7 +155,7 @@ class BaseMNISTExperiment(train.Experiment):
         )
 
     def update_test_meters(self, loss, output, target):
-        self.update_train_meters(self, loss, output, target)
+        self.update_train_meters(loss, output, target)
 
     def log_iter(self, epoch, batch_time):
         self.logfile.write(

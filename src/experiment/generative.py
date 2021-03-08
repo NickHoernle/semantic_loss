@@ -171,7 +171,7 @@ class MnistVAE(nn.Module):
     def decode(self, encoded):
         return [self.collect(encoded, label) for label in range(self.num_labels)]
 
-    def forward(self, in_data):
+    def forward(self, in_data, test=False):
         x1, x2, x3 = in_data
         encoded1, log_pred1 = self.encode(x1.view(-1, 784))
         encoded2, log_pred2 = self.encode(x2.view(-1, 784))
@@ -191,7 +191,7 @@ class ConstrainedMnistVAE(MnistVAE):
         self.num_terms = num_terms
         self.logic_pred = nn.Linear(3 * self.num_labels, num_terms)
 
-    def forward(self, in_data):
+    def forward(self, in_data, test=False):
         x1, x2, x3 = in_data
         encoded1, log_pred1 = self.encode(x1.view(-1, 784))
         encoded2, log_pred2 = self.encode(x2.view(-1, 784))
