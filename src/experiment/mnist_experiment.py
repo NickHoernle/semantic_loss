@@ -32,6 +32,7 @@ class BaseMNISTExperiment(train.Experiment):
         self.hidden_dim1 = hidden_dim1
         self.hidden_dim2 = hidden_dim2
         self.zdim = zdim
+        self.beta = 50.
         super().__init__(**kwargs)
 
     @property
@@ -186,6 +187,9 @@ class BaseMNISTExperiment(train.Experiment):
             f'Acc3 {round(self.losses["accuracy_class_3"].avg, 3)} \t'
             f'Ent {round(self.losses["entropy"].avg, 3)} \n'
         )
+        if self.beta > 1.:
+            self.beta -= 1.
+
         print(text, end="")
         self.logfile.write(text + "\n")
 
@@ -196,7 +200,7 @@ class BaseMNISTExperiment(train.Experiment):
         return False
 
 
-def calc_ll(params, target):
+def calc_ll(params, target, beta=1.):
     """
     Helper to calculate the ll of a single prediction for one of the images that are being processed
     """
@@ -212,7 +216,7 @@ def calc_ll(params, target):
         dim=1
     )
 
-    return rcon + kld
+    return rcon + beta*kld
 
 
 class ConstrainedMNIST(BaseMNISTExperiment):
@@ -242,12 +246,12 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         for i, vals in knowledge.items():
             for j, v in enumerate(vals):
 
-                ll1 = calc_ll(recons1[v[0]], tgt1)
-                ll2 = calc_ll(recons2[v[1]], tgt2)
-                ll3 = calc_ll(recons3[i], tgt3)
+                ll1 = calc_ll(recons1[v[0]], tgt1, beta=self.beta)
+                ll2 = calc_ll(recons2[v[1]], tgt2, beta=self.beta)
+                ll3 = calc_ll(recons3[i], tgt3, beta=self.beta)
 
                 # lp = -(lp1[:, v[0]] + lp2[:, v[1]])
-                ll += [ll1 + ll2 + ll3 - lp1[:, v[0]] - lp2[:, v[1]] - lp3[:, i]]
+                ll += [ll1 + ll2 + ll3]
 
         preds = torch.stack(ll, dim=1)
         # logpy = torch.stack(logpy, dim=1).log_softmax(dim=1)
