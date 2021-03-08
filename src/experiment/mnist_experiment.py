@@ -159,7 +159,7 @@ class BaseMNISTExperiment(train.Experiment):
                 (lp1.exp() * lp1).sum(dim=1)
                 - (lp2.exp() * lp2).sum(dim=1)
                 - (lp3.exp() * lp3).sum(dim=1)
-            ).mean(),
+            ).mean().data.item(),
             tgt3.size(0),
         )
 
