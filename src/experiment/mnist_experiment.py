@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from symbolic import train
 from symbolic.utils import *
 from experiment.datasets import *
-from experiment.generative import MnistVAE, ConstrainedMnistVAE
+from experiment.generative import MnistVAE
 from torch.distributions.normal import Normal
 from experiment.class_mapping import mnist_domain_knowledge as knowledge
 
