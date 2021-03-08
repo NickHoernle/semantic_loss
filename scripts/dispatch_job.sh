@@ -127,7 +127,7 @@ mkdir -p ${output_dir}/logs
 cd ~/git/semantic_loss
 
 experiment_text_file=$1
-COMMAND="`sed \"${SLURM_ARRAY_TASK_ID}q;d\" ${experiment_text_file}`"
+COMMAND="`sed \"${SLURM_ARRAY_TASK_ID}q;d\" scripts/${experiment_text_file}`"
 #./main_strunk_white_count_data.py --input ${input_dir} --output ${output_dir} --epochs 50
 # semi_supervised_vae.py --input-data=${input_dir} --output-data=${output_dir} --use_cuda=True --num_epochs=500 --hidden_dim=50 --batch_size=200 --lr=1e-3 --num_labeled_data_per_class=10 --gamma=0.99 --num_test_samples=0 --num_loader_workers=4 run
 

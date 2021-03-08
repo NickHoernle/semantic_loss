@@ -120,7 +120,7 @@ class BaseMNISTExperiment(train.Experiment):
     def criterion(self, output, target, train=True):
 
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3), logic_pred = output
+        (recons1, recons2, recons3), (lp1, lp2, lp3) = output
         ll1, ll2, ll3 = [], [], []
         for i in range(10):
             ll1.append(calc_ll(recons1[i], tgt1))
@@ -210,32 +210,30 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         kwargs["sloss"] = True
         super().__init__(**kwargs)
 
-    def create_model(self):
-        return ConstrainedMnistVAE(
-            x_dim=784,
-            h_dim1=self.hidden_dim1,
-            h_dim2=self.hidden_dim2,
-            z_dim=self.zdim,
-            num_labels=10,
-            num_terms=55,
-        )
-
     def criterion(self, output, target, train=True):
 
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3), logic_pred = output
+        (recons1, recons2, recons3), (lp1, lp2, lp3) = output
         ll = []
-        logpy = logic_pred
+        logpy = []
 
         for i, vals in knowledge.items():
+
+            lp1_ = lp1[:, [v[0] for v in vals]]
+            lp2_ = lp2[:, [v[1] for v in vals]]
+            new_targs = (lp1_ + lp2_)
+            new_targs = new_targs - new_targs.logsumexp(dim=1)[:, None]
+
             for j, v in enumerate(vals):
                 ll1 = calc_ll(recons1[v[0]], tgt1)
                 ll2 = calc_ll(recons2[v[1]], tgt2)
                 ll3 = calc_ll(recons3[i], tgt3)
 
                 ll += [ll1 + ll2 + ll3]
+                logpy += [lp3[:, i] + new_targs[:, j]]
 
         preds = torch.stack(ll, dim=1)
+        logpy = torch.stack(logpy, dim=1)
 
         return (logpy.exp() * (preds + logpy)).sum(dim=1).mean()
 
