@@ -121,22 +121,21 @@ class BaseMNISTExperiment(train.Experiment):
 
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
         (recons1, recons2, recons3), (lp1, lp2, lp3), logic_pred = output
-        ll = []
-        logpy = []
+        ll1, ll2, ll3 = [], [], []
         for i in range(10):
-            for j in range(10):
-                for k in range(10):
-                    ll1 = calc_ll(recons1[i], tgt1)
-                    ll2 = calc_ll(recons2[j], tgt2)
-                    ll3 = calc_ll(recons3[k], tgt3)
+            ll1.append(calc_ll(recons1[i], tgt1))
 
-                    ll += [ll1 + ll2 + ll3]
-                    logpy += [lp1[:, i] + lp2[:, j] + lp3[:, k]]
+        for j in range(10):
+            ll2.append(calc_ll(recons2[j], tgt2))
 
-        preds = torch.stack(ll, dim=1)
-        logpy = torch.stack(logpy, dim=1)
+        for k in range(10):
+            ll3.append(calc_ll(recons3[k], tgt3))
 
-        return (logpy.exp() * (preds + logpy)).sum(dim=1).mean()
+        return (
+            (lp1.exp() * (torch.stack(ll1, dim=1) + lp1)).sum(dim=1).mean()
+            + (lp2.exp() * (torch.stack(ll2, dim=1) + lp2)).sum(dim=1).mean()
+            + (lp3.exp() * (torch.stack(ll3, dim=1) + lp3)).sum(dim=1).mean()
+        )
 
     def update_train_meters(self, loss, output, target):
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target

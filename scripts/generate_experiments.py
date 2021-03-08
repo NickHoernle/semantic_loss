@@ -9,15 +9,23 @@ SCRATCH_DISK = "/disk/scratch"
 SCRATCH_HOME = f"{SCRATCH_DISK}/{USER}"
 
 DATA_HOME = f"{SCRATCH_HOME}/sloss"
+experiment = "cifar10"
 base_call = (
-    f"run_image_experiments.py cifar100 "
+    f"run_image_experiments.py {experiment} "
     f"--dataset_path={DATA_HOME}/data "
-    f"--layers=28 --widen-factor=10 "
+    f"--checkpoint_dir={DATA_HOME}/logs/ "
     f"--epochs=200 "
     f"--print_freq=200 "
     f"--batch_size=250 "
-    f"--checkpoint_dir={DATA_HOME}/logs/ "
 )
+
+experiment_params = {
+    "mnist": "",
+    "cifar10": f"--layers=28 --widen-factor=10 ",
+    "cifar100": f"--layers=28 --widen-factor=10 ",
+}
+
+base_call += experiment_params[experiment]
 
 repeats = 1
 
