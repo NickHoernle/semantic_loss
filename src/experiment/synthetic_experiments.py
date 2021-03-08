@@ -6,6 +6,7 @@ from symbolic.utils import *
 from experiment.datasets import *
 from experiment.generative import LinearVAE, ConstrainedVAE
 
+
 class BaseSyntheticExperiment(train.Experiment):
     """Experimental setup for training with domain knowledge specified by a DNF logic formula on the synthetic dataset with continuous constraints. Wraps: train.Experiment.
 
@@ -177,10 +178,12 @@ class BaseSyntheticExperiment(train.Experiment):
         )
 
     def iter_done(self, type="Train"):
-        text = f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t ' \
-               f'Constraint {round(self.losses["constraint"].avg, 3)}\n'
+        text = (
+            f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t '
+            f'Constraint {round(self.losses["constraint"].avg, 3)}\n'
+        )
         print(text, end="")
-        self.logfile.write(text+"\n")
+        self.logfile.write(text + "\n")
 
     def update_best(self, val):
         if val < self.best_loss:
@@ -269,7 +272,9 @@ class PartiallyKnownConstraintsSyntheticExperiment(
                 7 * np.pi / 4,
             ]
         }
-        return get_synthetic_loaders(train_size, valid_size, test_size, sampler_params=sampler_params)
+        return get_synthetic_loaders(
+            train_size, valid_size, test_size, sampler_params=sampler_params
+        )
 
 
 synthetic_experiment_options = {
