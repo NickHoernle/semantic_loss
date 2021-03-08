@@ -227,7 +227,6 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
         (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
         ll = []
-        logpy = []
 
         for i, vals in knowledge.items():
             for j, v in enumerate(vals):
@@ -239,7 +238,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                 ll += [ll3 + lp]
 
         preds = torch.stack(ll, dim=1)
-        logpy = torch.stack(logpy, dim=1).log_softmax(dim=1)
+        # logpy = torch.stack(logpy, dim=1).log_softmax(dim=1)
 
         return (logpy.exp() * (preds + logpy)).sum(dim=1).mean()
 
