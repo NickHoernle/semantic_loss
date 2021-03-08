@@ -124,6 +124,7 @@ class BaseMNISTExperiment(train.Experiment):
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
         (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
         ll1, ll2, ll3 = [], [], []
+
         for i in range(10):
             ll1.append(calc_ll(recons1[i], tgt1))
 
@@ -246,7 +247,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                 ll3 = calc_ll(recons3[i], tgt3)
 
                 # lp = -(lp1[:, v[0]] + lp2[:, v[1]])
-                ll += [ll1 + ll2 + ll3]
+                ll += [ll1 + ll2 + ll3 - lp1[:, v[0]] - lp2[:, v[1]] - lp3[:, i]]
 
         preds = torch.stack(ll, dim=1)
         # logpy = torch.stack(logpy, dim=1).log_softmax(dim=1)
