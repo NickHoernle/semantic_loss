@@ -181,22 +181,26 @@ class MnistVAE(nn.Module):
         d2 = self.decode(encoded2)
         d3 = self.decode(encoded3)
 
-        return (d1, d2, d3), (log_pred1, log_pred2, log_pred3)
+        return (d1, d2, d3), (log_pred1, log_pred2, log_pred3), None
 
 
-# class ConstrainedMnistVAE(MnistVAE):
-#     def __init__(self, num_terms=55, **kwargs):
-#         super().__init__(**kwargs)
-#         self.num_terms = num_terms
-#
-#     def forward(self, in_data, test=False):
-#         x1, x2, x3 = in_data
-#         encoded1, log_pred1 = self.encode(x1.view(-1, 784))
-#         encoded2, log_pred2 = self.encode(x2.view(-1, 784))
-#         encoded3, log_pred3 = self.encode(x3.view(-1, 784))
-#
-#         d1 = self.decode(encoded1)
-#         d2 = self.decode(encoded2)
-#         d3 = self.decode(encoded3)
-#
-#         return (d1, d2, d3), (log_pred1, log_pred2, log_pred3)
+class ConstrainedMnistVAE(MnistVAE):
+    def __init__(self, num_terms=55, **kwargs):
+        super().__init__(**kwargs)
+        self.num_terms = num_terms
+        self.logic_pred = nn.Linear(3 * self.num_labels, num_terms)
+
+    def forward(self, in_data, test=False):
+        x1, x2, x3 = in_data
+        encoded1, log_pred1 = self.encode(x1.view(-1, 784))
+        encoded2, log_pred2 = self.encode(x2.view(-1, 784))
+        encoded3, log_pred3 = self.encode(x3.view(-1, 784))
+
+        d1 = self.decode(encoded1)
+        d2 = self.decode(encoded2)
+        d3 = self.decode(encoded3)
+
+        logic_pred = self.logic_pred(torch.cat((log_pred1.exp(), log_pred2.exp(), log_pred3.exp()), dim=1)).log_softmax(
+            dim=1)
+
+        return (d1, d2, d3), (log_pred1, log_pred2, log_pred3), logic_pred

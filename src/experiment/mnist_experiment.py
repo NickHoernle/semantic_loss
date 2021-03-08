@@ -122,7 +122,7 @@ class BaseMNISTExperiment(train.Experiment):
     def criterion(self, output, target, train=True):
 
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3) = output
+        (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
         ll1, ll2, ll3 = [], [], []
         for i in range(10):
             ll1.append(calc_ll(recons1[i], tgt1))
@@ -141,7 +141,7 @@ class BaseMNISTExperiment(train.Experiment):
 
     def update_train_meters(self, loss, output, target):
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3) = output
+        (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
 
         # TODO: note you should actually measure the most likely prediction...
         self.losses["loss"].update(loss.data.item(), tgt1.size(0))
@@ -225,18 +225,18 @@ class ConstrainedMNIST(BaseMNISTExperiment):
     def criterion(self, output, target, train=True):
 
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3) = output
+        (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
         ll = []
         logpy = []
 
         for i, vals in knowledge.items():
             for j, v in enumerate(vals):
-                ll1 = calc_ll(recons1[v[0]], tgt1)
-                ll2 = calc_ll(recons2[v[1]], tgt2)
+                # ll1 = calc_ll(recons1[v[0]], tgt1)
+                # ll2 = calc_ll(recons2[v[1]], tgt2)
                 ll3 = calc_ll(recons3[i], tgt3)
 
-                ll += [ll1 + ll2 + ll3]
-                logpy += [lp1[:, v[0]] + lp2[:, v[1]] + lp3[:, i]]
+                lp = -(lp1[:, v[0]] + lp2[:, v[1]])
+                ll += [ll3 + lp]
 
         preds = torch.stack(ll, dim=1)
         logpy = torch.stack(logpy, dim=1).log_softmax(dim=1)
