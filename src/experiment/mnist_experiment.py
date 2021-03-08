@@ -230,22 +230,16 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         logpy = []
 
         for i, vals in knowledge.items():
-
-            lp1_ = lp1[:, [v[0] for v in vals]]
-            lp2_ = lp2[:, [v[1] for v in vals]]
-            new_targs = lp1_ + lp2_
-            new_targs = new_targs - new_targs.logsumexp(dim=1)[:, None]
-
             for j, v in enumerate(vals):
                 ll1 = calc_ll(recons1[v[0]], tgt1)
                 ll2 = calc_ll(recons2[v[1]], tgt2)
                 ll3 = calc_ll(recons3[i], tgt3)
 
                 ll += [ll1 + ll2 + ll3]
-                logpy += [lp3[:, i] + new_targs[:, j]]
+                logpy += [lp1[:, v[0]] + lp2[:, v[1]] + lp3[:, i]]
 
         preds = torch.stack(ll, dim=1)
-        logpy = torch.stack(logpy, dim=1)
+        logpy = torch.stack(logpy, dim=1).log_softmax(dim=1)
 
         return (logpy.exp() * (preds + logpy)).sum(dim=1).mean()
 
