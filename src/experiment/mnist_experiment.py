@@ -139,7 +139,7 @@ class BaseMNISTExperiment(train.Experiment):
 
     def update_train_meters(self, loss, output, target):
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3), logic_pred = output
+        (recons1, recons2, recons3), (lp1, lp2, lp3) = output
 
         # TODO: note you should actually measure the most likely prediction...
         self.losses["loss"].update(loss.data.item(), tgt1.size(0))
