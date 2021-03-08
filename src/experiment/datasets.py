@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 from torch.utils import data
 
-
 import pickle
 import os
 
@@ -11,6 +10,18 @@ import numpy as np
 import torchvision.datasets as datasets
 from torchvision import transforms
 from torch.utils.data.sampler import SubsetRandomSampler
+from torch.utils.data import Subset
+
+from experiment.class_mapping import mnist_domain_knowledge as knowledge
+
+
+# for MNIST experiment, needs to fix the headers from urllib default:
+# https://stackoverflow.com/questions/60548000
+from six.moves import urllib
+
+opener = urllib.request.build_opener()
+opener.addheaders = [("User-agent", "Mozilla/5.0")]
+urllib.request.install_opener(opener)
 
 
 def get_train_valid_loader(
@@ -23,6 +34,7 @@ def get_train_valid_loader(
     dataset="cifar10",
     num_workers=4,
     pin_memory=False,
+    do_normalize=True,
 ):
     """
     Utility function for loading and returning train and valid
@@ -51,34 +63,28 @@ def get_train_valid_loader(
     error_msg = "[!] valid_size should be in the range [0, 1]."
     assert (valid_size >= 0) and (valid_size <= 1), error_msg
 
-    normalize = transforms.Normalize(
-        mean=[0.4914, 0.4822, 0.4465],
-        std=[0.2023, 0.1994, 0.2010],
-    )
+    train_transforms = []
+    valid_transforms = [transforms.ToTensor()]
+
+    if augment:
+        train_transforms += [
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+        ]
+
+    train_transforms += [transforms.ToTensor()]
+
+    if do_normalize:
+        normalize = transforms.Normalize(
+            mean=[0.4914, 0.4822, 0.4465],
+            std=[0.2023, 0.1994, 0.2010],
+        )
+        valid_transforms += normalize
+        train_transforms += normalize
 
     # define transforms
-    valid_transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            normalize,
-        ]
-    )
-    if augment:
-        train_transform = transforms.Compose(
-            [
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                normalize,
-            ]
-        )
-    else:
-        train_transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                normalize,
-            ]
-        )
+    valid_transform = transforms.Compose(valid_transforms)
+    train_transform = transforms.Compose(train_transforms)
 
     # load the dataset
     train_dataset = datasets.__dict__[dataset.upper()](
@@ -95,13 +101,17 @@ def get_train_valid_loader(
         transform=valid_transform,
     )
 
-    meta_name = "batches.meta" if dataset.upper() == "CIFAR10" else "meta"
-    with open(
-        os.path.join(data_dir, train_dataset.base_folder, meta_name), "rb"
-    ) as infile:
-        key = "label_names" if dataset.upper() == "CIFAR10" else "fine_label_names"
-        data = pickle.load(infile, encoding="latin1")
-        classes = data[key]
+    if dataset.upper() in ["CIFAR10", "CIFAR100"]:
+        meta_name = "batches.meta" if dataset.upper() == "CIFAR10" else "meta"
+        with open(
+            os.path.join(data_dir, train_dataset.base_folder, meta_name), "rb"
+        ) as infile:
+            key = "label_names" if dataset.upper() == "CIFAR10" else "fine_label_names"
+            data = pickle.load(infile, encoding="latin1")
+            classes = data[key]
+    else:
+        # mnist
+        classes = list(range(10))
 
     num_train = len(train_dataset)
     indices = list(range(num_train))
@@ -112,8 +122,16 @@ def get_train_valid_loader(
         np.random.shuffle(indices)
 
     train_idx, valid_idx = indices[split:], indices[:split]
-    train_sampler = SubsetRandomSampler(train_idx)
-    valid_sampler = SubsetRandomSampler(valid_idx)
+
+    if dataset.upper() == "MNIST":
+        train_dataset = build_mixture_dataset(train_dataset, train_idx)
+        valid_dataset = build_mixture_dataset(valid_dataset, valid_idx)
+        train_sampler = None
+        valid_sampler = None
+
+    else:
+        train_sampler = SubsetRandomSampler(train_idx)
+        valid_sampler = SubsetRandomSampler(valid_idx)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -140,6 +158,7 @@ def get_test_loader(
     shuffle=True,
     num_workers=4,
     pin_memory=False,
+    do_normalize=True,
 ):
     """
     Utility function for loading and returning a multi-process
@@ -157,18 +176,16 @@ def get_test_loader(
     -------
     - data_loader: test set iterator.
     """
-    normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406],
-        std=[0.229, 0.224, 0.225],
-    )
+    test_transforms = [transforms.ToTensor()]
+    if do_normalize:
+        normalize = transforms.Normalize(
+            mean=[0.4914, 0.4822, 0.4465],
+            std=[0.2023, 0.1994, 0.2010],
+        )
+        test_transforms.append(normalize)
 
     # define transform
-    transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            normalize,
-        ]
-    )
+    transform = transforms.Compose(test_transforms)
 
     dataset = datasets.__dict__[dataset.upper()](
         root=data_dir,
@@ -228,16 +245,19 @@ class Gaussian(generator):
 class ConstraintedSampler(Gaussian):
     def __init__(self, **kwargs):
         super().__init__()
-        self.rotations = kwargs.get("rotations", [
-            0,
-            np.pi / 4,
-            2 * np.pi / 4,
-            3 * np.pi / 4,
-            np.pi,
-            5 * np.pi / 4,
-            6 * np.pi / 4,
-            7 * np.pi / 4,
-        ])
+        self.rotations = kwargs.get(
+            "rotations",
+            [
+                0,
+                np.pi / 4,
+                2 * np.pi / 4,
+                3 * np.pi / 4,
+                np.pi,
+                5 * np.pi / 4,
+                6 * np.pi / 4,
+                7 * np.pi / 4,
+            ],
+        )
 
     def term1(self, x):
         valid = (x[:, 1] > 2.5) & (x[:, 1] < 5.5) & (x[:, 0] > -0.5) & (x[:, 0] < 0.5)
@@ -326,7 +346,7 @@ def get_synthetic_loaders(
     batch_size: int = 128,
     num_workers: int = 4,
     pin_memory: bool = False,
-    sampler_params: dict = {}
+    sampler_params: dict = {},
 ):
     c = ConstraintedSampler(**sampler_params)
     kwargs = {
@@ -345,6 +365,56 @@ def get_synthetic_loaders(
     )
 
     return train, valid, test
+
+
+class Joint(torch.utils.data.Dataset):
+    def __init__(self, dataset1, dataset2, dataset3):
+        self.dataset1 = dataset1
+        self.dataset2 = dataset2
+        self.dataset3 = dataset3
+
+    def __getitem__(self, index):
+        return self.dataset1[index], self.dataset2[index], self.dataset3[index]
+
+    def __len__(self):
+        return len(self.dataset1)
+
+
+def build_mixture_dataset(dataset, indices):
+    nd = len(indices)
+
+    ind1 = np.random.choice(indices, size=2 * nd, replace=True)
+    ind2 = np.random.choice(indices, size=2 * nd, replace=True)
+
+    try:
+        labels = np.array(dataset.train_labels)
+    except:
+        labels = np.array(dataset.test_labels)
+
+    target = labels[ind1] + labels[ind2]
+
+    dset_1 = []
+    dset_2 = []
+    dset_t = []
+
+    for k, conditions in knowledge.items():
+        for val in conditions:
+            valid_idxs = (
+                (target == k) & (labels[ind1] == val[0]) & (labels[ind2] == val[1])
+            )
+
+            dset_1 += ind1[valid_idxs].tolist()
+            dset_2 += ind2[valid_idxs].tolist()
+            dset_t += ind1[labels[ind1] == k][: valid_idxs.sum()].tolist()
+
+    indexes = np.arange(len(dset_1))
+    np.random.shuffle(indexes)
+
+    return Joint(
+        Subset(dataset, np.array(dset_1)[indexes]),
+        Subset(dataset, np.array(dset_2)[indexes]),
+        Subset(dataset, np.array(dset_t)[indexes]),
+    )
 
 
 if __name__ == "__main__":

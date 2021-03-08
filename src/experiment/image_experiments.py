@@ -253,9 +253,11 @@ class BaseImageExperiment(train.Experiment):
         )
 
     def iter_done(self, type="Train"):
-        text = f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t ' \
-               f'Acc {round(self.losses["accuracy"].avg, 3)}\t' \
-               f'AccSC {round(self.losses["superclass_accuracy"].avg, 3)}\n'
+        text = (
+            f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t '
+            f'Acc {round(self.losses["accuracy"].avg, 3)}\t'
+            f'AccSC {round(self.losses["superclass_accuracy"].avg, 3)}\n'
+        )
         self.logfile.write(text)
         print(text, end="")
 
