@@ -236,6 +236,35 @@ class RotatedBox(Box):
         ]
 
 
+class SinRelation(nn.Module):
+    def __init__(self, constrained_ixs, constrained_to, not_constrained_ixs, **kwargs):
+        super(SinRelation, self).__init__()
+        self.constrained_ixs = constrained_ixs
+        self.constrained_to = constrained_to
+        self.not_constrained_ixs = not_constrained_ixs
+
+        self.restriction = Box(
+            constrained_ixs=constrained_ixs,
+            not_constrained_ixs=constrained_to + not_constrained_ixs,
+            lims=[(-0.1, 0.1)],
+        )
+
+        self.forward_transform = (
+            self.constrained_ixs + self.constrained_to + self.not_constrained_ixs
+        )
+        self.reverse_transform = np.argsort(self.forward_transform)
+
+    def forward(self, x):
+        restricted = self.restriction(x)
+        split1 = restricted[:, self.constrained_ixs]
+        split2 = restricted[:, self.constrained_to]
+        split3 = restricted[:, self.not_constrained_ixs]
+
+        return torch.cat((split1 + torch.sin(split2), split2, split3), dim=1)[
+            :, self.reverse_transform
+        ]
+
+
 class Identity(GEQConstant):
     def forward(self, x):
         split1 = x[:, self.ixs1]
