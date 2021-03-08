@@ -155,8 +155,8 @@ class BaseMNISTExperiment(train.Experiment):
             (lp3.argmax(dim=1) == lbl3).tolist(), tgt3.size(0)
         )
         self.losses["entropy"].update(
-            -(
-                (lp1.exp() * lp1).sum(dim=1)
+            (
+                - (lp1.exp() * lp1).sum(dim=1)
                 - (lp2.exp() * lp2).sum(dim=1)
                 - (lp3.exp() * lp3).sum(dim=1)
             ).mean().data.item(),
