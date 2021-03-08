@@ -87,11 +87,13 @@ class BaseMNISTExperiment(train.Experiment):
         acc1 = AccuracyMeter()
         acc2 = AccuracyMeter()
         acc3 = AccuracyMeter()
+        entropy = AverageMeter()
         self.losses = {
             "loss": loss,
             "accuracy_class_1": acc1,
             "accuracy_class_2": acc2,
             "accuracy_class_3": acc3,
+            "entropy": entropy,
         }
 
     def get_input_data(self, data):
@@ -152,6 +154,14 @@ class BaseMNISTExperiment(train.Experiment):
         self.losses["accuracy_class_3"].update(
             (lp3.argmax(dim=1) == lbl3).tolist(), tgt3.size(0)
         )
+        self.losses["entropy"].update(
+            -(
+                (lp1.exp() * lp1).sum(dim=1)
+                - (lp2.exp() * lp2).sum(dim=1)
+                - (lp3.exp() * lp3).sum(dim=1)
+            ).mean(),
+            tgt3.size(0),
+        )
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)
@@ -163,7 +173,8 @@ class BaseMNISTExperiment(train.Experiment):
             f'Loss {round(self.losses["loss"].val, 3)} ({self.losses["loss"].avg})\t'
             f'Acc1 {round(self.losses["accuracy_class_1"].val, 3)} ({round(self.losses["accuracy_class_1"].avg, 3)})\t'
             f'Acc2 {round(self.losses["accuracy_class_2"].val, 3)} ({round(self.losses["accuracy_class_2"].avg, 3)})\t'
-            f'Acc3 {round(self.losses["accuracy_class_3"].val, 3)} ({round(self.losses["accuracy_class_3"].avg, 3)})\n'
+            f'Acc3 {round(self.losses["accuracy_class_3"].val, 3)} ({round(self.losses["accuracy_class_3"].avg, 3)})\t'
+            f'Ent {round(self.losses["entropy"].val, 3)} ({round(self.losses["entropy"].avg, 3)})\n'
         )
 
     def iter_done(self, type="Train"):
@@ -171,7 +182,8 @@ class BaseMNISTExperiment(train.Experiment):
             f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t '
             f'Acc1 {round(self.losses["accuracy_class_1"].avg, 3)} \t'
             f'Acc2 {round(self.losses["accuracy_class_2"].avg, 3)} \t'
-            f'Acc3 {round(self.losses["accuracy_class_3"].avg, 3)} \n'
+            f'Acc3 {round(self.losses["accuracy_class_3"].avg, 3)} \t'
+            f'Ent {round(self.losses["entropy"].avg, 3)} \n'
         )
         print(text, end="")
         self.logfile.write(text + "\n")
@@ -221,7 +233,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
             lp1_ = lp1[:, [v[0] for v in vals]]
             lp2_ = lp2[:, [v[1] for v in vals]]
-            new_targs = (lp1_ + lp2_)
+            new_targs = lp1_ + lp2_
             new_targs = new_targs - new_targs.logsumexp(dim=1)[:, None]
 
             for j, v in enumerate(vals):
