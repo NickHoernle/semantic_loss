@@ -185,13 +185,23 @@ class MnistVAE(nn.Module):
 
 
 class ConstrainedMnistVAE(MnistVAE):
-    def __init__(self, num_terms=55, **kwargs):
+    def __init__(self, terms, **kwargs):
         super().__init__(**kwargs)
-        self.num_terms = num_terms
-        self.logic_pred = nn.Linear(3 * self.num_labels, num_terms)
+
+        self.num_terms = len(terms)
+        self.logic_decoder = OrList(terms=terms)
+        self.logic_pred = nn.Sequential(
+            nn.ReLU(), nn.Linear(3 * self.num_labels, len(terms))
+        )
+
+    def encode(self, x):
+        h = self.encoder(x)
+        return h, self.label_predict(h)
 
     def forward(self, in_data, test=False):
+
         x1, x2, x3 = in_data
+
         encoded1, log_pred1 = self.encode(x1.view(-1, 784))
         encoded2, log_pred2 = self.encode(x2.view(-1, 784))
         encoded3, log_pred3 = self.encode(x3.view(-1, 784))
@@ -200,7 +210,9 @@ class ConstrainedMnistVAE(MnistVAE):
         d2 = self.decode(encoded2)
         d3 = self.decode(encoded3)
 
-        logic_pred = self.logic_pred(torch.cat((log_pred1.exp(), log_pred2.exp(), log_pred3.exp()), dim=1)).log_softmax(
-            dim=1)
+        cp = torch.cat((log_pred1, log_pred2, log_pred3), dim=1)
 
-        return (d1, d2, d3), (log_pred1, log_pred2, log_pred3), logic_pred
+        logic_pred, lpy = self.logic_decoder(cp, self.logic_pred(cp))
+        log_pred1, log_pred2, log_pred3 = logic_pred.split(10, dim=-1)
+
+        return ((d1, d2, d3), (log_pred1, log_pred2, log_pred3), lpy)

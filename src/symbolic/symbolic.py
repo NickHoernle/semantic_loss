@@ -4,7 +4,7 @@ import numpy as np
 from torch.nn import functional as F
 
 
-class GEQConstant(nn.Module):
+class ConstantConstraint(nn.Module):
     def __init__(
         self,
         ixs1,
@@ -15,7 +15,7 @@ class GEQConstant(nn.Module):
         threshold_limit,
         **kwargs
     ):
-        super(GEQConstant, self).__init__()
+        super(ConstantConstraint, self).__init__()
         self.ixs1 = ixs1
         self.ixs_neg = ixs_less_than
         self.ixs_not = ixs_not
@@ -27,6 +27,26 @@ class GEQConstant(nn.Module):
         self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
         self.reverse_transform = np.argsort(self.forward_transform)
 
+    def threshold1p(self):
+        if self.threshold_lower > self.threshold_limit:
+            self.threshold_lower -= 1
+
+    def forward(self, x):
+        split1 = x[:, self.ixs1]
+        split2 = x[:, self.ixs_neg]
+        split3 = x[:, self.ixs_not]
+
+        restricted1 = split1.detach() / split1 * self.threshold_upper
+        restricted2 = split2.detach() / split2 * self.threshold_lower
+
+        return torch.cat((restricted1, restricted2, split3), dim=1)[
+            :, self.reverse_transform
+        ]
+
+
+class GEQConstant(ConstantConstraint):
+    def __init__(self, **kwargs):
+        super(GEQConstant, self).__init__(**kwargs)
         self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
 
     def threshold1p(self):
@@ -41,7 +61,7 @@ class GEQConstant(nn.Module):
         split3 = x[:, self.ixs_not]
 
         restricted1 = F.softplus(split1 - self.threshold_upper) + self.threshold_upper
-        restricted2 = torch.ones_like(split2) * self.threshold_lower
+        restricted2 = split2.detach() / split2 * self.threshold_lower
 
         return torch.cat((restricted1, restricted2, split3), dim=1)[
             :, self.reverse_transform
@@ -282,7 +302,6 @@ class OrList(nn.Module):
     def __init__(self, terms):
         super().__init__()
         self.layers = nn.ModuleList(terms)
-        # self.fc = nn.Linear(10 * len(terms), len(terms))
 
     def threshold1p(self):
         for layer in self.layers:
@@ -293,11 +312,7 @@ class OrList(nn.Module):
 
     def forward(self, x, class_prediction, test=False):
         pred = self.all_predictions(x)
-        # log_py = self.fc(
-        #     torch.cat((class_prediction, pred.max(dim=-1)[0]), dim=1)
-        # ).log_softmax(dim=1)
         log_py = class_prediction.log_softmax(dim=1)
-        # log_py = class_prediction.log_softmax(dim=1)
 
         if test:
             return pred[np.arange(len(log_py)), log_py.argmax(dim=1)]

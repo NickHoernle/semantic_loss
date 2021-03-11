@@ -1,6 +1,7 @@
 import torch.nn.functional as F
 
 from symbolic import train
+from symbolic.symbolic import ConstantConstraint
 from symbolic.utils import *
 from experiment.datasets import *
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
@@ -32,7 +33,7 @@ class BaseMNISTExperiment(train.Experiment):
         self.hidden_dim1 = hidden_dim1
         self.hidden_dim2 = hidden_dim2
         self.zdim = zdim
-        self.beta = 50.
+        self.beta = 50.0
         super().__init__(**kwargs)
 
     @property
@@ -158,10 +159,12 @@ class BaseMNISTExperiment(train.Experiment):
         )
         self.losses["entropy"].update(
             (
-                - (lp1.exp() * lp1).sum(dim=1)
+                -(lp1.exp() * lp1).sum(dim=1)
                 - (lp2.exp() * lp2).sum(dim=1)
                 - (lp3.exp() * lp3).sum(dim=1)
-            ).mean().data.item(),
+            )
+            .mean()
+            .data.item(),
             tgt3.size(0),
         )
 
@@ -187,8 +190,6 @@ class BaseMNISTExperiment(train.Experiment):
             f'Acc3 {round(self.losses["accuracy_class_3"].avg, 3)} \t'
             f'Ent {round(self.losses["entropy"].avg, 3)} \n'
         )
-        if self.beta > 1.:
-            self.beta -= 1.
 
         print(text, end="")
         self.logfile.write(text + "\n")
@@ -200,7 +201,7 @@ class BaseMNISTExperiment(train.Experiment):
         return False
 
 
-def calc_ll(params, target, beta=1.):
+def calc_ll(params, target, beta=1.0):
     """
     Helper to calculate the ll of a single prediction for one of the images that are being processed
     """
@@ -216,7 +217,7 @@ def calc_ll(params, target, beta=1.):
         dim=1
     )
 
-    return rcon + beta*kld
+    return rcon + beta * kld
 
 
 class ConstrainedMNIST(BaseMNISTExperiment):
@@ -227,6 +228,27 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         kwargs["sloss"] = True
         super().__init__(**kwargs)
 
+    @property
+    def logic_terms(self):
+        terms = []
+        for k, vals in knowledge.items():
+            for v in vals:
+                constrain = [v[0], 10 + v[1], 20 + k]
+                lwr_c = np.arange(30)
+                lwr_c = lwr_c[~np.isin(lwr_c, constrain)].tolist()
+
+                terms.append(
+                    ConstantConstraint(
+                        ixs1=constrain,
+                        ixs_not=[],
+                        ixs_less_than=lwr_c,
+                        threshold_upper=1.0,
+                        threshold_lower=-10.0,
+                        threshold_limit=-10.0,
+                    )
+                )
+        return terms
+
     def create_model(self):
         return ConstrainedMnistVAE(
             x_dim=784,
@@ -234,33 +256,80 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             h_dim2=self.hidden_dim2,
             z_dim=self.zdim,
             num_labels=10,
-            num_terms=55
+            terms=self.logic_terms,
         )
 
     def criterion(self, output, target, train=True):
 
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
+        (r1, r2, r3), (lp1, lp2, lp3), logpy = output
+
+        # reconstruction accuracies
+        ll1 = torch.stack([calc_ll(r, tgt1) for r in r1], dim=1).unsqueeze(1)
+        ll2 = torch.stack([calc_ll(r, tgt2) for r in r2], dim=1).unsqueeze(1)
+        ll3 = torch.stack([calc_ll(r, tgt3) for r in r3], dim=1).unsqueeze(1)
+
+        lp1 = lp1.log_softmax(dim=-1)
+        lp2 = lp2.log_softmax(dim=-1)
+        lp3 = lp3.log_softmax(dim=-1)
+
+        llik = (
+            (lp1.exp() * (ll1 + lp1)).sum(dim=-1)
+            + (lp2.exp() * (ll2 + lp2)).sum(dim=-1)
+            + (lp3.exp() * (ll3 + lp3)).sum(dim=-1)
+        )
+
+        return (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
+
+    def init_meters(self):
+        loss = AverageMeter()
+        acc = AccuracyMeter()
+        entropy = AverageMeter()
+        self.losses = {
+            "loss": loss,
+            "accuracy": acc,
+            "entropy": entropy,
+        }
+
+    def update_train_meters(self, loss, output, target):
+        (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
         (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
-        ll = []
-        logpy = []
-        for i, vals in knowledge.items():
-            new_preds = lp1[:, [v[0] for v in vals]] + lp2[:, [v[1] for v in vals]]
-            new_preds = new_preds.log_softmax(dim=1)
 
-            for j, v in enumerate(vals):
+        vals = torch.tensor([k for k, vals in knowledge.items() for v in vals])[
+            None, :
+        ].repeat(len(logpy), 1)
+        acc = (
+            (vals[np.arange(len(logpy)), logpy.argmax(dim=1)] == lbl3).float()
+        ).tolist()
 
-                ll1 = calc_ll(recons1[v[0]], tgt1, beta=self.beta)
-                ll2 = calc_ll(recons2[v[1]], tgt2, beta=self.beta)
-                ll3 = calc_ll(recons3[i], tgt3, beta=self.beta)
+        self.losses["loss"].update(loss.data.item(), tgt1.size(0))
+        self.losses["accuracy"].update(acc, tgt3.size(0))
+        self.losses["entropy"].update(
+            (-(logpy.exp() * logpy).sum(dim=1)).mean().data.item(),
+            tgt3.size(0),
+        )
 
-                # lp = -(lp1[:, v[0]] + lp2[:, v[1]])
-                ll += [ll1 + ll2 + ll3]
-                logpy += [lp3[:, i] + new_preds[:, j]]
+    def update_test_meters(self, loss, output, target):
+        self.update_train_meters(loss, output, target)
 
-        preds = torch.stack(ll, dim=1)
-        logpy = torch.stack(logpy, dim=1)
+    def log_iter(self, epoch, batch_time):
+        self.logfile.write(
+            f"Epoch: [{epoch}/{self.epochs}]\t"
+            f"Time {round(batch_time.val, 3)} ({round(batch_time.avg, 3)})\t"
+            f'Loss {round(self.losses["loss"].val, 3)} ({self.losses["loss"].avg})\t'
+            f'Acc {round(self.losses["accuracy"].val, 3)} ({round(self.losses["accuracy"].avg, 3)})\t'
+            f'Ent {round(self.losses["entropy"].val, 3)} ({round(self.losses["entropy"].avg, 3)})\n'
+        )
 
-        return (logpy.exp() * (preds + logpy)).sum(dim=1).mean()
+    def iter_done(self, type="Train"):
+        text = (
+            f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t '
+            f'Acc {round(self.losses["accuracy"].avg, 3)} \t'
+            f'Ent {round(self.losses["entropy"].avg, 3)} \n'
+        )
+
+        print(text, end="")
+        self.logfile.write(text + "\n")
 
 
 mnist_experiment_options = {
