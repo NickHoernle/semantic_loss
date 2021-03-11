@@ -1,9 +1,11 @@
+import torch
 import torch.nn.functional as F
+import numpy as np
 
 from symbolic import train
 from symbolic.symbolic import ConstantConstraint
 from symbolic.utils import (AccuracyMeter, AverageMeter)
-from experiment.datasets import *
+from experiment.datasets import (get_train_valid_loader, get_test_loader)
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
 from torch.distributions.normal import Normal
 from experiment.class_mapping import mnist_domain_knowledge as knowledge
