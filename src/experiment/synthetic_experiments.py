@@ -1,10 +1,14 @@
 import torch.nn.functional as F
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use('Agg')
 
 from symbolic import symbolic
 from symbolic import train
-from symbolic.utils import *
+from symbolic.utils import (AccuracyMeter, AverageMeter, save_figure)
 from experiment.datasets import *
 from experiment.generative import LinearVAE, ConstrainedVAE
+
 
 
 class BaseSyntheticExperiment(train.Experiment):
