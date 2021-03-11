@@ -5,3 +5,4 @@
 **/.idea
 data/*
 **/neurosymbolic_study.egg-info
+runs/**
