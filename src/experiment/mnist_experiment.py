@@ -297,7 +297,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
         vals = torch.tensor([k for k, vals in knowledge.items() for v in vals])[
             None, :
-        ].repeat(len(logpy), 1)
+        ].repeat(len(logpy), 1).to(self.device)
         acc = (
             (vals[np.arange(len(logpy)), logpy.argmax(dim=1)] == lbl3).float()
         ).tolist()
