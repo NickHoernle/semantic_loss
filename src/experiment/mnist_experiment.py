@@ -2,7 +2,7 @@ import torch.nn.functional as F
 
 from symbolic import train
 from symbolic.symbolic import ConstantConstraint
-from symbolic.utils import *
+from symbolic.utils import (AccuracyMeter, AverageMeter)
 from experiment.datasets import *
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
 from torch.distributions.normal import Normal
@@ -279,7 +279,11 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             + (lp3.exp() * (ll3 + lp3)).sum(dim=-1)
         )
 
-        return (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
+        # just to upset the balance somewhat... try force it out of a local min
+        log_prior = -np.arange(0, logpy.size(1), dtype=np.float64) / logpy.size(1) - logpy.size(1)
+        log_prior -= np.log(np.sum(np.exp(log_prior)))
+
+        return (logpy.exp() * (llik + logpy - log_prior)).sum(dim=-1).mean()
 
     def init_meters(self):
         loss = AverageMeter()
