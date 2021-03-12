@@ -113,7 +113,11 @@ class MnistVAE(nn.Module):
         self.num_labels = num_labels
 
         self.encoder = nn.Sequential(
-            nn.Linear(x_dim, h_dim1), nn.ReLU(), nn.Linear(h_dim1, h_dim2), nn.ReLU()
+            nn.Linear(x_dim, h_dim1),
+            nn.ReLU(),
+            nn.BatchNorm1d(h_dim1),
+            nn.Linear(h_dim1, h_dim2),
+            nn.ReLU(),
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
@@ -191,7 +195,9 @@ class ConstrainedMnistVAE(MnistVAE):
         self.num_terms = len(terms)
         self.logic_decoder = OrList(terms=terms)
         self.logic_pred = nn.Sequential(
-            nn.ReLU(), nn.Linear(3 * self.num_labels, len(terms))
+            nn.ReLU(),
+            nn.BatchNorm1d(3 * self.num_labels),
+            nn.Linear(3 * self.num_labels, len(terms))
         )
 
     def encode(self, x):
