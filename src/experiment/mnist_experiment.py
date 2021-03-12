@@ -270,9 +270,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         (r1, r2, r3), (lp1, lp2, lp3), logpy = output
 
         # reconstruction accuracies
-        ll1 = torch.stack([calc_ll(r, tgt1, best=self.beta) for r in r1], dim=1).unsqueeze(1)
-        ll2 = torch.stack([calc_ll(r, tgt2, best=self.beta) for r in r2], dim=1).unsqueeze(1)
-        ll3 = torch.stack([calc_ll(r, tgt3, best=self.beta) for r in r3], dim=1).unsqueeze(1)
+        ll1 = torch.stack([calc_ll(r, tgt1, beta=self.beta) for r in r1], dim=1).unsqueeze(1)
+        ll2 = torch.stack([calc_ll(r, tgt2, beta=self.beta) for r in r2], dim=1).unsqueeze(1)
+        ll3 = torch.stack([calc_ll(r, tgt3, beta=self.beta) for r in r3], dim=1).unsqueeze(1)
 
         lp1 = lp1.log_softmax(dim=-1)
         lp2 = lp2.log_softmax(dim=-1)
