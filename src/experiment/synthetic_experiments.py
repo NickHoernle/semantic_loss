@@ -184,9 +184,9 @@ class BaseSyntheticExperiment(train.Experiment):
             f'Constraint {self.losses["constraint"].val:.4f} ({self.losses["constraint"].avg:.4f})\n'
         )
 
-    def iter_done(self, type="Train"):
+    def iter_done(self, epoch, type="Train"):
         text = (
-            f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t '
+            f'[{epoch + 1}/{self.epochs}]: {type}: Loss {round(self.losses["loss"].avg, 3)}\t '
             f'Constraint {round(self.losses["constraint"].avg, 3)}\n'
         )
         print(text, end="")

@@ -184,9 +184,9 @@ class BaseMNISTExperiment(train.Experiment):
             f'Ent {round(self.losses["entropy"].val, 3)} ({round(self.losses["entropy"].avg, 3)})\n'
         )
 
-    def iter_done(self, type="Train"):
+    def iter_done(self, epoch, type="Train"):
         text = (
-            f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t '
+            f'[{epoch + 1}/{self.epochs}]: {type}: Loss {round(self.losses["loss"].avg, 3)}\t '
             f'Acc1 {round(self.losses["accuracy_class_1"].avg, 3)} \t'
             f'Acc2 {round(self.losses["accuracy_class_2"].avg, 3)} \t'
             f'Acc3 {round(self.losses["accuracy_class_3"].avg, 3)} \t'

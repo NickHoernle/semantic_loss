@@ -6,12 +6,12 @@ pip install -e .
 # Execution:
 Run CIFAR10 experiment:
 ```
-run_image_experiments.py cifar10 --layers=10 --widen_factor=1
+run_image_experiments.py cifar10 --layers=10 --widen_factor=1 run
 ```
 
 Run CIFAR100 experiment:
 ```
-run_image_experiments.py cifar100 --layers=10 --widen_factor=1
+run_image_experiments.py cifar100 --layers=10 --widen_factor=1 run
 ```
 # Generate experiment conditions:
 ```

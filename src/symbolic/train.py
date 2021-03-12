@@ -200,8 +200,8 @@ class Experiment(ABC):
             f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
         )
 
-    def iter_done(self, type="Train"):
-        self.logfile.write(f"{type}: Loss {round(self.losses.avg, 3)}")
+    def iter_done(self, epoch, type="Train"):
+        self.logfile.write(f"[{epoch+1}/{self.epochs}]: {type}: Loss {round(self.losses.avg, 3)}")
 
 
 def main(experiment):
@@ -331,7 +331,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
         if i % experiment.print_freq == experiment.print_freq - 1:
             experiment.log_iter(epoch, batch_time)
 
-    experiment.iter_done(type="Train")
+    experiment.iter_done(epoch=epoch, type="Train")
 
     # TODO: setup tensorboard
     # log to TensorBoard
@@ -367,7 +367,7 @@ def validate(val_loader, model, epoch, experiment):
         if i % experiment.print_freq == experiment.print_freq - 1:
             experiment.log_iter(epoch, batch_time)
 
-    experiment.iter_done(type="Test ")
+    experiment.iter_done(epoch=epoch, type="Test ")
 
     return loss
     # TODO: setup tensorboard
