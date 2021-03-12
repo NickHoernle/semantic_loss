@@ -80,7 +80,8 @@ class BaseMNISTExperiment(train.Experiment):
         )
 
     def get_optimizer_and_scheduler(self, model, train_loader):
-        optimizer = torch.optim.Adam(model.parameters(), self.lr)
+        # optimizer = torch.optim.Adam(model.parameters(), self.lr)
+        optimizer = torch.optim.SGD(model.parameters(), self.lr, momentum=.9)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, len(train_loader) * self.epochs
         )

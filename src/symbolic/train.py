@@ -39,7 +39,7 @@ class Experiment(ABC):
         self,
         dataset_path: str = "../data",
         checkpoint_dir: str = "runs",
-        use_git_commit_to_log: bool = True,
+        use_git_commit_to_log: bool = False,
         epochs: int = 200,
         seed: int = 12,
         start_epoch: int = 0,
@@ -199,8 +199,10 @@ class Experiment(ABC):
     def get_target_data(self, data):
         pass
 
-    def log(self, text):
+    def log(self, text, print=False):
         self.logfile.write(f"{text}\n")
+        if print:
+            print(text)
 
     def log_iter(self, epoch, batch_time):
         self.logfile.write(
@@ -226,9 +228,7 @@ def main(experiment):
     # create model
     model = experiment.create_model()
 
-    text = f"Running experiment at checkpoint: {experiment.git_commit}"
-    print(text)
-    experiment.log(text)
+    experiment.log(f"Running experiment at checkpoint: {experiment.git_commit}", print=True)
     experiment.log(f"Starting experiment with params: {experiment.params}")
 
     # get the number of model parameters
@@ -294,11 +294,11 @@ def main(experiment):
     model.load_state_dict(checkpoint["state_dict"])
     best_model_val_acc = validate(test_loader, model, 0, experiment)
 
-    experiment.log("======== TESTING ON UNSEEN DATA =========")
-    experiment.log("======== USE FINAL MODEL =========")
-    experiment.log(f"Final Model accuracy ====> {final_model_val_acc}")
-    experiment.log("======== USE BEST MODEL =========")
-    experiment.log(f"Final Model accuracy ====> {best_model_val_acc}")
+    experiment.log("======== TESTING ON UNSEEN DATA =========", print=True)
+    experiment.log("======== USE FINAL MODEL =========", print=True)
+    experiment.log(f"Final Model accuracy ====> {final_model_val_acc}", print=True)
+    experiment.log("======== USE BEST MODEL =========", print=True)
+    experiment.log(f"Final Model accuracy ====> {best_model_val_acc}", print=True)
 
     all_results_file.write(f"{experiment.params}: {best_model_val_acc}")
     all_results_file.close()
