@@ -75,10 +75,10 @@ def get_train_valid_loader(
     train_transforms += [transforms.ToTensor()]
 
     if do_normalize:
-        normalize = transforms.Normalize(
+        normalize = [transforms.Normalize(
             mean=[0.4914, 0.4822, 0.4465],
             std=[0.2023, 0.1994, 0.2010],
-        )
+        )]
         valid_transforms += normalize
         train_transforms += normalize
 

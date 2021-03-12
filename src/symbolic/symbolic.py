@@ -47,14 +47,14 @@ class ConstantConstraint(nn.Module):
 class GEQConstant(ConstantConstraint):
     def __init__(self, **kwargs):
         super(GEQConstant, self).__init__(**kwargs)
-        self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
+        # self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
 
     def threshold1p(self):
         if self.threshold_lower > self.threshold_limit:
             self.threshold_lower -= 1
 
     def forward(self, x):
-        x = self.fc(x)
+        # x = self.fc(x)
 
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_neg]

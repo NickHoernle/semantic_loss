@@ -76,6 +76,7 @@ class Experiment(ABC):
         self.best_loss = np.infty
         self.logfile_ = None
 
+    def run(self):
         main(self)
 
     @property
@@ -217,6 +218,7 @@ def main(experiment):
     # create model
     model = experiment.create_model()
 
+    experiment.log(f"Running experiment at checkpoint: {experiment.git_commit}")
     experiment.log(f"Starting experiment with params: {experiment.params}")
 
     # get the number of model parameters
@@ -291,6 +293,7 @@ def main(experiment):
     all_results_file.write(f"{experiment.params}: {best_model_val_acc}")
     all_results_file.close()
     experiment.logfile.close()
+    return 0
 
 
 def train(train_loader, model, optimizer, scheduler, epoch, experiment):

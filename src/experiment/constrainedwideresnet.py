@@ -12,14 +12,22 @@ class ConstrainedModel(nn.Module):
         self.nclasses = classes
 
         self.encoder = WideResNet(
-            depth, classes + self.nterms, widen_factor, dropRate=dropRate
+            depth, classes, widen_factor, dropRate=dropRate
         )
+
+        self.logic_pred = nn.Sequential(
+            nn.ReLU(),
+            nn.BatchNorm1d(self.classes),
+            nn.Linear(self.nterms)
+        )
+
         self.decoder = OrList(terms=layers)
 
     def threshold1p(self):
         self.decoder.threshold1p()
 
     def forward(self, x, test=False):
-        enc = self.encoder(x)
-        ps, preds = enc.split((self.nclasses, self.nterms), dim=1)
+        ps = self.encoder(x)
+        preds = self.logic_pred(ps)
+
         return self.decoder(ps, preds, test)
