@@ -216,7 +216,7 @@ def calc_ll(params, target, beta=1.0):
     # kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
     #     dim=1
     # )
-    kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp())
+    kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1).mean()
     rcon = F.binary_cross_entropy_with_logits(recon, target, reduction="none").sum(
         dim=1
     )
