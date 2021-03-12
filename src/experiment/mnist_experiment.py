@@ -80,8 +80,8 @@ class BaseMNISTExperiment(train.Experiment):
         )
 
     def get_optimizer_and_scheduler(self, model, train_loader):
-        # optimizer = torch.optim.Adam(model.parameters(), self.lr)
-        optimizer = torch.optim.SGD(model.parameters(), self.lr, momentum=.9)
+        optimizer = torch.optim.Adam(model.parameters(), self.lr)
+        # optimizer = torch.optim.SGD(model.parameters(), self.lr, momentum=.9)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, len(train_loader) * self.epochs
         )
@@ -326,7 +326,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
     def iter_done(self, epoch, type="Train"):
         text = (
-            f'{type} [{epoch}/{self.epochs}]: Loss {round(self.losses["loss"].avg, 3)}\t '
+            f'{type} [{epoch+1}/{self.epochs}]: Loss {round(self.losses["loss"].avg, 3)}\t '
             f'Acc {round(self.losses["accuracy"].avg, 3)} \t'
             f'Ent {round(self.losses["entropy"].avg, 3)} \n'
         )

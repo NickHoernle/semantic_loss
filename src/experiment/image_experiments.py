@@ -254,7 +254,7 @@ class BaseImageExperiment(train.Experiment):
 
     def iter_done(self, epoch, type="Train"):
         text = (
-            f'[{epoch + 1}/{self.epochs}]: {type}: Loss {round(self.losses["loss"].avg, 3)}\t '
+            f'{type} [{epoch+1}/{self.epochs}]: Loss {round(self.losses["loss"].avg, 3)}\t '
             f'Acc {round(self.losses["accuracy"].avg, 3)}\t'
             f'AccSC {round(self.losses["superclass_accuracy"].avg, 3)}\n'
         )
