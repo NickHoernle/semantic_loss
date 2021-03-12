@@ -197,12 +197,16 @@ class ConstrainedMnistVAE(MnistVAE):
         self.logic_decoder = OrList(terms=terms)
         self.logic_pred = nn.Sequential(
             nn.ReLU(),
+            nn.BatchNorm1d(3 * self.num_labels),
             nn.Linear(3 * self.num_labels, len(terms))
         )
 
     def encode(self, x):
         h = self.encoder(x)
         return h, self.label_predict(h)
+
+    def threshold1p(self):
+        self.logic_decoder.threshold1p()
 
     def forward(self, in_data, test=False):
 

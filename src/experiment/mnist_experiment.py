@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from symbolic import train
-from symbolic.symbolic import GEQConstant
+from symbolic.symbolic import ConstantConstraint
 from symbolic.utils import (AccuracyMeter, AverageMeter)
 from experiment.datasets import (get_train_valid_loader, get_test_loader)
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
@@ -241,12 +241,12 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                 lwr_c = lwr_c[~np.isin(lwr_c, constrain)].tolist()
 
                 terms.append(
-                    GEQConstant(
+                    ConstantConstraint(
                         ixs1=constrain,
                         ixs_not=[],
                         ixs_less_than=lwr_c,
-                        threshold_upper=1.0,
-                        threshold_lower=-10.0,
+                        threshold_upper=0.0,
+                        threshold_lower=-1.0,
                         threshold_limit=-10.0,
                     )
                 )
@@ -311,6 +311,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             (-(logpy.exp() * logpy).sum(dim=1)).mean().data.item(),
             tgt3.size(0),
         )
+
+    def epoch_finished_hook(self, epoch, model, val_loader):
+        model.threshold1p()
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)
