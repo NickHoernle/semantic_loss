@@ -278,7 +278,7 @@ def main(experiment):
     experiment.log(f"Best loss: {experiment.best_loss}")
 
     final_model_val_acc = validate(test_loader, model, 0, experiment)
-    checkpoint = torch.load(experiment.best_checkpoint_directory)
+    checkpoint = torch.load(experiment.best_checkpoint)
     model.load_state_dict(checkpoint["state_dict"])
     best_model_val_acc = validate(test_loader, model, 0, experiment)
 
