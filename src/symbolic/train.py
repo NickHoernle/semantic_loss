@@ -218,7 +218,9 @@ def main(experiment):
     # create model
     model = experiment.create_model()
 
-    experiment.log(f"Running experiment at checkpoint: {experiment.git_commit}")
+    text = f"Running experiment at checkpoint: {experiment.git_commit}"
+    print(text)
+    experiment.log(text)
     experiment.log(f"Starting experiment with params: {experiment.params}")
 
     # get the number of model parameters
