@@ -199,9 +199,9 @@ class Experiment(ABC):
     def get_target_data(self, data):
         pass
 
-    def log(self, text, print=False):
+    def log(self, text, print_to_console=False):
         self.logfile.write(f"{text}\n")
-        if print:
+        if print_to_console:
             print(text)
 
     def log_iter(self, epoch, batch_time):
@@ -228,7 +228,7 @@ def main(experiment):
     # create model
     model = experiment.create_model()
 
-    experiment.log(f"Running experiment at checkpoint: {experiment.git_commit}", print=True)
+    experiment.log(f"Running experiment at checkpoint: {experiment.git_commit}", True)
     experiment.log(f"Starting experiment with params: {experiment.params}")
 
     # get the number of model parameters
@@ -294,11 +294,11 @@ def main(experiment):
     model.load_state_dict(checkpoint["state_dict"])
     best_model_val_acc = validate(test_loader, model, 0, experiment)
 
-    experiment.log("======== TESTING ON UNSEEN DATA =========", print=True)
-    experiment.log("======== USE FINAL MODEL =========", print=True)
-    experiment.log(f"Final Model accuracy ====> {final_model_val_acc}", print=True)
-    experiment.log("======== USE BEST MODEL =========", print=True)
-    experiment.log(f"Final Model accuracy ====> {best_model_val_acc}", print=True)
+    experiment.log("======== TESTING ON UNSEEN DATA =========", True)
+    experiment.log("======== USE FINAL MODEL =========", True)
+    experiment.log(f"Final Model accuracy ====> {final_model_val_acc}", True)
+    experiment.log("======== USE BEST MODEL =========", True)
+    experiment.log(f"Final Model accuracy ====> {best_model_val_acc}", True)
 
     all_results_file.write(f"{experiment.params}: {best_model_val_acc}")
     all_results_file.close()
