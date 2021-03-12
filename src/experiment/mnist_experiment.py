@@ -281,12 +281,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             + (lp3.exp() * (ll3 + lp3)).sum(dim=-1)
         )
 
-        # just to upset the balance somewhat... try force it out of a local min
-        log_prior = -np.arange(0, logpy.size(1), dtype=np.float64) / logpy.size(1) - logpy.size(1)
-        log_prior -= np.log(np.sum(np.exp(log_prior)))
-        log_prior = torch.tensor(log_prior).to(self.device)
-
-        return (logpy.exp() * (llik + logpy - log_prior)).sum(dim=-1).mean()
+        return (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
 
     def init_meters(self):
         loss = AverageMeter()
