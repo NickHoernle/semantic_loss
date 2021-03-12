@@ -195,7 +195,7 @@ def get_test_loader(
     )
 
     if dataset.upper() == "MNIST":
-        test_idxs = np.arange(len(dataset))
+        test_idxs = np.arange(len(test_dataset))
         test_dataset = build_mixture_dataset(test_dataset, test_idxs)
 
     data_loader = torch.utils.data.DataLoader(
