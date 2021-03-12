@@ -213,9 +213,10 @@ def calc_ll(params, target, beta=1.0):
     std = torch.exp(0.5 * lv)
     std_prior = torch.exp(0.5 * lv_prior)
 
-    kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
-        dim=1
-    )
+    # kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
+    #     dim=1
+    # )
+    kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp())
     rcon = F.binary_cross_entropy_with_logits(recon, target, reduction="none").sum(
         dim=1
     )
@@ -229,6 +230,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
+        self.beta = 10.0
         super().__init__(**kwargs)
 
     @property
@@ -268,9 +270,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         (r1, r2, r3), (lp1, lp2, lp3), logpy = output
 
         # reconstruction accuracies
-        ll1 = torch.stack([calc_ll(r, tgt1) for r in r1], dim=1).unsqueeze(1)
-        ll2 = torch.stack([calc_ll(r, tgt2) for r in r2], dim=1).unsqueeze(1)
-        ll3 = torch.stack([calc_ll(r, tgt3) for r in r3], dim=1).unsqueeze(1)
+        ll1 = torch.stack([calc_ll(r, tgt1, best=self.beta) for r in r1], dim=1).unsqueeze(1)
+        ll2 = torch.stack([calc_ll(r, tgt2, best=self.beta) for r in r2], dim=1).unsqueeze(1)
+        ll3 = torch.stack([calc_ll(r, tgt3, best=self.beta) for r in r3], dim=1).unsqueeze(1)
 
         lp1 = lp1.log_softmax(dim=-1)
         lp2 = lp2.log_softmax(dim=-1)
@@ -314,7 +316,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
     def epoch_finished_hook(self, epoch, model, val_loader):
         if epoch % 5 == 4:
-            model.threshold1p()
+            if self.beta > 1:
+                self.beta -= 1
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)
