@@ -118,6 +118,7 @@ class MnistVAE(nn.Module):
             nn.BatchNorm1d(h_dim1),
             nn.Linear(h_dim1, h_dim2),
             nn.ReLU(),
+            nn.BatchNorm1d(h_dim2),
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
@@ -197,7 +198,6 @@ class ConstrainedMnistVAE(MnistVAE):
         self.logic_decoder = OrList(terms=terms)
         self.logic_pred = nn.Sequential(
             nn.ReLU(),
-            nn.BatchNorm1d(3 * self.num_labels),
             nn.Linear(3 * self.num_labels, len(terms))
         )
 
