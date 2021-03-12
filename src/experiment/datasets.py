@@ -187,7 +187,7 @@ def get_test_loader(
     # define transform
     transform = transforms.Compose(test_transforms)
 
-    dataset = datasets.__dict__[dataset.upper()](
+    test_dataset = datasets.__dict__[dataset.upper()](
         root=data_dir,
         train=False,
         download=True,
@@ -196,10 +196,10 @@ def get_test_loader(
 
     if dataset.upper() == "MNIST":
         test_idxs = np.arange(len(dataset))
-        dataset = build_mixture_dataset(dataset, test_idxs)
+        test_dataset = build_mixture_dataset(test_dataset, test_idxs)
 
     data_loader = torch.utils.data.DataLoader(
-        dataset,
+        test_dataset,
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=num_workers,
