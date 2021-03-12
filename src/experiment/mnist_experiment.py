@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from symbolic import train
-from symbolic.symbolic import ConstantConstraint
+from symbolic.symbolic import GEQConstant
 from symbolic.utils import (AccuracyMeter, AverageMeter)
 from experiment.datasets import (get_train_valid_loader, get_test_loader)
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
@@ -241,7 +241,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                 lwr_c = lwr_c[~np.isin(lwr_c, constrain)].tolist()
 
                 terms.append(
-                    ConstantConstraint(
+                    GEQConstant(
                         ixs1=constrain,
                         ixs_not=[],
                         ixs_less_than=lwr_c,
@@ -326,7 +326,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
     def iter_done(self, epoch, type="Train"):
         text = (
-            f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t '
+            f'{type} [{epoch}/{self.epochs}]: Loss {round(self.losses["loss"].avg, 3)}\t '
             f'Acc {round(self.losses["accuracy"].avg, 3)} \t'
             f'Ent {round(self.losses["entropy"].avg, 3)} \n'
         )
