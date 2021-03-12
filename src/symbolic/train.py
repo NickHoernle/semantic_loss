@@ -39,6 +39,7 @@ class Experiment(ABC):
         self,
         dataset_path: str = "../data",
         checkpoint_dir: str = "runs",
+        use_git_commit_to_log: bool = True,
         epochs: int = 200,
         seed: int = 12,
         start_epoch: int = 0,
@@ -57,6 +58,7 @@ class Experiment(ABC):
         super().__init__()
         self.dataset_path = dataset_path
         self.checkpoint_dir = checkpoint_dir
+        self.use_git_commit_to_log = use_git_commit_to_log
         self.epochs = epochs
         self.seed = seed
         self.start_epoch = start_epoch
@@ -101,10 +103,16 @@ class Experiment(ABC):
 
     @property
     def checkpoint_directory(self):
-        assert self.git_commit != ""
-        path = os.path.join(self.checkpoint_dir, self.git_commit, self.params)
+        if not self.use_git_commit_to_log:
+            path = os.path.join(self.checkpoint_dir, self.params)
+
+        else:
+            assert self.git_commit != ""
+            path = os.path.join(self.checkpoint_dir, self.git_commit, self.params)
+
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
+
         return path
 
     @property

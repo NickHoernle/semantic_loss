@@ -323,7 +323,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             f'Ent {round(self.losses["entropy"].val, 3)} ({round(self.losses["entropy"].avg, 3)})\n'
         )
 
-    def iter_done(self, type="Train"):
+    def iter_done(self, epoch, type="Train"):
         text = (
             f'{type}: Loss {round(self.losses["loss"].avg, 3)}\t '
             f'Acc {round(self.losses["accuracy"].avg, 3)} \t'
