@@ -279,7 +279,6 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         ).unsqueeze(1)
 
         ll = []
-        counter = 0
         for k, vals in knowledge.items():
             for v0, v1 in vals:
                 ll += [ll1[:, 0, v0] + ll2[:, 0, v1] + ll3[:, 0, k]]
