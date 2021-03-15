@@ -3,9 +3,9 @@ import torch.nn.functional as F
 import numpy as np
 
 from symbolic import train
-from symbolic.symbolic import ConstantConstraint
-from symbolic.utils import (AccuracyMeter, AverageMeter)
-from experiment.datasets import (get_train_valid_loader, get_test_loader)
+from symbolic.symbolic import ConstantConstraint, GEQConstant
+from symbolic.utils import AccuracyMeter, AverageMeter
+from experiment.datasets import get_train_valid_loader, get_test_loader
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
 from torch.distributions.normal import Normal
 from experiment.class_mapping import mnist_domain_knowledge as knowledge
@@ -213,14 +213,12 @@ def calc_ll(params, target, beta=1.0):
     std = torch.exp(0.5 * lv)
     std_prior = torch.exp(0.5 * lv_prior)
 
-    # kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
-    #     dim=1
-    # )
-    kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1).mean()
+    kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
+        dim=1
+    )
     rcon = F.binary_cross_entropy_with_logits(recon, target, reduction="none").sum(
         dim=1
     )
-
     return rcon + beta * kld
 
 
@@ -248,7 +246,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                         ixs_not=[],
                         ixs_less_than=lwr_c,
                         threshold_upper=0.0,
-                        threshold_lower=-10.0,
+                        threshold_lower=-5.0,
                         threshold_limit=-10.0,
                     )
                 )
@@ -270,19 +268,23 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         (r1, r2, r3), (lp1, lp2, lp3), logpy = output
 
         # reconstruction accuracies
-        ll1 = torch.stack([calc_ll(r, tgt1, beta=self.beta) for r in r1], dim=1).unsqueeze(1)
-        ll2 = torch.stack([calc_ll(r, tgt2, beta=self.beta) for r in r2], dim=1).unsqueeze(1)
-        ll3 = torch.stack([calc_ll(r, tgt3, beta=self.beta) for r in r3], dim=1).unsqueeze(1)
+        ll1 = torch.stack(
+            [calc_ll(r, tgt1, beta=self.beta) for r in r1], dim=1
+        ).unsqueeze(1)
+        ll2 = torch.stack(
+            [calc_ll(r, tgt2, beta=self.beta) for r in r2], dim=1
+        ).unsqueeze(1)
+        ll3 = torch.stack(
+            [calc_ll(r, tgt3, beta=self.beta) for r in r3], dim=1
+        ).unsqueeze(1)
 
-        lp1 = lp1.log_softmax(dim=-1)
-        lp2 = lp2.log_softmax(dim=-1)
-        lp3 = lp3.log_softmax(dim=-1)
+        ll = []
+        counter = 0
+        for k, vals in knowledge.items():
+            for v0, v1 in vals:
+                ll += [ll1[:, 0, v0] + ll2[:, 0, v1] + ll3[:, 0, k]]
 
-        llik = (
-            (lp1.exp() * (ll1 + lp1)).sum(dim=-1)
-            + (lp2.exp() * (ll2 + lp2)).sum(dim=-1)
-            + (lp3.exp() * (ll3 + lp3)).sum(dim=-1)
-        )
+        llik = torch.stack(ll, dim=1)
 
         return (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
 
@@ -300,9 +302,11 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
         (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
 
-        vals = torch.tensor([k for k, vals in knowledge.items() for v in vals])[
-            None, :
-        ].repeat(len(logpy), 1).to(self.device)
+        vals = (
+            torch.tensor([k for k, vals in knowledge.items() for v in vals])[None, :]
+            .repeat(len(logpy), 1)
+            .to(self.device)
+        )
         acc = (
             (vals[np.arange(len(logpy)), logpy.argmax(dim=1)] == lbl3).float()
         ).tolist()

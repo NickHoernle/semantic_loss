@@ -27,17 +27,21 @@ class ConstantConstraint(nn.Module):
         self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
         self.reverse_transform = np.argsort(self.forward_transform)
 
+        self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
+
     def threshold1p(self):
         if self.threshold_lower > self.threshold_limit:
             self.threshold_lower -= 1
 
     def forward(self, x):
+        x = self.fc(x)
+
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_neg]
         split3 = x[:, self.ixs_not]
 
-        restricted1 = split1.detach() / split1 * self.threshold_upper
-        restricted2 = split2.detach() / split2 * self.threshold_lower
+        restricted1 = split1 / split1.detach() * self.threshold_upper
+        restricted2 = split2 / split2.detach() * self.threshold_lower
 
         return torch.cat((restricted1, restricted2, split3), dim=1)[
             :, self.reverse_transform
@@ -60,8 +64,8 @@ class GEQConstant(ConstantConstraint):
         split2 = x[:, self.ixs_neg]
         split3 = x[:, self.ixs_not]
 
-        restricted1 = F.softplus(split1 - self.threshold_upper) + self.threshold_upper
-        restricted2 = split2.detach() / split2 * self.threshold_lower
+        restricted1 = F.softplus(split1) + self.threshold_upper
+        restricted2 = (split2 / split2).detach() * self.threshold_lower
 
         return torch.cat((restricted1, restricted2, split3), dim=1)[
             :, self.reverse_transform

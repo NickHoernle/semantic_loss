@@ -123,14 +123,14 @@ class MnistVAE(nn.Module):
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
 
-        self.mu = nn.Linear(h_dim2, z_dim)
-        self.lv = nn.Linear(h_dim2, z_dim)
+        self.mu = nn.Linear(h_dim2 + num_labels, z_dim)
+        self.lv = nn.Linear(h_dim2 + num_labels, z_dim)
 
-        # self.mu_prior = nn.Linear(num_labels, z_dim)
-        # self.lv_prior = nn.Linear(num_labels, z_dim)
+        self.mu_prior = nn.Linear(num_labels, z_dim)
+        self.lv_prior = nn.Linear(num_labels, z_dim)
 
         self.decoder = nn.Sequential(
-            nn.Linear(z_dim + num_labels, h_dim2),
+            nn.Linear(z_dim, h_dim2),
             nn.ReLU(),
             nn.Linear(h_dim2, h_dim1),
             nn.ReLU(),
@@ -144,8 +144,8 @@ class MnistVAE(nn.Module):
         y_one_hot[:, y] = 1
         return y_one_hot
 
-    # def get_priors(self, y):
-    #     return self.mu_prior(y), self.lv_prior(y)
+    def get_priors(self, y):
+        return self.mu_prior(y), self.lv_prior(y)
 
     def encode(self, x):
         h = self.encoder(x)
@@ -165,12 +165,11 @@ class MnistVAE(nn.Module):
     def collect(self, encoded, label):
         one_hot = self.get_one_hot(encoded, label)
 
-        mu, lv = self.get_latent(encoded)
-        mu_prior, lv_prior = torch.zeros_like(mu), torch.zeros_like(lv)
-        # mu_prior, lv_prior = self.get_priors(one_hot)
+        mu, lv = self.get_latent(torch.cat((encoded, one_hot), dim=1))
+        mu_prior, lv_prior = self.get_priors(one_hot)
 
         z = self.reparameterize(mu, lv)
-        recon = self.decode_one(torch.cat((z, one_hot), dim=1))
+        recon = self.decode_one(z)
 
         return (recon, mu, lv, mu_prior, lv_prior, z)
 
@@ -197,9 +196,12 @@ class ConstrainedMnistVAE(MnistVAE):
         self.num_terms = len(terms)
         self.logic_decoder = OrList(terms=terms)
         self.logic_pred = nn.Sequential(
-            nn.ReLU(),
+            # nn.ReLU(),
+            # nn.BatchNorm1d(3 * self.num_labels),
             nn.Linear(3 * self.num_labels, len(terms))
         )
+
+        self.apply(init_weights)
 
     def encode(self, x):
         h = self.encoder(x)
