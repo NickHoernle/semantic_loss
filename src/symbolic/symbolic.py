@@ -35,11 +35,11 @@ class ConstantConstraint(nn.Module):
 
     def forward(self, x):
         split1 = x[:, self.ixs1]
-        split2 = x.detach()[:, self.ixs_neg]
+        split2 = x[:, self.ixs_neg]
         split3 = x.detach()[:, self.ixs_not]
 
-        restricted1 = F.softplus(split1) + self.threshold_upper
-        restricted2 = torch.ones_like(split2) * self.threshold_lower
+        restricted1 = F.relu(split1) + self.threshold_upper
+        restricted2 = -F.relu(-split2) + self.threshold_lower
 
         return torch.cat((restricted1, restricted2, split3), dim=1)[
                :, self.reverse_transform

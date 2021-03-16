@@ -321,13 +321,15 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
         model_input = experiment.get_input_data(data)
         target = experiment.get_target_data(data)
 
+        optimizer.zero_grad()
+        model.zero_grad()
+
         model_output = model(model_input)
         loss = experiment.criterion(model_output, target)
 
         experiment.update_train_meters(loss, model_output, target)
 
         # compute gradient and do SGD step
-        optimizer.zero_grad()
         loss.backward()
         # TODO: make clipping optional
         # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)

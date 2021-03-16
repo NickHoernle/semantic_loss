@@ -26,7 +26,7 @@ class BaseMNISTExperiment(train.Experiment):
         name: str = "MNIST",
         hidden_dim1: int = 400,
         hidden_dim2: int = 100,
-        zdim: int = 15,
+        zdim: int = 5,
         **kwargs,
     ):
         self.dataset = "mnist"
@@ -111,6 +111,7 @@ class BaseMNISTExperiment(train.Experiment):
 
     def get_target_data(self, data):
         (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3) = data
+
         in_data1 = in_data1.to(self.device).reshape(len(in_data1), -1)
         in_data2 = in_data2.to(self.device).reshape(len(in_data2), -1)
         in_data3 = in_data3.to(self.device).reshape(len(in_data3), -1)
@@ -284,7 +285,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         lp3 = lp3.log_softmax(dim=-1)
 
         llik = (
-            (lp1.exp() * (ll1 + lp1)).sum(dim=-1)
+              (lp1.exp() * (ll1 + lp1)).sum(dim=-1)
             + (lp2.exp() * (ll2 + lp2)).sum(dim=-1)
             + (lp3.exp() * (ll3 + lp3)).sum(dim=-1)
         )
@@ -316,6 +317,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
         self.losses["loss"].update(loss.data.item(), tgt1.size(0))
         self.losses["accuracy"].update(acc, tgt3.size(0))
+        print((-(logpy.exp() * logpy).sum(dim=1)).mean().data.item())
         self.losses["entropy"].update(
             (-(logpy.exp() * logpy).sum(dim=1)).mean().data.item(),
             tgt3.size(0),
