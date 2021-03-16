@@ -26,7 +26,7 @@ class BaseMNISTExperiment(train.Experiment):
         name: str = "MNIST",
         hidden_dim1: int = 400,
         hidden_dim2: int = 100,
-        zdim: int = 5,
+        zdim: int = 10,
         **kwargs,
     ):
         self.dataset = "mnist"
@@ -217,11 +217,11 @@ def calc_ll(params, target, beta=1.0):
     kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
         dim=1
     )
-    # kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1)
     rcon = F.binary_cross_entropy_with_logits(recon, target, reduction="none").sum(
         dim=1
     )
-    return rcon + beta * kld
+
+    return rcon + beta*kld
 
 
 class ConstrainedMNIST(BaseMNISTExperiment):
@@ -230,7 +230,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        self.beta = 10.0
+        self.beta = 1.0
         super().__init__(**kwargs)
 
     @property
@@ -325,7 +325,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
     def epoch_finished_hook(self, epoch, model, val_loader):
         if (epoch + 1) % 5 == 0:
             model.threshold1p()
-            if self.beta > 1:
+            if self.beta >= 2:
                 self.beta -= 1
 
     def update_test_meters(self, loss, output, target):
