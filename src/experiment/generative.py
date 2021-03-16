@@ -127,7 +127,7 @@ class MnistVAE(nn.Module):
         self.lv = nn.Linear(h_dim2 + num_labels, z_dim)
 
         self.mu_prior = nn.Parameter(torch.randn(num_labels, z_dim), requires_grad=True)
-        self.lv_prior = nn.Parameter(torch.randn(num_labels, z_dim), requires_grad=True)
+        self.lv_prior = nn.Parameter(torch.ones(num_labels, z_dim), requires_grad=True)
 
         self.decoder = nn.Sequential(
             nn.Linear(z_dim, h_dim2),
