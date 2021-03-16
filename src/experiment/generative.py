@@ -126,8 +126,8 @@ class MnistVAE(nn.Module):
         self.mu = nn.Linear(h_dim2 + num_labels, z_dim)
         self.lv = nn.Linear(h_dim2 + num_labels, z_dim)
 
-        self.mu_prior = nn.Linear(num_labels, z_dim)
-        self.lv_prior = nn.Linear(num_labels, z_dim)
+        self.mu_prior = nn.Parameter(torch.randn(num_labels, z_dim), requires_grad=True)
+        self.lv_prior = nn.Parameter(torch.ones(num_labels, z_dim), requires_grad=True)
 
         self.decoder = nn.Sequential(
             nn.Linear(z_dim, h_dim2),
@@ -145,7 +145,7 @@ class MnistVAE(nn.Module):
         return y_one_hot
 
     def get_priors(self, y):
-        return self.mu_prior(y), self.lv_prior(y)
+        return self.mu_prior[y], self.lv_prior[y]
 
     def encode(self, x):
         h = self.encoder(x)
@@ -164,9 +164,8 @@ class MnistVAE(nn.Module):
 
     def collect(self, encoded, label):
         one_hot = self.get_one_hot(encoded, label)
-
         mu, lv = self.get_latent(torch.cat((encoded, one_hot), dim=1))
-        mu_prior, lv_prior = self.get_priors(one_hot)
+        mu_prior, lv_prior = self.get_priors(label)
 
         z = self.reparameterize(mu, lv)
         recon = self.decode_one(z)
