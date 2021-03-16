@@ -248,7 +248,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                         ixs_not=[],
                         ixs_less_than=lwr_c,
                         threshold_upper=0.0,
-                        threshold_lower=-5.0,
+                        threshold_lower=-1.0, # changed form -5
                         threshold_limit=-10.0,
                     )
                 )
