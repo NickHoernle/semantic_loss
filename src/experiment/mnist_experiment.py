@@ -24,7 +24,7 @@ class BaseMNISTExperiment(train.Experiment):
         self,
         sloss: bool = False,
         name: str = "MNIST",
-        hidden_dim1: int = 400,
+        hidden_dim1: int = 250,
         hidden_dim2: int = 100,
         zdim: int = 10,
         **kwargs,
@@ -248,7 +248,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                         ixs_not=[],
                         ixs_less_than=lwr_c,
                         threshold_upper=0.0,
-                        threshold_lower=-1.0,
+                        threshold_lower=-5.0,
                         threshold_limit=-15.0,
                     )
                 )
