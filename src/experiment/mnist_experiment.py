@@ -317,7 +317,6 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
         self.losses["loss"].update(loss.data.item(), tgt1.size(0))
         self.losses["accuracy"].update(acc, tgt3.size(0))
-        print((-(logpy.exp() * logpy).sum(dim=1)).mean().data.item())
         self.losses["entropy"].update(
             (-(logpy.exp() * logpy).sum(dim=1)).mean().data.item(),
             tgt3.size(0),
