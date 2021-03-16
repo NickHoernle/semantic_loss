@@ -24,9 +24,9 @@ class BaseMNISTExperiment(train.Experiment):
         self,
         sloss: bool = False,
         name: str = "MNIST",
-        hidden_dim1: int = 500,
-        hidden_dim2: int = 250,
-        zdim: int = 25,
+        hidden_dim1: int = 400,
+        hidden_dim2: int = 100,
+        zdim: int = 15,
         **kwargs,
     ):
         self.dataset = "mnist"
