@@ -119,7 +119,7 @@ class MnistVAE(nn.Module):
             nn.BatchNorm1d(h_dim1),
             nn.Linear(h_dim1, h_dim2),
             nn.ReLU(),
-            nn.BatchNorm1d(h_dim2),
+            # nn.BatchNorm1d(h_dim2),
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
@@ -224,9 +224,8 @@ class ConstrainedMnistVAE(MnistVAE):
         d3 = self.decode(encoded3)
 
         cp = torch.cat((log_pred1, log_pred2, log_pred3), dim=1)
-        cp_sm = torch.cat((log_pred1.log_softmax(dim=1), log_pred2.log_softmax(dim=1), log_pred3.log_softmax(dim=1)), dim=1)
 
-        logic_pred, lpy = self.logic_decoder(cp_sm, self.logic_pred(cp_sm))
+        logic_pred, lpy = self.logic_decoder(cp, self.logic_pred(cp))
         log_pred1, log_pred2, log_pred3 = logic_pred.split(10, dim=-1)
 
         return ((d1, d2, d3), (log_pred1, log_pred2, log_pred3), lpy)
