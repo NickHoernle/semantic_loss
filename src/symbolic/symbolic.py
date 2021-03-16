@@ -34,18 +34,19 @@ class ConstantConstraint(nn.Module):
             self.threshold_lower -= 1
 
     def forward(self, x):
+        return x
         # x = self.fc(x)
 
-        split1 = x[:, self.ixs1]
-        split2 = x[:, self.ixs_neg]
-        split3 = x[:, self.ixs_not]
+        # split1 = x[:, self.ixs1]
+        # split2 = x[:, self.ixs_neg]
+        # split3 = x[:, self.ixs_not]
 
-        restricted1 = F.softplus(split1) + self.threshold_upper
-        restricted2 = -F.softplus(-split2) + self.threshold_lower
+        # restricted1 = F.softplus(split1) + self.threshold_upper
+        # restricted2 = -F.softplus(-split2) + self.threshold_lower
 
-        return torch.cat((restricted1, restricted2, split3), dim=1)[
-            :, self.reverse_transform
-        ]
+        # return torch.cat((split1, split2, split3), dim=1)[
+        #     :, self.reverse_transform
+        # ]
 
 
 class GEQConstant(ConstantConstraint):

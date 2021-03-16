@@ -247,7 +247,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                         ixs_not=[],
                         ixs_less_than=lwr_c,
                         threshold_upper=0.0,
-                        threshold_lower=-5.0,
+                        threshold_lower=-1.0,
                         threshold_limit=-15.0,
                     )
                 )
@@ -279,16 +279,16 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             [calc_ll(r, tgt3, beta=self.beta) for r in r3], dim=1
         ).unsqueeze(1)
 
-        lp1 = (lp1.log_softmax(dim=-1))
-        lp2 = (lp2.log_softmax(dim=-1))
-        lp3 = (lp3.log_softmax(dim=-1))
+        ll = []
+        for k, vals in knowledge.items():
+            for v0, v1 in vals:
+                ll.append(
+                    (ll1[:, 0, v0]) +
+                    (ll2[:, 0, v1]) +
+                    (ll3[:, 0, k])
+                )
 
-        llik = (
-                (lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
-                (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
-                (lp3.exp() * (ll3 + lp3)).sum(dim=-1)
-        )
-
+        llik = torch.stack(ll, dim=1)
         return (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
 
     def init_meters(self):
