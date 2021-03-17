@@ -248,8 +248,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                         ixs_not=[],
                         ixs_less_than=lwr_c,
                         threshold_upper=0.0,
-                        threshold_lower=-10.0,
-                        threshold_limit=-10.0,
+                        threshold_lower=-1.0,
+                        threshold_limit=-15.0,
                     )
                 )
         return terms
@@ -297,7 +297,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                     - lp3[:, cnt, k]
                 ]
                 cnt += 1
-                
+
         llik = torch.stack(llik, dim=1)
         return (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
 
@@ -331,11 +331,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             tgt3.size(0),
         )
 
-    # def epoch_finished_hook(self, epoch, model, val_loader):
-    #     if (epoch + 1) % 5 == 0:
-    #         model.threshold1p()
-    #         if self.beta >= 2:
-    #             self.beta -= 1
+    def epoch_finished_hook(self, epoch, model, val_loader):
+        if (epoch + 1) % 5 == 0:
+            model.threshold1p()
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)
