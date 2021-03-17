@@ -387,8 +387,8 @@ class Joint(torch.utils.data.Dataset):
 def build_mixture_dataset(dataset, indices):
     nd = len(indices)
 
-    ind1 = np.random.choice(indices, size=5 * nd, replace=True)
-    ind2 = np.random.choice(indices, size=5 * nd, replace=True)
+    ind1 = np.random.choice(indices, size=2 * nd, replace=True)
+    ind2 = np.random.choice(indices, size=2 * nd, replace=True)
 
     try:
         labels = np.array(dataset.train_labels)
