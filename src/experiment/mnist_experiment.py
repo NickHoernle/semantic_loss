@@ -35,7 +35,7 @@ class BaseMNISTExperiment(train.Experiment):
         self.hidden_dim1 = hidden_dim1
         self.hidden_dim2 = hidden_dim2
         self.zdim = zdim
-        self.beta = 50.0
+        self.beta = 1.0
         super().__init__(**kwargs)
 
     @property
