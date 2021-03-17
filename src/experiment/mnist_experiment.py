@@ -1,14 +1,20 @@
+import os
+
 import torch
 import torch.nn.functional as F
 import numpy as np
 
 from symbolic import train
 from symbolic.symbolic import ConstantConstraint, GEQConstant
-from symbolic.utils import AccuracyMeter, AverageMeter
+from symbolic.utils import AccuracyMeter, AverageMeter, save_figure
 from experiment.datasets import get_train_valid_loader, get_test_loader
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
 from torch.distributions.normal import Normal
 from experiment.class_mapping import mnist_domain_knowledge as knowledge
+
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use('Agg')
 
 
 class BaseMNISTExperiment(train.Experiment):
@@ -78,6 +84,34 @@ class BaseMNISTExperiment(train.Experiment):
             z_dim=self.zdim,
             num_labels=10,
         )
+
+    def pre_train_hook(self, loader):
+        pass
+        # self.plot_sampled_images(loader)
+
+    def plot_sampled_images(self, loader):
+        fig, axes = plt.subplots(15, 3, figsize=(10, 45))
+        for i, data in enumerate(loader):
+            for j in range(15):
+                if j >= 15:
+                    break
+                (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3) = data
+                axes[j, 0].imshow((in_data1[j, 0].numpy() * 255).astype(np.uint8), cmap='gray_r')
+                axes[j, 0].set_title(in_target1[j])
+                axes[j, 1].imshow((in_data2[j, 0].numpy() * 255).astype(np.uint8), cmap='gray_r')
+                axes[j, 1].set_title(in_target2[j])
+                axes[j, 2].imshow((in_data3[j, 0].numpy() * 255).astype(np.uint8), cmap='gray_r')
+                axes[j, 2].set_title(in_target3[j])
+                axes[j, 0].grid(False)
+                axes[j, 0].set_axis_off()
+                axes[j, 1].grid(False)
+                axes[j, 1].set_axis_off()
+                axes[j, 2].grid(False)
+                axes[j, 2].set_axis_off()
+            break
+
+        fig_file = os.path.join(self.figures_directory, f"example_data.png")
+        save_figure(fig, fig_file, self)
 
     def get_optimizer_and_scheduler(self, model, train_loader):
         optimizer = torch.optim.Adam(model.parameters(), self.lr)
@@ -237,8 +271,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
     def logic_terms(self):
         terms = []
         for k, vals in knowledge.items():
-            for v in vals:
-                constrain = [v[0], 10 + v[1], 20 + k]
+            for v0, v1 in vals:
+                constrain = [v0, 10 + v1, 20 + k]
                 lwr_c = np.arange(30)
                 lwr_c = lwr_c[~np.isin(lwr_c, constrain)].tolist()
 
@@ -248,8 +282,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                         ixs_not=[],
                         ixs_less_than=lwr_c,
                         threshold_upper=0.0,
-                        threshold_lower=-10.0,
-                        threshold_limit=-10.0,
+                        threshold_lower=-5.0,
+                        threshold_limit=-15.0,
                     )
                 )
         return terms
