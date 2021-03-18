@@ -89,6 +89,31 @@ class BaseMNISTExperiment(train.Experiment):
         pass
         # self.plot_sampled_images(loader)
 
+    def epoch_finished_hook(self, epoch, model, val_loader):
+        pass
+        # if (epoch + 1) % 10 == 0:
+        #     self.plot_model_samples(epoch, model)
+
+    def plot_model_samples(self, epoch, model):
+        fig, axes = plt.subplots(10, 10, figsize=(20, 15))
+
+        for i, row in enumerate(axes):
+            for j, ax in enumerate(row):
+                y_onehot = torch.zeros((1, 10)).float()
+                y_onehot[:, j] = 1
+
+                mu_p, lv_p = model.get_priors(y_onehot)
+                std = torch.exp(0.5 * lv_p)
+                z = mu_p + std * torch.randn((1, 10))
+
+                recon = model.decode_one(z)
+
+                ax.imshow((torch.sigmoid(recon[0]).view(28, 28).detach().numpy() * 255).astype(np.uint8), cmap='gray_r')
+                ax.grid(False)
+                ax.set_axis_off()
+        fig_file = os.path.join(self.figures_directory, f"sample_epoch_{epoch}.png")
+        save_figure(fig, fig_file, self)
+
     def plot_sampled_images(self, loader):
         fig, axes = plt.subplots(15, 3, figsize=(10, 45))
         for i, data in enumerate(loader):
@@ -146,9 +171,9 @@ class BaseMNISTExperiment(train.Experiment):
     def get_target_data(self, data):
         (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3) = data
 
-        in_data1 = in_data1.to(self.device).reshape(len(in_data1), -1)
-        in_data2 = in_data2.to(self.device).reshape(len(in_data2), -1)
-        in_data3 = in_data3.to(self.device).reshape(len(in_data3), -1)
+        in_data1 = in_data1.to(self.device)
+        in_data2 = in_data2.to(self.device)
+        in_data3 = in_data3.to(self.device)
 
         in_target1 = in_target1.to(self.device)
         in_target2 = in_target2.to(self.device)
@@ -252,7 +277,7 @@ def calc_ll(params, target, beta=1.0):
         dim=1
     )
     rcon = F.binary_cross_entropy_with_logits(recon, target, reduction="none").sum(
-        dim=1
+        dim=(1,2,3)
     )
 
     return rcon + beta * kld
@@ -282,7 +307,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                         ixs_not=[],
                         ixs_less_than=lwr_c,
                         threshold_upper=0.0,
-                        threshold_lower=-10.0,
+                        threshold_lower=-5.0,
                         threshold_limit=-15.0,
                     )
                 )

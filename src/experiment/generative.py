@@ -105,6 +105,20 @@ class ConstrainedVAE(LinearVAE):
         return self.decode(z, pred_y, test, **kwargs), (mu, log_var)
 
 
+class Flatten(nn.Module):
+    def forward(self, input):
+        return input.view(input.size(0), -1)
+
+
+class UnFlatten(nn.Module):
+    def __init__(self, size=1024):
+        super().__init__()
+        self.size = size
+
+    def forward(self, input):
+        return input.view(input.size(0), self.size, 1, 1)
+
+
 class MnistVAE(nn.Module):
     def __init__(self, x_dim, h_dim1, h_dim2, z_dim, num_labels=10, num_terms=55):
         super().__init__()
@@ -114,10 +128,14 @@ class MnistVAE(nn.Module):
         self.h_dim2 = h_dim2
 
         self.encoder = nn.Sequential(
-            nn.Linear(x_dim, h_dim1),
+            nn.Conv2d(1, 32, kernel_size=5, stride=2, padding=2),
             nn.ReLU(),
-            nn.Linear(h_dim1, h_dim2),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(32, 64, kernel_size=5, stride=2, padding=2),
             nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            Flatten(),
+            nn.Linear(2 * 2 * 64, h_dim2)
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
@@ -128,11 +146,12 @@ class MnistVAE(nn.Module):
         self.lv_prior = nn.Linear(num_labels, z_dim)
 
         self.decoder = nn.Sequential(
-            nn.Linear(z_dim, h_dim2),
+            UnFlatten(size=z_dim),
+            nn.ConvTranspose2d(z_dim, 64, kernel_size=5, stride=2),
             nn.ReLU(),
-            nn.Linear(h_dim2, h_dim1),
+            nn.ConvTranspose2d(64, 32, kernel_size=5, stride=2),
             nn.ReLU(),
-            nn.Linear(h_dim1, x_dim),
+            nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2),
         )
 
         self.apply(init_weights)
@@ -177,9 +196,9 @@ class MnistVAE(nn.Module):
     def forward(self, in_data, test=False):
         x1, x2, x3 = in_data
 
-        encoded1, log_pred1 = self.encode(x1.view(-1, 784))
-        encoded2, log_pred2 = self.encode(x2.view(-1, 784))
-        encoded3, log_pred3 = self.encode(x3.view(-1, 784))
+        encoded1, log_pred1 = self.encode(x1)
+        encoded2, log_pred2 = self.encode(x2)
+        encoded3, log_pred3 = self.encode(x3)
 
         d1 = self.decode(encoded1)
         d2 = self.decode(encoded2)
@@ -209,9 +228,9 @@ class ConstrainedMnistVAE(MnistVAE):
 
         x1, x2, x3 = in_data
 
-        encoded1, log_pred1 = self.encode(x1.view(-1, 784))
-        encoded2, log_pred2 = self.encode(x2.view(-1, 784))
-        encoded3, log_pred3 = self.encode(x3.view(-1, 784))
+        encoded1, log_pred1 = self.encode(x1)
+        encoded2, log_pred2 = self.encode(x2)
+        encoded3, log_pred3 = self.encode(x3)
 
         d1 = self.decode(encoded1)
         d2 = self.decode(encoded2)
