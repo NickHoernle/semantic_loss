@@ -38,7 +38,8 @@ class ConstantConstraint(nn.Module):
         split2 = x[:, self.ixs_neg]
         split3 = x.detach()[:, self.ixs_not]
 
-        restricted1 = F.softplus(split1 - self.threshold_upper) + self.threshold_upper
+        # restricted1 = F.softplus(split1 - self.threshold_upper) + self.threshold_upper
+        restricted1 = split1 - split1.detach() + self.threshold_upper
         restricted2 = split2.detach() - split2 + self.threshold_lower
 
         return torch.cat((restricted1, restricted2, split3), dim=1)[
