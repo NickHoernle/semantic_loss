@@ -384,7 +384,7 @@ class Joint(torch.utils.data.Dataset):
         return len(self.dataset1)
 
 
-def build_mixture_dataset(dataset, indices):
+def build_mixture_dataset(dataset, indices, max_length=10000):
     nd = len(indices)
 
     ind1 = np.random.choice(indices, size=2 * nd, replace=True)
@@ -396,6 +396,22 @@ def build_mixture_dataset(dataset, indices):
         labels = np.array(dataset.test_labels)
 
     target = labels[ind1] + labels[ind2]
+
+    lengths = [(target == k).sum() for k in range(10)]
+    print(lengths)
+    min_length = min((min(lengths), max_length))
+
+    valid = np.zeros_like(target)
+    for k in range(10):
+        valid_k = ((target == k) & ((target == k).cumsum() <= min_length))
+        valid += valid_k
+
+    ind1 = ind1[valid > 0]
+    ind2 = ind2[valid > 0]
+    target = target[valid > 0]
+
+    lengths = [(target == k).sum() for k in range(10)]
+    print(lengths)
 
     dset_1 = []
     dset_2 = []
@@ -409,7 +425,8 @@ def build_mixture_dataset(dataset, indices):
 
             dset_1 += ind1[valid_idxs].tolist()
             dset_2 += ind2[valid_idxs].tolist()
-            dset_t += ind1[labels[ind1] == k][: valid_idxs.sum()].tolist()
+            results = np.concatenate((ind1[labels[ind1] == k], ind2[labels[ind2] == k]), axis=0)
+            dset_t += results[:valid_idxs.sum()].tolist()
 
     indexes = np.arange(len(dset_1))
     np.random.shuffle(indexes)
