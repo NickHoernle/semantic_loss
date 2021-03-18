@@ -307,8 +307,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                         ixs_not=[],
                         ixs_less_than=lwr_c,
                         threshold_upper=0.0,
-                        threshold_lower=-15.0,
-                        threshold_limit=-50.0,
+                        threshold_lower=-1.0,
+                        threshold_limit=-15.0,
                     )
                 )
         return terms
@@ -343,21 +343,24 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         lp2 = lp2.log_softmax(dim=-1)
         lp3 = lp3.log_softmax(dim=-1)
 
-        llik = []
-        cnt = 0
-        for k, vals in knowledge.items():
-            for v0, v1 in vals:
-                llik += [
-                    ll1[:, 0, v0]
-                    - lp1[:, cnt, v0]
-                    + ll2[:, 0, v1]
-                    - lp2[:, cnt, v1]
-                    + ll3[:, 0, k]
-                    - lp3[:, cnt, k]
-                ]
-                cnt += 1
+        # llik = []
+        # cnt = 0
+        # for k, vals in knowledge.items():
+        #     for v0, v1 in vals:
+        #         llik += [
+        #             ll1[:, 0, v0]
+        #             - lp1[:, cnt, v0]
+        #             + ll2[:, 0, v1]
+        #             - lp2[:, cnt, v1]
+        #             + ll3[:, 0, k]
+        #             - lp3[:, cnt, k]
+        #         ]
+        #         cnt += 1
+        # llik = torch.stack(llik, dim=1)
+        llik = ((lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
+                (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
+                (lp3.exp() * (ll3 + lp3)).sum(dim=-1))
 
-        llik = torch.stack(llik, dim=1)
         return (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
 
     def init_meters(self):
