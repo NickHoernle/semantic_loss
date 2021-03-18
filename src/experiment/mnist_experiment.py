@@ -162,18 +162,18 @@ class BaseMNISTExperiment(train.Experiment):
 
     def get_input_data(self, data):
         (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3) = data
-        in_data1 = in_data1.to(self.device)
-        in_data2 = in_data2.to(self.device)
-        in_data3 = in_data3.to(self.device)
+        in_data1 = in_data1.to(self.device).view(len(in_data1), -1)
+        in_data2 = in_data2.to(self.device).view(len(in_data2), -1)
+        in_data3 = in_data3.to(self.device).view(len(in_data3), -1)
 
         return (in_data1, in_data2, in_data3)
 
     def get_target_data(self, data):
         (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3) = data
 
-        in_data1 = in_data1.to(self.device)
-        in_data2 = in_data2.to(self.device)
-        in_data3 = in_data3.to(self.device)
+        in_data1 = in_data1.to(self.device).view(len(in_data1), -1)
+        in_data2 = in_data2.to(self.device).view(len(in_data2), -1)
+        in_data3 = in_data3.to(self.device).view(len(in_data3), -1)
 
         in_target1 = in_target1.to(self.device)
         in_target2 = in_target2.to(self.device)
@@ -277,7 +277,7 @@ def calc_ll(params, target, beta=1.0):
         dim=1
     )
     rcon = F.binary_cross_entropy_with_logits(recon, target, reduction="none").sum(
-        dim=(1,2,3)
+        dim=-1
     )
 
     return rcon + beta * kld

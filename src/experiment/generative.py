@@ -128,14 +128,7 @@ class MnistVAE(nn.Module):
         self.h_dim2 = h_dim2
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=5, stride=2, padding=2),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(32, 64, kernel_size=5, stride=2, padding=2),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            Flatten(),
-            nn.Linear(2 * 2 * 64, h_dim2)
+            nn.Linear(x_dim, h_dim1), nn.ReLU(), nn.Linear(h_dim1, h_dim2), nn.ReLU()
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
@@ -146,12 +139,11 @@ class MnistVAE(nn.Module):
         self.lv_prior = nn.Linear(num_labels, z_dim)
 
         self.decoder = nn.Sequential(
-            UnFlatten(size=z_dim),
-            nn.ConvTranspose2d(z_dim, 64, kernel_size=5, stride=2),
+            nn.Linear(z_dim, h_dim2),
             nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, kernel_size=5, stride=2),
+            nn.Linear(h_dim2, h_dim1),
             nn.ReLU(),
-            nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2),
+            nn.Linear(h_dim1, x_dim)
         )
 
         self.apply(init_weights)
