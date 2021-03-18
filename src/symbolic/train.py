@@ -332,7 +332,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
         # compute gradient and do SGD step
         loss.backward()
         # TODO: make clipping optional
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
         scheduler.step()
 
