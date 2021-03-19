@@ -163,6 +163,9 @@ class Experiment(ABC):
     def epoch_finished_hook(self, *args, **kwargs):
         pass
 
+    def warmup_hook(self, model, train_loader):
+        pass
+
     @abstractmethod
     def get_loaders(self):
         """
@@ -259,6 +262,7 @@ def main(experiment):
     optimizer, scheduler = experiment.get_optimizer_and_scheduler(model, train_loader)
 
     experiment.pre_train_hook(train_loader)
+    experiment.warmup_hook(model, train_loader)
 
     for epoch in range(experiment.start_epoch, experiment.epochs):
 

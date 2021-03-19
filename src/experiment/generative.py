@@ -205,6 +205,7 @@ class ConstrainedMnistVAE(MnistVAE):
         self.logic_pred = nn.Sequential(
             nn.Linear(3 * self.num_labels, len(terms))
         )
+        self.warmup = nn.Linear(self.h_dim2, self.z_dim)
         self.apply(init_weights)
 
     def encode(self, x):
@@ -214,7 +215,10 @@ class ConstrainedMnistVAE(MnistVAE):
     def threshold1p(self):
         self.logic_decoder.threshold1p()
 
-    def forward(self, in_data, test=False):
+    def forward(self, in_data, test=False, warmup=False):
+        if warmup:
+            encoded, log_pred1 = self.encode(in_data)
+            return self.decoder(self.warmup(encoded))
 
         x1, x2, x3 = in_data
 

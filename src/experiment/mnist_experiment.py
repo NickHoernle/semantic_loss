@@ -353,6 +353,22 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
         return (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
 
+    def warmup_hook(self, model, train_loader):
+        print("Warming up")
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        for epoch in range(0, 5):
+            for batch_idx, ((in_data1, in_target1),
+                            (in_data2, in_target2),
+                            (in_data3, in_target3)) in enumerate(train_loader):
+                targ_data1 = in_data1.reshape(len(in_data1), -1)
+
+                r = model(targ_data1, warmup=True)
+                loss = F.binary_cross_entropy_with_logits(r, targ_data1, reduction="none").sum(dim=1).mean()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+        print("Warmup Complete")
+
     def init_meters(self):
         loss = AverageMeter()
         acc = AccuracyMeter()
