@@ -387,8 +387,8 @@ class Joint(torch.utils.data.Dataset):
 def build_mixture_dataset(dataset, indices, max_length=10000):
     nd = len(indices)
 
-    ind1 = np.random.choice(indices, size=2 * nd, replace=True)
-    ind2 = np.random.choice(indices, size=2 * nd, replace=True)
+    ind1 = np.random.choice(indices, size=20 * nd, replace=True)
+    ind2 = np.random.choice(indices, size=20 * nd, replace=True)
 
     try:
         labels = np.array(dataset.train_labels)
@@ -397,21 +397,21 @@ def build_mixture_dataset(dataset, indices, max_length=10000):
 
     target = labels[ind1] + labels[ind2]
 
-    # lengths = [(target == k).sum() for k in range(10)]
-    # print(lengths)
-    # min_length = min((min(lengths), max_length))
-    #
-    # valid = np.zeros_like(target)
-    # for k in range(10):
-    #     valid_k = ((target == k) & ((target == k).cumsum() <= min_length))
-    #     valid += valid_k
-    #
-    # ind1 = ind1[valid > 0]
-    # ind2 = ind2[valid > 0]
-    # target = target[valid > 0]
-    #
-    # lengths = [(target == k).sum() for k in range(10)]
-    # print(lengths)
+    lengths = [(target == k).sum() for k in range(10)]
+    print(lengths)
+    min_length = min((min(lengths), max_length))
+
+    valid = np.zeros_like(target)
+    for k in range(10):
+        valid_k = ((target == k) & ((target == k).cumsum() <= min_length))
+        valid += valid_k
+
+    ind1 = ind1[valid > 0]
+    ind2 = ind2[valid > 0]
+    target = target[valid > 0]
+
+    lengths = [(target == k).sum() for k in range(10)]
+    print(lengths)
 
     dset_1 = []
     dset_2 = []
