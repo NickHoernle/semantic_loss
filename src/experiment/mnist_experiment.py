@@ -360,7 +360,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             for batch_idx, ((in_data1, in_target1),
                             (in_data2, in_target2),
                             (in_data3, in_target3)) in enumerate(train_loader):
-                targ_data1 = in_data1.reshape(len(in_data1), -1)
+                targ_data1 = in_data1.reshape(len(in_data1), -1).to(self.device)
 
                 r = model(targ_data1, warmup=True)
                 loss = F.binary_cross_entropy_with_logits(r, targ_data1, reduction="none").sum(dim=1).mean()
