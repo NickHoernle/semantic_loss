@@ -141,9 +141,7 @@ class MnistVAE(nn.Module):
         self.decoder = nn.Sequential(
             nn.Linear(z_dim, h_dim2),
             nn.ReLU(),
-            nn.Linear(h_dim2, h_dim1),
-            nn.ReLU(),
-            nn.Linear(h_dim1, x_dim)
+            nn.Linear(h_dim2, x_dim)
         )
 
         self.apply(init_weights)

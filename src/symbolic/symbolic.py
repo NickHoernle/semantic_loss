@@ -40,8 +40,9 @@ class ConstantConstraint(nn.Module):
 
         s11 = split1 - self.threshold_upper
         s21 = split2 - self.threshold_lower
-        restricted1 = F.softplus(s11) + self.threshold_upper
-        restricted2 = s21.pow(2) - s21.pow(2).detach() + self.threshold_lower
+
+        restricted1 = torch.max(torch.stack((s11, split1-split1.detach()), dim=1), dim=1)[0] + self.threshold_upper
+        restricted2 = torch.min(torch.stack((s21, split2-split2.detach()), dim=1), dim=1)[0] + self.threshold_lower
 
         return torch.cat((restricted1, restricted2, split3), dim=1)[
                :, self.reverse_transform
