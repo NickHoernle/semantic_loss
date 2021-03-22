@@ -47,7 +47,7 @@ class BaseSyntheticExperiment(train.Experiment):
 
     @property
     def params(self):
-        return f"{self.name}-{self.lr}_{self.seed}_{self.baseline}"
+        return f"{self.name}-{self.lr}_{self.seed}_{self.baseline}_{self.size_of_train_set}"
 
     def pre_train_hook(self, train_loader):
         fig = plt.figure(figsize=(4, 4))
