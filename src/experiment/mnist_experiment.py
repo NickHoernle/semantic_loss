@@ -331,43 +331,60 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         # reconstruction accuracies
         ll1 = torch.stack(
             [calc_ll(r, tgt1, beta=self.beta) for r in r1], dim=1
-        ).unsqueeze(1)
+        )
         ll2 = torch.stack(
             [calc_ll(r, tgt2, beta=self.beta) for r in r2], dim=1
-        ).unsqueeze(1)
+        )
         ll3 = torch.stack(
             [calc_ll(r, tgt3, beta=self.beta) for r in r3], dim=1
-        ).unsqueeze(1)
+        )
 
         lp1 = lp1.log_softmax(dim=-1)
         lp2 = lp2.log_softmax(dim=-1)
         lp3 = lp3.log_softmax(dim=-1)
 
-        llik = ((lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
-                (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
-                (lp3.exp() * (ll3 + lp3)).sum(dim=-1))
+        llik = []
 
+        for k, vals in knowledge.items():
+            for v0, v1 in vals:
+                llik += [
+                    ll3[:, k] + ll1[:, v0] + ll2[:, v1]
+                    - lp3[:, k] - lp1[:, v0] - lp2[:, v1]
+                ]
+
+        llik = torch.stack(llik, dim=1)
         recon_losses, labels = llik.min(dim=1)
+
         loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
+        loss += recon_losses.mean()
+        loss += F.nll_loss(logpy, labels)
+
+        # llik = ((lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
+        #         (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
+        #         (lp3.exp() * (ll3 + lp3)).sum(dim=-1))
+
+        # recon_losses, labels = llik.min(dim=1)
+        # loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
         # loss += recon_losses.mean()
 
-        return (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
+        return loss
 
     def warmup_hook(self, model, train_loader):
-        print("Warming up")
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-        for epoch in range(0, 5):
-            for batch_idx, ((in_data1, in_target1),
-                            (in_data2, in_target2),
-                            (in_data3, in_target3)) in enumerate(train_loader):
-                targ_data1 = in_data1.reshape(len(in_data1), -1).to(self.device)
-
-                r = model(targ_data1, warmup=True)
-                loss = F.binary_cross_entropy_with_logits(r, targ_data1, reduction="none").sum(dim=1).mean()
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-        print("Warmup Complete")
+        # print("Warming up")
+        # optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        # for epoch in range(0, 5):
+        #     for batch_idx, ((in_data1, in_target1),
+        #                     (in_data2, in_target2),
+        #                     (in_data3, in_target3)) in enumerate(train_loader):
+        #         targ_data1 = in_data1.reshape(len(in_data1), -1).to(self.device)
+        #
+        #         r = model(targ_data1, warmup=True)
+        #         loss = F.binary_cross_entropy_with_logits(r, targ_data1, reduction="none").sum(dim=1).mean()
+        #         optimizer.zero_grad()
+        #         loss.backward()
+        #         optimizer.step()
+        # print("Warmup Complete")
+        pass
 
     def init_meters(self):
         loss = AverageMeter()
