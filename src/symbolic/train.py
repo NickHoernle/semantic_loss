@@ -145,6 +145,12 @@ class Experiment(ABC):
             )
         return self.logfile_
 
+    def load_model(self):
+        model = self.create_model()
+        checkpoint = torch.load(self.best_checkpoint)
+        model.load_state_dict(checkpoint["state_dict"])
+        return model
+
     def init_meters(self):
         self.losses = AverageMeter()
 
