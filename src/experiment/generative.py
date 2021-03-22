@@ -149,7 +149,7 @@ class MnistVAE(nn.Module):
             nn.BatchNorm1d(h_dim2),
             nn.Linear(h_dim2, h_dim1),
             nn.ReLU(),
-            nn.BatchNorm1d(h_dim2),
+            nn.BatchNorm1d(h_dim1),
             nn.Linear(h_dim1, x_dim)
         )
 
