@@ -419,8 +419,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
     def epoch_finished_hook(self, epoch, model, val_loader):
         # if (epoch + 1) % 5 == 0:
-        if self.beta < 1.:
-            self.beta += .1
+        self.beta += .1
+        if self.beta > 1.:
+            self.beta = 1.
         # model.threshold1p()
 
     def update_test_meters(self, loss, output, target):
