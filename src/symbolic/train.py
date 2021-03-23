@@ -51,6 +51,7 @@ class Experiment(ABC):
         droprate: float = 0.0,
         resume: bool = False,
         tensorboard: bool = False,
+        grad_clip: float = -1.0
     ):
         """
         Creates the experiment object that contains all of the experiment configuration parameters
@@ -70,6 +71,7 @@ class Experiment(ABC):
         self.droprate = droprate
         self.resume = resume
         self.tensorboard = tensorboard
+        self.grad_clip = grad_clip
 
         self.git_commit = ""
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -346,7 +348,8 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
         # compute gradient and do SGD step
         loss.backward()
         # TODO: make clipping optional
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        if experiment.grad_clip > 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), experiment.grad_clip)
         optimizer.step()
         scheduler.step()
 
