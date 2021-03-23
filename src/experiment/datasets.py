@@ -422,11 +422,23 @@ def build_mixture_dataset(dataset, indices, max_length=10000):
             valid_idxs = (
                 (target == k) & (labels[ind1] == val[0]) & (labels[ind2] == val[1])
             )
-
-            dset_1 += ind1[valid_idxs].tolist()
-            dset_2 += ind2[valid_idxs].tolist()
+            first_inds = ind1[valid_idxs]
+            second_inds = ind2[valid_idxs]
             results = np.concatenate((ind1[labels[ind1] == k], ind2[labels[ind2] == k]), axis=0)
-            dset_t += results[:valid_idxs.sum()].tolist()
+            targ_inds = results[:valid_idxs.sum()]
+
+            same_item2 = labels[first_inds] == labels[second_inds]
+            second_inds[same_item2] = first_inds[same_item2]
+
+            same_item_t1 = labels[first_inds] == labels[targ_inds]
+            targ_inds[same_item_t1] = first_inds[same_item_t1]
+
+            same_item_t2 = labels[second_inds] == labels[targ_inds]
+            targ_inds[same_item_t2] = second_inds[same_item_t2]
+
+            dset_1 += first_inds.tolist()
+            dset_2 += second_inds.tolist()
+            dset_t += targ_inds.tolist()
 
     indexes = np.arange(len(dset_1))
     np.random.shuffle(indexes)
