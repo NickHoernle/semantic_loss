@@ -33,6 +33,7 @@ class BaseMNISTExperiment(train.Experiment):
         hidden_dim1: int = 250,
         hidden_dim2: int = 100,
         zdim: int = 10,
+        beta: float = .1,
         **kwargs,
     ):
         self.dataset = "mnist"
@@ -41,7 +42,7 @@ class BaseMNISTExperiment(train.Experiment):
         self.hidden_dim1 = hidden_dim1
         self.hidden_dim2 = hidden_dim2
         self.zdim = zdim
-        self.beta = 1.0
+        self.beta = beta
         super().__init__(**kwargs)
 
     @property
@@ -264,7 +265,7 @@ class BaseMNISTExperiment(train.Experiment):
         return False
 
 
-def calc_ll(params, target, beta=1.0):
+def calc_ll(params, target):
     """
     Helper to calculate the ll of a single prediction for one of the images that are being processed
     """
@@ -280,7 +281,7 @@ def calc_ll(params, target, beta=1.0):
         dim=-1
     )
 
-    return rcon + beta * kld
+    return rcon + kld
 
 
 class ConstrainedMNIST(BaseMNISTExperiment):
@@ -289,7 +290,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        self.beta = 1.0
+        beta = 1./10.
+        kwargs["beta"] = beta
         super().__init__(**kwargs)
 
     @property
@@ -330,13 +332,13 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
         # reconstruction accuracies
         ll1 = torch.stack(
-            [calc_ll(r, tgt1, beta=self.beta) for r in r1], dim=1
+            [calc_ll(r, tgt1) for r in r1], dim=1
         )
         ll2 = torch.stack(
-            [calc_ll(r, tgt2, beta=self.beta) for r in r2], dim=1
+            [calc_ll(r, tgt2) for r in r2], dim=1
         )
         ll3 = torch.stack(
-            [calc_ll(r, tgt3, beta=self.beta) for r in r3], dim=1
+            [calc_ll(r, tgt3) for r in r3], dim=1
         )
 
         lp1 = lp1.log_softmax(dim=-1)
@@ -355,9 +357,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         llik = torch.stack(llik, dim=1)
         recon_losses, labels = llik.min(dim=1)
 
-        loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        loss += recon_losses.mean()
-        loss += F.nll_loss(logpy, labels)
+        loss_marginalise = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
+        loss_heuristic = recon_losses.mean()
+        loss_heuristic += F.nll_loss(logpy, labels)
 
         # llik = ((lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
         #         (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
@@ -366,8 +368,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         # recon_losses, labels = llik.min(dim=1)
         # loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
         # loss += recon_losses.mean()
-
-        return loss
+        return self.beta * loss_marginalise + (1-self.beta) * loss_heuristic
 
     def warmup_hook(self, model, train_loader):
         # print("Warming up")
@@ -418,7 +419,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
     def epoch_finished_hook(self, epoch, model, val_loader):
         # if (epoch + 1) % 5 == 0:
-        model.threshold1p()
+        self.beta = np.min([1., (epoch+1)/10])
+        # model.threshold1p()
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)

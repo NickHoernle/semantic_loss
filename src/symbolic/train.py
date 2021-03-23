@@ -72,7 +72,7 @@ class Experiment(ABC):
         self.tensorboard = tensorboard
 
         self.git_commit = ""
-        self.device = None
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.start_epoch = 0
         self.losses = AverageMeter()
         self.best_loss = np.infty
@@ -145,10 +145,15 @@ class Experiment(ABC):
             )
         return self.logfile_
 
-    def load_model(self):
+    def load_model(self, use_final=False):
         model = self.create_model()
-        checkpoint = torch.load(self.best_checkpoint)
-        model.load_state_dict(checkpoint["state_dict"])
+        checkpoint = self.checkpoint if use_final else self.best_checkpoint
+        if self.device == "cpu":
+            checkpoint = torch.load(checkpoint, map_location=torch.device('cpu'))
+            model.load_state_dict(checkpoint["state_dict"])
+        else:
+            checkpoint = torch.load(checkpoint)
+            model.load_state_dict(checkpoint["state_dict"])
         return model
 
     def init_meters(self):
@@ -228,7 +233,6 @@ def main(experiment):
     repo = git.Repo(search_parent_directories=True)
     # set the git commit for logging purposes
     experiment.git_commit = repo.head.object.hexsha
-    experiment.device = device
 
     # if args.tensorboard: configure(os.path.join(args.checkpoint_dir, git_commit, params))
     # Data loading code
