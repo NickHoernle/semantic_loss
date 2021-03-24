@@ -290,7 +290,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        beta = 0
+        beta = 0.
         kwargs["beta"] = beta
         super().__init__(**kwargs)
 
@@ -308,7 +308,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                         ixs1=constrain,
                         ixs_not=[],
                         ixs_less_than=lwr_c,
-                        threshold_upper=-1,
+                        threshold_upper=0,
                         threshold_lower=-15,
                         threshold_limit=-15,
                     )
@@ -333,41 +333,37 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         # reconstruction accuracies
         ll1 = torch.stack(
             [calc_ll(r, tgt1) for r in r1], dim=1
-        )
+        ).unsqueeze(1)
         ll2 = torch.stack(
             [calc_ll(r, tgt2) for r in r2], dim=1
-        )
+        ).unsqueeze(1)
         ll3 = torch.stack(
             [calc_ll(r, tgt3) for r in r3], dim=1
-        )
+        ).unsqueeze(1)
 
         lp1 = lp1.log_softmax(dim=-1)
         lp2 = lp2.log_softmax(dim=-1)
         lp3 = lp3.log_softmax(dim=-1)
 
-        llik = []
+        # llik = []
+        # for k, vals in knowledge.items():
+        #     for v0, v1 in vals:
+        #         llik += [
+        #             ll3[:, k] + ll1[:, v0] + ll2[:, v1]
+        #             - lp3[:, k] - lp1[:, v0] - lp2[:, v1]
+        #         ]
+        #
+        # llik = torch.stack(llik, dim=1)
 
-        for k, vals in knowledge.items():
-            for v0, v1 in vals:
-                llik += [
-                    ll3[:, k] + ll1[:, v0] + ll2[:, v1]
-                    - lp3[:, k] - lp1[:, v0] - lp2[:, v1]
-                ]
+        llik = (lp1.exp() * (ll1 + lp1)).sum(dim=-1) + \
+               (lp2.exp() * (ll2 + lp2)).sum(dim=-1) + \
+               (lp3.exp() * (ll3 + lp3)).sum(dim=-1)
 
-        llik = torch.stack(llik, dim=1)
         recon_losses, labels = llik.min(dim=1)
-
         loss_marginalise = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
         loss_heuristic = recon_losses.mean()
         loss_heuristic += F.nll_loss(logpy, labels)
 
-        # llik = ((lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
-        #         (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
-        #         (lp3.exp() * (ll3 + lp3)).sum(dim=-1))
-
-        # recon_losses, labels = llik.min(dim=1)
-        # loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        # loss += recon_losses.mean()
         return self.beta * loss_marginalise + (1-self.beta) * loss_heuristic
 
     def warmup_hook(self, model, train_loader):
@@ -422,7 +418,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         self.beta += .1
         if self.beta > 1.:
             self.beta = 1.
-        # model.threshold1p()
+        model.threshold1p()
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)

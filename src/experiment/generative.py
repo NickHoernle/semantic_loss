@@ -242,7 +242,7 @@ class ConstrainedMnistVAE(MnistVAE):
         cp = torch.cat((log_pred1, log_pred2, log_pred3), dim=1)
 
         logic_pred, lpy = self.logic_decoder(cp, self.logic_pred(cp))
-        log_p1, log_p2, log_p3 = log_pred1, log_pred2, log_pred3
-        # log_p1, log_p2, log_p3 = logic_pred.split(10, dim=-1)
+        # log_p1, log_p2, log_p3 = log_pred1, log_pred2, log_pred3
+        log_p1, log_p2, log_p3 = logic_pred.split(10, dim=-1)
 
         return ((d1, d2, d3), (log_p1, log_p2, log_p3), lpy)
