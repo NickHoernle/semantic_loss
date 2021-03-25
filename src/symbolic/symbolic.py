@@ -41,10 +41,11 @@ class ConstantConstraint(nn.Module):
         s11 = split1 - self.threshold_upper
         s21 = split2 - self.threshold_lower
 
-        restricted1 = torch.max(torch.stack([s11, self.threshold_upper*(split1 - split1.detach())], dim=1), dim=1)[0] + self.threshold_upper
-        restricted2 = torch.min(torch.stack([s21, self.threshold_lower*(split2 - split2.detach())], dim=1), dim=1)[0] + self.threshold_lower
+        # restricted1 = torch.max(torch.stack([s11, self.threshold_upper*(split1 - split1.detach())], dim=1), dim=1)[0] + self.threshold_upper
+        # restricted2 = torch.min(torch.stack([s21, self.threshold_lower*(split2 - split2.detach())], dim=1), dim=1)[0] + self.threshold_lower
 
-        # restricted1 = F.softplus(split1) + self.threshold_upper
+        restricted1 = F.softplus(split1) + self.threshold_upper
+        restricted2 = torch.ones_like(split2) * self.threshold_lower
         # restricted2 = -F.softplus(-split2) + self.threshold_lower
 
         return torch.cat((restricted1, restricted2, split3), dim=1)[
