@@ -95,7 +95,7 @@ class BaseMNISTExperiment(train.Experiment):
     def epoch_finished_hook(self, epoch, model, val_loader):
         pass
         # if (epoch + 1) % 10 == 0:
-        #     self.plot_model_samples(epoch, model)
+        # self.plot_model_samples(epoch, model)
 
     def plot_model_samples(self, epoch, model):
         fig, axes = plt.subplots(10, 10, figsize=(20, 15))
@@ -292,7 +292,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        beta = 1
+        beta = .1
         beta2 = 1
         kwargs["beta"] = beta
         kwargs["beta2"] = beta2
