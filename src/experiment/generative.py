@@ -5,12 +5,9 @@ import numpy as np
 
 
 def init_weights(m):
-    classname = m.__class__.__name__
-    if classname.find("Conv") != -1:
-        torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
-    elif classname.find("BatchNorm") != -1:
-        torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
-        torch.nn.init.constant_(m.bias.data, 0.0)
+    if type(m) == nn.Linear:
+        torch.nn.init.xavier_uniform_(m.weight)
+        m.bias.data.fill_(0.01)
 
 
 class LinearVAE(nn.Module):
