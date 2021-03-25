@@ -93,19 +93,15 @@ class BaseMNISTExperiment(train.Experiment):
         # self.plot_sampled_images(loader)
 
     def epoch_finished_hook(self, epoch, model, val_loader):
-        pass
-        # if (epoch + 1) % 10 == 0:
-        # self.plot_model_samples(epoch, model)
+        self.plot_model_samples(epoch, model)
 
     def plot_model_samples(self, epoch, model):
         fig, axes = plt.subplots(10, 10, figsize=(20, 15))
 
         for i, row in enumerate(axes):
             for j, ax in enumerate(row):
-                y_onehot = torch.zeros((1, 10)).float()
-                y_onehot[:, j] = 1
-
-                mu_p, lv_p = model.get_priors(y_onehot)
+                labs = torch.ones(1).long() * j
+                mu_p, lv_p = model.get_priors(labs)
                 std = torch.exp(0.5 * lv_p)
                 z = mu_p + std * torch.randn((1, 10))
 
@@ -293,7 +289,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
     ):
         kwargs["sloss"] = True
         beta = .1
-        beta2 = 1
+        beta2 = 1.
         kwargs["beta"] = beta
         kwargs["beta2"] = beta2
         super().__init__(**kwargs)
@@ -328,6 +324,12 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             num_labels=10,
             terms=self.logic_terms,
         )
+
+    def epoch_finished_hook(self, epoch, model, val_loader):
+        # self.plot_model_samples(epoch, model)
+        self.beta += .1
+        if self.beta > 1.:
+            self.beta = 1.
 
     def criterion(self, output, target, train=True):
 
@@ -402,18 +404,6 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             (-(logpy.exp() * logpy).sum(dim=1)).mean().data.item(),
             tgt3.size(0),
         )
-
-    def epoch_finished_hook(self, epoch, model, val_loader):
-        # if (epoch + 1) % 5 == 0:
-        self.beta += .1
-        if self.beta > 1.:
-            self.beta = 1.
-
-        self.beta2 -= 1.
-        if self.beta2 < 1.:
-            self.beta2 = 1.
-
-        model.threshold1p()
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)
