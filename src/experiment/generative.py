@@ -61,7 +61,7 @@ class LinearVAE(nn.Module):
 
         # decoding
         reconstruction = self.decoder(z)
-        return reconstruction, (mu, log_var)
+        return reconstruction, (mu, log_var), None
 
 
 class ConstrainedVAE(LinearVAE):
@@ -77,6 +77,12 @@ class ConstrainedVAE(LinearVAE):
             nn.Linear(self.nhidden, 2 * self.nlatent + self.nterms),
         )
 
+        self._logic_prior = nn.Parameter(torch.randn(len(terms)))
+
+    @property
+    def logic_prior(self):
+        return self._logic_prior.log_softmax(dim=0)
+
     def encode(self, x):
         return self.encoder(x).split((self.nlatent, self.nlatent, self.nterms), dim=-1)
 
@@ -84,7 +90,7 @@ class ConstrainedVAE(LinearVAE):
         decoded = self.decoder(z)
 
         if type(labels) == type(None):
-            labelz = torch.randint(low=0, high=self.nterms, size=(len(z),))
+            labelz = torch.tensor(np.random.choice(np.arange(self.nterms), replace=True, size=len(z), p=self.logic_prior.exp().detach().numpy())).long()
             pred = self.logic.all_predictions(decoded)
             idxs = np.arange(len(pred))
             return pred[idxs, labelz]
@@ -102,7 +108,7 @@ class ConstrainedVAE(LinearVAE):
         z = self.reparameterize(mu, log_var)
 
         # decoding
-        return self.decode(z, pred_y, test, **kwargs), (mu, log_var)
+        return self.decode(z, pred_y, test, **kwargs), (mu, log_var), self.logic_prior
 
 
 class Flatten(nn.Module):
@@ -137,11 +143,13 @@ class MnistVAE(nn.Module):
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
-        self.mu = nn.Linear(h_dim2 + num_labels, z_dim)
-        self.lv = nn.Linear(h_dim2 + num_labels, z_dim)
+        self.mu = nn.Linear(h_dim2, z_dim)
+        self.lv = nn.Linear(h_dim2, z_dim)
 
-        self.mu_prior = nn.Linear(num_labels, z_dim)
-        self.lv_prior = nn.Linear(num_labels, z_dim)
+        self.label_embedding = nn.Embedding(num_labels, h_dim2)
+
+        self.mu_prior = nn.Embedding(num_labels, z_dim)
+        self.lv_prior = nn.Sequential(nn.Embedding(num_labels, z_dim))
 
         self.decoder = nn.Sequential(
             nn.Linear(z_dim, h_dim2),
@@ -179,15 +187,14 @@ class MnistVAE(nn.Module):
         return eps.mul(std).add_(mu)
 
     def collect(self, encoded, label):
-        one_hot = self.get_one_hot(encoded, label)
-
-        mu, lv = self.get_latent(torch.cat((encoded, one_hot), dim=1))
-        mu_prior, lv_prior = self.get_priors(one_hot)
+        labels = torch.ones_like(encoded[:, 0]).long() * label
+        mu, lv = self.get_latent(encoded + self.label_embedding(labels))
+        mu_prior, lv_prior = self.get_priors(labels)
 
         z = self.reparameterize(mu, lv)
-        recon = self.decode_one(z)
+        recons = self.decode_one(z)
 
-        return (recon, mu, lv, mu_prior, lv_prior, z)
+        return (recons, mu, lv, mu_prior, lv_prior, z)
 
     def decode(self, encoded):
         return [self.collect(encoded, label) for label in range(self.num_labels)]
@@ -210,12 +217,18 @@ class ConstrainedMnistVAE(MnistVAE):
     def __init__(self, terms, **kwargs):
         super().__init__(**kwargs)
         self.num_terms = len(terms)
-        self.logic_decoder = OrList(terms=terms)
+        self.logic_decoder = OrList(terms=terms, dim=3 * self.num_labels)
         self.logic_pred = nn.Sequential(
-            nn.Linear(3 * self.num_labels, len(terms))
+            nn.Linear(3 * self.num_labels, len(terms)),
         )
         self.warmup = nn.Linear(self.h_dim2, self.z_dim)
+        self._logic_prior = nn.Parameter(torch.randn(len(terms)))
+
         self.apply(init_weights)
+
+    @property
+    def logic_prior(self):
+        return self._logic_prior.log_softmax(dim=0)
 
     def encode(self, x):
         h = self.encoder(x)
@@ -231,18 +244,23 @@ class ConstrainedMnistVAE(MnistVAE):
 
         x1, x2, x3 = in_data
 
-        encoded1, log_pred1 = self.encode(x1)
-        encoded2, log_pred2 = self.encode(x2)
-        encoded3, log_pred3 = self.encode(x3)
+        encoded1, logits1 = self.encode(x1)
+        encoded2, logits2 = self.encode(x2)
+        encoded3, logits3 = self.encode(x3)
 
         d1 = self.decode(encoded1)
         d2 = self.decode(encoded2)
         d3 = self.decode(encoded3)
 
-        cp = torch.cat((log_pred1, log_pred2, log_pred3), dim=1)
+        cp_sm = torch.cat((logits1.softmax(dim=1), logits2.softmax(dim=1), logits3.softmax(dim=1)), dim=1)
+        cp = torch.cat((logits1, logits2, logits3), dim=1)
 
-        logic_pred, lpy = self.logic_decoder(cp, self.logic_pred(cp))
+        logic_pred, lpy = self.logic_decoder(cp_sm, self.logic_pred(cp_sm))
         # log_p1, log_p2, log_p3 = log_pred1, log_pred2, log_pred3
         log_p1, log_p2, log_p3 = logic_pred.split(10, dim=-1)
 
-        return ((d1, d2, d3), (log_p1, log_p2, log_p3), lpy)
+        return (
+            (d1, d2, d3),
+            (log_p1, log_p2, log_p3),
+            (lpy, self.logic_prior)
+        )
