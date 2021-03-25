@@ -64,7 +64,7 @@ class BaseSyntheticExperiment(train.Experiment):
             model_input = self.get_input_data(data)
             with torch.no_grad():
                 output = model(model_input, test=True)
-                recon, (m, lv) = output
+                recon, (m, lv), _ = output
             recons += [recon]
 
         recons = torch.cat(recons, dim=0)
@@ -76,10 +76,26 @@ class BaseSyntheticExperiment(train.Experiment):
         fig_file = os.path.join(self.figures_directory, f"{epoch}_reconstruction.png")
         save_figure(fig, fig_file, self)
 
+    def plot_prior_samples(self, epoch, model, loader):
+        fig = plt.figure(figsize=(4, 4))
+        ax = fig.gca()
+
+        z = torch.randn(10000,25)
+        recons = model.decode(z).detach()
+
+        valid_constraints = [t.valid(recons) for t in self.logic_terms]
+        v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
+        ax.scatter(*recons[v_c].numpy().T, s=0.5, label="valid", c="C2")
+        ax.scatter(*recons[~v_c].numpy().T, s=0.5, label="invalid", c="C3")
+        ax.legend(loc="best")
+        fig_file = os.path.join(self.figures_directory, f"{epoch}_prior_samples.png")
+        save_figure(fig, fig_file, self)
+
     def epoch_finished_hook(self, *args, **kwargs):
         if not args[0] % 10 == 0:
             return
         self.plot_validation_reconstructions(*args)
+        self.plot_prior_samples(*args)
 
     def get_loaders(self):
         train_size = self.size_of_train_set
@@ -131,7 +147,7 @@ class BaseSyntheticExperiment(train.Experiment):
     def criterion(self, output, target, train=True):
 
         if not self.baseline and train:
-            (recon, log_py), (mu, lv) = output
+            (recon, log_py), (mu, lv), log_prior = output
             ll = []
             for j, p in enumerate(recon.split(1, dim=1)):
                 ll += [
@@ -142,14 +158,14 @@ class BaseSyntheticExperiment(train.Experiment):
             recon_losses, labels = pred_loss.min(dim=1)
 
             kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1).mean()
-            loss = (log_py.exp() * (pred_loss + log_py)).sum(dim=1).mean()
+            loss = (log_py.exp() * (pred_loss + log_py - log_prior)).sum(dim=1).mean()
             loss += recon_losses.mean()
             loss += F.nll_loss(log_py, labels)
             loss += kld
 
             return loss
 
-        recon, (mu, lv) = output
+        recon, (mu, lv), _ = output
         loss = (
             self.weight
             * F.mse_loss(recon.squeeze(1), target, reduction="none").sum(dim=1).mean()
@@ -159,10 +175,10 @@ class BaseSyntheticExperiment(train.Experiment):
 
     def update_train_meters(self, loss, output, target):
         if not self.baseline:
-            (recon, log_py), (mu, lv) = output
+            (recon, log_py), (mu, lv), log_prior = output
             preds = recon[np.arange(len(log_py)), log_py.argmax(dim=1)]
         else:
-            preds, (mu, lv) = output
+            preds, (mu, lv), _ = output
 
         self.losses["loss"].update(loss.data.item(), target.size(0))
         valid_constraints = [t.valid(preds) for t in self.logic_terms]
@@ -170,7 +186,7 @@ class BaseSyntheticExperiment(train.Experiment):
         self.losses["constraint"].update(v_c.tolist(), v_c.size(0))
 
     def update_test_meters(self, loss, output, target):
-        preds, (mu, lv) = output
+        preds, (mu, lv), _ = output
         self.losses["loss"].update(loss.data.item(), target.size(0))
         valid_constraints = [t.valid(preds) for t in self.logic_terms]
         v_c = torch.stack(valid_constraints, dim=1).any(dim=1)

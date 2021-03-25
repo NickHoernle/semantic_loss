@@ -24,7 +24,7 @@ class ConstantConstraint(nn.Module):
         self.threshold_lower = threshold_lower
         self.threshold_limit = threshold_limit
 
-        self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
+        self.forward_transform = self.ixs1 + self.ixs_neg
         self.reverse_transform = np.argsort(self.forward_transform)
 
         # self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
@@ -36,19 +36,13 @@ class ConstantConstraint(nn.Module):
     def forward(self, x):
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_neg]
-        split3 = x.detach()[:, self.ixs_not]
 
-        s11 = split1 - self.threshold_upper
-        s21 = split2 - self.threshold_lower
+        ones = torch.ones_like(split1)
+        restricted1 = (ones - split1).detach() + split1
+        zeros = torch.zeros_like(split2)
+        restricted2 = (zeros + split2).detach() - split2
 
-        # restricted1 = torch.max(torch.stack([s11, self.threshold_upper*(split1 - split1.detach())], dim=1), dim=1)[0] + self.threshold_upper
-        # restricted2 = torch.min(torch.stack([s21, self.threshold_lower*(split2 - split2.detach())], dim=1), dim=1)[0] + self.threshold_lower
-
-        restricted1 = F.softplus(split1) + self.threshold_upper
-        restricted2 = torch.ones_like(split2) * self.threshold_lower
-        # restricted2 = -F.softplus(-split2) + self.threshold_lower
-
-        return torch.cat((restricted1, restricted2, split3), dim=1)[
+        return torch.cat((restricted1, restricted2), dim=1)[
                :, self.reverse_transform
                ]
 
@@ -308,7 +302,7 @@ class Identity(GEQConstant):
 
 
 class OrList(nn.Module):
-    def __init__(self, terms):
+    def __init__(self, terms, dim=10):
         super().__init__()
         self.layers = nn.ModuleList(terms)
 
@@ -319,9 +313,9 @@ class OrList(nn.Module):
     def all_predictions(self, x):
         return torch.stack([f(x) for f in self.layers], dim=1)
 
-    def forward(self, x, class_prediction, test=False):
+    def forward(self, x, class_pred, test=False):
         pred = self.all_predictions(x)
-        log_py = class_prediction.log_softmax(dim=1)
+        log_py = class_pred.log_softmax(dim=1)
 
         if test:
             return pred[np.arange(len(log_py)), log_py.argmax(dim=1)]

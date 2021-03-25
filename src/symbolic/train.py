@@ -37,7 +37,7 @@ class Experiment(ABC):
 
     def __init__(
         self,
-        dataset_path: str = "../data",
+        dataset_path: str = "data",
         checkpoint_dir: str = "runs",
         use_git_commit_to_log: bool = False,
         epochs: int = 200,

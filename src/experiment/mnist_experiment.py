@@ -34,6 +34,7 @@ class BaseMNISTExperiment(train.Experiment):
         hidden_dim2: int = 100,
         zdim: int = 10,
         beta: float = .1,
+        beta2: float = 1.,
         **kwargs,
     ):
         self.dataset = "mnist"
@@ -43,6 +44,7 @@ class BaseMNISTExperiment(train.Experiment):
         self.hidden_dim2 = hidden_dim2
         self.zdim = zdim
         self.beta = beta
+        self.beta2 = beta2
         super().__init__(**kwargs)
 
     @property
@@ -192,13 +194,13 @@ class BaseMNISTExperiment(train.Experiment):
         ll1, ll2, ll3 = [], [], []
 
         for i in range(10):
-            ll1.append(calc_ll(recons1[i], tgt1))
+            ll1.append(calc_ll(recons1[i], tgt1, self.beta2))
 
         for j in range(10):
-            ll2.append(calc_ll(recons2[j], tgt2))
+            ll2.append(calc_ll(recons2[j], tgt2, self.beta2))
 
         for k in range(10):
-            ll3.append(calc_ll(recons3[k], tgt3))
+            ll3.append(calc_ll(recons3[k], tgt3, self.beta2))
 
         return (
             (lp1.exp() * (torch.stack(ll1, dim=1) + lp1)).sum(dim=1).mean()
@@ -265,7 +267,7 @@ class BaseMNISTExperiment(train.Experiment):
         return False
 
 
-def calc_ll(params, target):
+def calc_ll(params, target, weight_factor=5):
     """
     Helper to calculate the ll of a single prediction for one of the images that are being processed
     """
@@ -281,7 +283,7 @@ def calc_ll(params, target):
         dim=-1
     )
 
-    return rcon + kld
+    return rcon + weight_factor*kld
 
 
 class ConstrainedMNIST(BaseMNISTExperiment):
@@ -290,8 +292,10 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        beta = 0.
+        beta = 1
+        beta2 = 1
         kwargs["beta"] = beta
+        kwargs["beta2"] = beta2
         super().__init__(**kwargs)
 
     @property
@@ -309,7 +313,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                         ixs_not=[],
                         ixs_less_than=lwr_c,
                         threshold_upper=0,
-                        threshold_lower=-15,
+                        threshold_lower=-5,
                         threshold_limit=-15,
                     )
                 )
@@ -328,39 +332,25 @@ class ConstrainedMNIST(BaseMNISTExperiment):
     def criterion(self, output, target, train=True):
 
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (r1, r2, r3), (lp1, lp2, lp3), logpy = output
+        (r1, r2, r3), (lp1, lp2, lp3), (logpy, log_prior) = output
 
         # reconstruction accuracies
         ll1 = torch.stack(
-            [calc_ll(r, tgt1) for r in r1], dim=1
+            [calc_ll(r, tgt1, self.beta2) for r in r1], dim=1
         ).unsqueeze(1)
         ll2 = torch.stack(
-            [calc_ll(r, tgt2) for r in r2], dim=1
+            [calc_ll(r, tgt2, self.beta2) for r in r2], dim=1
         ).unsqueeze(1)
         ll3 = torch.stack(
-            [calc_ll(r, tgt3) for r in r3], dim=1
+            [calc_ll(r, tgt3, self.beta2) for r in r3], dim=1
         ).unsqueeze(1)
 
-        lp1 = lp1.log_softmax(dim=-1)
-        lp2 = lp2.log_softmax(dim=-1)
-        lp3 = lp3.log_softmax(dim=-1)
-
-        # llik = []
-        # for k, vals in knowledge.items():
-        #     for v0, v1 in vals:
-        #         llik += [
-        #             ll3[:, k] + ll1[:, v0] + ll2[:, v1]
-        #             - lp3[:, k] - lp1[:, v0] - lp2[:, v1]
-        #         ]
-        #
-        # llik = torch.stack(llik, dim=1)
-
-        llik = (lp1.exp() * (ll1 + lp1)).sum(dim=-1) + \
-               (lp2.exp() * (ll2 + lp2)).sum(dim=-1) + \
-               (lp3.exp() * (ll3 + lp3)).sum(dim=-1)
+        llik = (lp1 * ll1).sum(dim=-1) + \
+               (lp2 * ll2).sum(dim=-1) + \
+               (lp3 * ll3).sum(dim=-1)
 
         recon_losses, labels = llik.min(dim=1)
-        loss_marginalise = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
+        loss_marginalise = (logpy.exp() * (llik + logpy - log_prior)).sum(dim=-1).mean()
         loss_heuristic = recon_losses.mean()
         loss_heuristic += F.nll_loss(logpy, labels)
 
@@ -395,7 +385,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
     def update_train_meters(self, loss, output, target):
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
+        (recons1, recons2, recons3), (lp1, lp2, lp3), (logpy, log_prior) = output
 
         vals = (
             torch.tensor([k for k, vals in knowledge.items() for v in vals])[None, :]
@@ -418,6 +408,11 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         self.beta += .1
         if self.beta > 1.:
             self.beta = 1.
+
+        self.beta2 -= 1.
+        if self.beta2 < 1.:
+            self.beta2 = 1.
+
         model.threshold1p()
 
     def update_test_meters(self, loss, output, target):
