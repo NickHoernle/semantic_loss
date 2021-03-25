@@ -223,7 +223,7 @@ class ConstrainedMnistVAE(MnistVAE):
         )
         self.warmup = nn.Linear(self.h_dim2, self.z_dim)
         # self._logic_prior = nn.Parameter(torch.randn(len(terms)))
-        self._logic_prior = torch.ones(len(terms))
+        self._logic_prior = nn.Parameter(torch.ones(len(terms)), requires_grad=False)
 
         self.apply(init_weights)
 
