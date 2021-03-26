@@ -288,7 +288,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        beta = 0
+        beta = .1
         beta2 = 1.
         kwargs["beta"] = beta
         kwargs["beta2"] = beta2
@@ -328,7 +328,12 @@ class ConstrainedMNIST(BaseMNISTExperiment):
     def epoch_finished_hook(self, epoch, model, val_loader):
         if self.device == "cpu":
             self.plot_model_samples(epoch, model)
-        self.beta += .05
+
+        model.tau -= 1.
+        if model.tau < 1.:
+            model.tau = 1.
+
+        self.beta += .1
         if self.beta > 1.:
             self.beta = 1.
 
@@ -360,6 +365,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         return loss_marginalise + (1-self.beta) * loss_heuristic
 
     def warmup_hook(self, model, train_loader):
+        print(self.beta, self.beta2, model.tau)
         # print("Warming up")
         # optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
         # for epoch in range(0, 5):
