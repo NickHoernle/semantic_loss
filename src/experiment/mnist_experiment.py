@@ -30,9 +30,9 @@ class BaseMNISTExperiment(train.Experiment):
         self,
         sloss: bool = False,
         name: str = "MNIST",
-        hidden_dim1: int = 250,
-        hidden_dim2: int = 100,
-        zdim: int = 10,
+        hidden_dim1: int = 500,
+        hidden_dim2: int = 250,
+        zdim: int = 25,
         beta: float = .1,
         beta2: float = 1.,
         **kwargs,
@@ -326,8 +326,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         )
 
     def epoch_finished_hook(self, epoch, model, val_loader):
-        # self.plot_model_samples(epoch, model)
-        self.beta += .05
+        self.plot_model_samples(epoch, model)
+        self.beta += .1
         if self.beta > 1.:
             self.beta = 1.
 
