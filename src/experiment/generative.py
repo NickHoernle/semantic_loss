@@ -143,8 +143,8 @@ class MnistVAE(nn.Module):
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
-        self.mu = nn.Linear(2*h_dim2, z_dim)
-        self.lv = nn.Linear(2*h_dim2, z_dim)
+        self.mu = nn.Linear(h_dim2+num_labels, z_dim)
+        self.lv = nn.Linear(h_dim2+num_labels, z_dim)
 
         self.label_embedding = nn.Embedding(num_labels, h_dim2)
 
@@ -188,7 +188,8 @@ class MnistVAE(nn.Module):
 
     def collect(self, encoded, label):
         labels = torch.ones_like(encoded[:, 0]).long() * label
-        mu, lv = self.get_latent(torch.cat([encoded, self.label_embedding(labels)], dim=1))
+        one_hot = self.get_one_hot(encoded, label)
+        mu, lv = self.get_latent(torch.cat([encoded, one_hot], dim=1))
         mu_prior, lv_prior = self.get_priors(labels)
 
         z = self.reparameterize(mu, lv)
