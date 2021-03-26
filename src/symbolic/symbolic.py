@@ -38,9 +38,9 @@ class ConstantConstraint(nn.Module):
         split2 = x[:, self.ixs_neg]
 
         ones = torch.ones_like(split1)
-        restricted1 = (ones - split1).detach() + split1
+        restricted1 = (ones + split1).detach() - split1
         zeros = torch.zeros_like(split2)
-        restricted2 = zeros
+        restricted2 = (zeros - split2).detach() + split2 # or : (zeros + split2).detach() - split2
 
         return torch.cat((restricted1, restricted2), dim=1)[
                :, self.reverse_transform
@@ -313,9 +313,9 @@ class OrList(nn.Module):
     def all_predictions(self, x):
         return torch.stack([f(x) for f in self.layers], dim=1)
 
-    def forward(self, x, class_pred, test=False):
+    def forward(self, x, class_pred, test=False, tau=1.):
         pred = self.all_predictions(x)
-        log_py = class_pred.log_softmax(dim=1)
+        log_py = (class_pred/tau).log_softmax(dim=1)
 
         if test:
             return pred[np.arange(len(log_py)), log_py.argmax(dim=1)]

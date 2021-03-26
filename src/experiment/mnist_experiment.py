@@ -288,7 +288,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        beta = .1
+        beta = 0
         beta2 = 1.
         kwargs["beta"] = beta
         kwargs["beta2"] = beta2
@@ -326,7 +326,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         )
 
     def epoch_finished_hook(self, epoch, model, val_loader):
-        # self.plot_model_samples(epoch, model)
+        self.plot_model_samples(epoch, model)
         self.beta += .1
         if self.beta > 1.:
             self.beta = 1.
@@ -356,7 +356,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         loss_heuristic = recon_losses.mean()
         loss_heuristic += F.nll_loss(logpy, labels)
 
-        return self.beta * loss_marginalise + (1-self.beta) * loss_heuristic
+        return loss_marginalise + (1-self.beta) * loss_heuristic
 
     def warmup_hook(self, model, train_loader):
         # print("Warming up")
