@@ -326,8 +326,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         )
 
     def epoch_finished_hook(self, epoch, model, val_loader):
-        self.plot_model_samples(epoch, model)
-        self.beta += .1
+        if self.device == "cpu":
+            self.plot_model_samples(epoch, model)
+        self.beta += .05
         if self.beta > 1.:
             self.beta = 1.
 
