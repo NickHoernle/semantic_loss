@@ -254,7 +254,7 @@ class ConstrainedMnistVAE(MnistVAE):
         d2 = self.decode(encoded2)
         d3 = self.decode(encoded3)
 
-        cp_sm = torch.cat(((logits1).softmax(dim=1), (logits2).softmax(dim=1), (logits3).softmax(dim=1)), dim=1)
+        cp_sm = torch.cat(((logits1/self.tau).softmax(dim=1), (logits2/self.tau).softmax(dim=1), (logits3/self.tau).softmax(dim=1)), dim=1)
         # cp_sm = torch.cat(((logits1).softmax(dim=1), (logits2).softmax(dim=1), (logits3).softmax(dim=1)), dim=1)
         cp = torch.cat((logits1, logits2, logits3), dim=1)
 
