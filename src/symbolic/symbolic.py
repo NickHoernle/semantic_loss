@@ -40,9 +40,9 @@ class ConstantConstraint(nn.Module):
         ones = torch.ones_like(split1)
         restricted1 = (ones + split1).detach() - split1
         zeros = torch.zeros_like(split2)
-        restricted2 = (zeros + split2).detach() - split2 # or : (zeros + split2).detach() - split2
+        # restricted2 = (zeros + split2).detach() - split2 # or : (zeros + split2).detach() - split2
 
-        return torch.cat((restricted1, restricted2), dim=1)[
+        return torch.cat((restricted1, zeros), dim=1)[
                :, self.reverse_transform
                ]
 
