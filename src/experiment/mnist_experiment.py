@@ -331,7 +331,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         if model.tau < 1.:
             model.tau = 1.
 
-        self.beta += .05
+        self.beta += .01
         if self.beta > 1.:
             self.beta = 1.
 
