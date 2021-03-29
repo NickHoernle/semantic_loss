@@ -225,7 +225,7 @@ class ConstrainedMnistVAE(MnistVAE):
         self.warmup = nn.Linear(self.h_dim2, self.z_dim)
         # self._logic_prior = nn.Parameter(torch.randn(len(terms)))
         self._logic_prior = nn.Parameter(torch.ones(len(terms)), requires_grad=False)
-        self.tau = 1.
+        self.tau = 10.
         self.apply(init_weights)
 
     @property
@@ -254,7 +254,7 @@ class ConstrainedMnistVAE(MnistVAE):
         d2 = self.decode(encoded2)
         d3 = self.decode(encoded3)
 
-        cp_sm = torch.cat(((logits1/self.tau).softmax(dim=1), (logits2/self.tau).softmax(dim=1), (logits3/self.tau).softmax(dim=1)), dim=1)
+        cp_sm = torch.cat(((logits1).softmax(dim=1), (logits2).softmax(dim=1), (logits3).softmax(dim=1)), dim=1)
         # cp_sm = torch.cat(((logits1).softmax(dim=1), (logits2).softmax(dim=1), (logits3).softmax(dim=1)), dim=1)
         cp = torch.cat((logits1, logits2, logits3), dim=1)
 
