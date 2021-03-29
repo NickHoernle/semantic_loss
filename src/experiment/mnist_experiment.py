@@ -331,7 +331,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         if model.tau < 1.:
             model.tau = 1.
 
-        self.beta += .01
+        self.beta += .1
         if self.beta > 1.:
             self.beta = 1.
 
@@ -342,13 +342,13 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
         # reconstruction accuracies
         ll1 = torch.stack(
-            [calc_ll(r, tgt1, self.beta2) for r in r1], dim=1
+            [calc_ll(r, tgt1) for r in r1], dim=1
         ).unsqueeze(1)
         ll2 = torch.stack(
-            [calc_ll(r, tgt2, self.beta2) for r in r2], dim=1
+            [calc_ll(r, tgt2) for r in r2], dim=1
         ).unsqueeze(1)
         ll3 = torch.stack(
-            [calc_ll(r, tgt3, self.beta2) for r in r3], dim=1
+            [calc_ll(r, tgt3) for r in r3], dim=1
         ).unsqueeze(1)
 
         llik = (lp1 * ll1).sum(dim=-1) + \
@@ -356,11 +356,11 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                (lp3 * ll3).sum(dim=-1)
 
         recon_losses, labels = llik.min(dim=1)
-        loss_marginalise = (logpy.exp() * (llik + logpy - log_prior)).sum(dim=-1).mean()
+        loss_marginalise = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
         loss_heuristic = recon_losses.mean()
         loss_heuristic += F.nll_loss(logpy, labels)
 
-        return loss_marginalise + (1-self.beta)*loss_heuristic
+        return loss_marginalise + np.max([0, (1-self.beta)])*loss_heuristic
 
     def warmup_hook(self, model, train_loader):
         print(self.beta, self.beta2, model.tau)
