@@ -351,7 +351,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
         if experiment.grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), experiment.grad_clip)
         optimizer.step()
-        scheduler.step()
+        # scheduler.step()
 
         # measure elapsed time
         batch_time.update(time.time() - end)
