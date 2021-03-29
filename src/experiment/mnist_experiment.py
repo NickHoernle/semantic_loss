@@ -286,7 +286,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        beta = .1
+        beta = 0.
         beta2 = 1.
         kwargs["beta"] = beta
         kwargs["beta2"] = beta2
@@ -331,7 +331,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         if model.tau < 1.:
             model.tau = 1.
 
-        self.beta += .1
+        self.beta += .05
         if self.beta > 1.:
             self.beta = 1.
 
