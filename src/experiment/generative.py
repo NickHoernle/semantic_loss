@@ -136,20 +136,18 @@ class MnistVAE(nn.Module):
         self.encoder = nn.Sequential(
             nn.Linear(x_dim, h_dim1),
             nn.ReLU(),
-            nn.BatchNorm1d(h_dim1),
+            # nn.BatchNorm1d(h_dim1),
             nn.Linear(h_dim1, h_dim2),
             nn.ReLU(),
-            nn.BatchNorm1d(h_dim2)
+            # nn.BatchNorm1d(h_dim2)
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
         self.mu = nn.Linear(h_dim2+num_labels, z_dim)
-        self.lv = nn.Linear(h_dim2+num_labels, z_dim)
+        self.lv = nn.Sequential(nn.Linear(h_dim2+num_labels, z_dim), nn.Softplus())
 
-        self.label_embedding = nn.Embedding(num_labels, h_dim2)
-
-        self.mu_prior = nn.Embedding(num_labels, z_dim)
-        self.lv_prior = nn.Sequential(nn.Embedding(num_labels, z_dim))
+        self.mu_prior = nn.Linear(num_labels, z_dim)
+        self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim), nn.Softplus())
 
         self.decoder = nn.Sequential(
             nn.Linear(z_dim, h_dim2),
@@ -182,15 +180,15 @@ class MnistVAE(nn.Module):
         return self.decoder(z)
 
     def reparameterize(self, mu, log_var):
-        std = torch.exp(0.5 * log_var)
-        eps = torch.randn_like(std)
-        return eps.mul(std).add_(mu)
+        # std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(log_var)
+        return eps.mul(log_var).add_(mu)
 
     def collect(self, encoded, label):
-        labels = torch.ones_like(encoded[:, 0]).long() * label
+        # labels = torch.ones_like(encoded[:, 0]).long() * label
         one_hot = self.get_one_hot(encoded, label)
         mu, lv = self.get_latent(torch.cat([encoded, one_hot], dim=1))
-        mu_prior, lv_prior = self.get_priors(labels)
+        mu_prior, lv_prior = self.get_priors(one_hot)
 
         z = self.reparameterize(mu, lv)
         recons = self.decode_one(z)
@@ -227,7 +225,7 @@ class ConstrainedMnistVAE(MnistVAE):
         self.warmup = nn.Linear(self.h_dim2, self.z_dim)
         # self._logic_prior = nn.Parameter(torch.randn(len(terms)))
         self._logic_prior = nn.Parameter(torch.ones(len(terms)), requires_grad=False)
-        self.tau = 10.
+        self.tau = 1.
         self.apply(init_weights)
 
     @property
@@ -256,7 +254,8 @@ class ConstrainedMnistVAE(MnistVAE):
         d2 = self.decode(encoded2)
         d3 = self.decode(encoded3)
 
-        cp_sm = torch.cat(((logits1).softmax(dim=1), (logits2).softmax(dim=1), (logits3).softmax(dim=1)), dim=1)
+        cp_sm = torch.cat(((logits1/self.tau).softmax(dim=1), (logits2/self.tau).softmax(dim=1), (logits3/self.tau).softmax(dim=1)), dim=1)
+        # cp_sm = torch.cat(((logits1).softmax(dim=1), (logits2).softmax(dim=1), (logits3).softmax(dim=1)), dim=1)
         cp = torch.cat((logits1, logits2, logits3), dim=1)
 
         logic_pred, lpy = self.logic_decoder(cp_sm, self.logic_pred(cp), tau=self.tau)

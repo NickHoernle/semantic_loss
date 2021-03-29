@@ -100,10 +100,11 @@ class BaseMNISTExperiment(train.Experiment):
 
         for i, row in enumerate(axes):
             for j, ax in enumerate(row):
-                labs = torch.ones(1).long() * j
+                labs = torch.zeros(10).float()
+                labs[j] = 1
                 mu_p, lv_p = model.get_priors(labs)
-                std = torch.exp(0.5 * lv_p)
-                z = mu_p + std * torch.randn((1, 10))
+                # std = torch.exp(0.5 * lv_p)
+                z = mu_p + lv_p * torch.randn((1, self.zdim))
 
                 recon = model.decode_one(z)
 
@@ -199,9 +200,9 @@ class BaseMNISTExperiment(train.Experiment):
             ll3.append(calc_ll(recons3[k], tgt3, self.beta2))
 
         return (
-            (lp1.exp() * (torch.stack(ll1, dim=1) + lp1)).sum(dim=1).mean()
-            + (lp2.exp() * (torch.stack(ll2, dim=1) + lp2)).sum(dim=1).mean()
-            + (lp3.exp() * (torch.stack(ll3, dim=1) + lp3)).sum(dim=1).mean()
+            (lp1.exp() * (torch.stack(ll1, dim=1) + lp1 - np.log(0.1))).sum(dim=1).mean()
+            + (lp2.exp() * (torch.stack(ll2, dim=1) + lp2 - np.log(0.1))).sum(dim=1).mean()
+            + (lp3.exp() * (torch.stack(ll3, dim=1) + lp3 - np.log(0.1))).sum(dim=1).mean()
         )
 
     def update_train_meters(self, loss, output, target):
@@ -269,17 +270,14 @@ def calc_ll(params, target, weight_factor=5):
     """
     recon, mu, lv, mu_prior, lv_prior, z = params
 
-    std = torch.exp(0.5 * lv)
-    std_prior = torch.exp(0.5 * lv_prior)
-
-    kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
+    kld = (Normal(mu, lv).log_prob(z) - Normal(mu_prior, lv_prior).log_prob(z)).sum(
         dim=1
     )
     rcon = F.binary_cross_entropy_with_logits(recon, target, reduction="none").sum(
         dim=-1
     )
 
-    return rcon + weight_factor*kld
+    return rcon + kld
 
 
 class ConstrainedMNIST(BaseMNISTExperiment):
@@ -362,7 +360,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         loss_heuristic = recon_losses.mean()
         loss_heuristic += F.nll_loss(logpy, labels)
 
-        return loss_marginalise + (1-self.beta) * loss_heuristic
+        return loss_marginalise + (1-self.beta)*loss_heuristic
 
     def warmup_hook(self, model, train_loader):
         print(self.beta, self.beta2, model.tau)

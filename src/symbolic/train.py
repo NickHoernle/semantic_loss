@@ -385,9 +385,9 @@ def validate(val_loader, model, epoch, experiment):
 
         # compute output
         with torch.no_grad():
-            output = model(model_input, test=True)
+            output = model(model_input)
 
-        loss = experiment.criterion(output, target, train=False)
+        loss = experiment.criterion(output, target)
         experiment.update_test_meters(loss, output, target)
 
         batch_time.update(time.time() - end)
