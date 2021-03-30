@@ -327,7 +327,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         if self.device == "cpu":
             self.plot_model_samples(epoch, model)
 
-        model.tau -= .5
+        model.tau -= .2
         if model.tau < 1.:
             model.tau = 1.
 
