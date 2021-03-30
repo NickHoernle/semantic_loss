@@ -360,7 +360,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         loss_heuristic = recon_losses.mean()
         loss_heuristic += F.nll_loss(logpy, labels)
 
-        return loss_marginalise + np.max([0, (1-self.beta)])*loss_heuristic
+        return loss_marginalise # + np.max([0, (1-self.beta)])*loss_heuristic
 
     def warmup_hook(self, model, train_loader):
         print(self.beta, self.beta2, model.tau)

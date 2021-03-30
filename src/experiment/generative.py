@@ -218,14 +218,14 @@ class ConstrainedMnistVAE(MnistVAE):
         self.num_terms = len(terms)
         self.logic_decoder = OrList(terms=terms, dim=3 * self.num_labels)
         self.logic_pred = nn.Sequential(
-            nn.ReLU(),
+            nn.Tanh(),
             # nn.BatchNorm1d(3 * self.num_labels),
             nn.Linear(3 * self.num_labels, len(terms)),
         )
         self.warmup = nn.Linear(self.h_dim2, self.z_dim)
         # self._logic_prior = nn.Parameter(torch.randn(len(terms)))
         self._logic_prior = nn.Parameter(torch.ones(len(terms)), requires_grad=False)
-        self.tau = 10.
+        self.tau = 1.
         self.apply(init_weights)
 
     @property
