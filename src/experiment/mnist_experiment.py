@@ -351,16 +351,16 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             [calc_ll(r, tgt3) for r in r3], dim=1
         ).unsqueeze(1)
 
-        llik = (lp1 * ll1).sum(dim=-1) + \
-               (lp2 * ll2).sum(dim=-1) + \
-               (lp3 * ll3).sum(dim=-1)
+        llik = torch.stack(((lp1 * ll1).sum(dim=-1),
+                            (lp2 * ll2).sum(dim=-1),
+                            (lp3 * ll3).sum(dim=-1)), dim=-1).mean(dim=-1)
 
         recon_losses, labels = llik.min(dim=1)
         loss_marginalise = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        loss_heuristic = recon_losses.mean()
-        loss_heuristic += F.nll_loss(logpy, labels)
+        # loss_heuristic = recon_losses.mean()
+        # loss_heuristic += F.nll_loss(logpy, labels)
 
-        return loss_marginalise # + np.max([0, (1-self.beta)])*loss_heuristic
+        return loss_marginalise
 
     def warmup_hook(self, model, train_loader):
         print(self.beta, self.beta2, model.tau)
