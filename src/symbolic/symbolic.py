@@ -315,7 +315,7 @@ class OrList(nn.Module):
 
     def forward(self, x, class_pred, test=False, tau=1.):
         pred = self.all_predictions(x)
-        log_py = (class_pred).log_softmax(dim=1)
+        log_py = (class_pred/tau).log_softmax(dim=1)
 
         if test:
             return pred[np.arange(len(log_py)), log_py.argmax(dim=1)]
