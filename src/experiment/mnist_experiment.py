@@ -347,9 +347,14 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
         for k, vals in knowledge.items():
             for v0, v1 in vals:
+                weight1 = lp1[:, v0].exp().detach()
+                weight2 = lp2[:, v1].exp().detach()
+                weight3 = lp3[:, k].exp().detach()
                 llik += [
-                    ll3[:, k] + ll1[:, v0] + ll2[:, v1]
-                    - lp3[:, k] - lp1[:, v0] - lp2[:, v1]
+                    ((ll3[:, k] - weight3 * ll3[:, k]).detach() + weight3 * ll3[:, k] +
+                     (ll1[:, v0] - weight1 * ll1[:, v0]).detach() + weight1 * ll1[:, v0] +
+                     (ll2[:, v1] - weight2 * ll2[:, v1]).detach() + weight2 * ll2[:, v1]
+                    - lp3[:, k] - lp1[:, v0] - lp2[:, v1]) / 3
                 ]
 
         llik = torch.stack(llik, dim=1)
@@ -417,8 +422,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         )
 
     def epoch_finished_hook(self, epoch, model, val_loader):
-        # if (epoch + 1) % 5 == 0:
-        model.threshold1p()
+        if self.device == "cpu":
+            self.plot_model_samples(epoch, model)
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)
