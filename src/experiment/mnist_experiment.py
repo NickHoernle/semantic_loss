@@ -288,7 +288,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        self.beta = 0.0
+        self.beta = 1.0
         super().__init__(**kwargs)
 
     @property
