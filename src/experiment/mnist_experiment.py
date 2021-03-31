@@ -361,8 +361,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         recon_losses, labels = llik.min(dim=1)
 
         loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        loss += recon_losses.mean()
-        loss += F.nll_loss(logpy, labels)
+        # loss += recon_losses.mean()
+        # loss += F.nll_loss(logpy, labels)
 
         # llik = ((lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
         #         (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
