@@ -80,7 +80,7 @@ class BaseSyntheticExperiment(train.Experiment):
         fig = plt.figure(figsize=(4, 4))
         ax = fig.gca()
 
-        z = torch.randn(10000,25)
+        z = torch.randn(10000, self.nlatent)
         recons = model.decode(z).detach()
 
         valid_constraints = [t.valid(recons) for t in self.logic_terms]
@@ -144,9 +144,9 @@ class BaseSyntheticExperiment(train.Experiment):
         labels = data[1].to(self.device)
         return samples
 
-    def criterion(self, output, target, train=True):
+    def criterion(self, output, target):
 
-        if not self.baseline and train:
+        if not self.baseline:
             (recon, log_py), (mu, lv), log_prior = output
             ll = []
             for j, p in enumerate(recon.split(1, dim=1)):
@@ -186,7 +186,12 @@ class BaseSyntheticExperiment(train.Experiment):
         self.losses["constraint"].update(v_c.tolist(), v_c.size(0))
 
     def update_test_meters(self, loss, output, target):
-        preds, (mu, lv), _ = output
+        if not self.baseline:
+            (recon, log_py), (mu, lv), log_prior = output
+            preds = recon[np.arange(len(log_py)), log_py.argmax(dim=1)]
+        else:
+            preds, (mu, lv), _ = output
+
         self.losses["loss"].update(loss.data.item(), target.size(0))
         valid_constraints = [t.valid(preds) for t in self.logic_terms]
         v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
