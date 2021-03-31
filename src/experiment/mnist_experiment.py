@@ -343,24 +343,34 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         # reconstruction accuracies
         ll1 = torch.stack(
             [calc_ll(r, tgt1) for r in r1], dim=1
-        ).unsqueeze(1)
+        )
         ll2 = torch.stack(
             [calc_ll(r, tgt2) for r in r2], dim=1
-        ).unsqueeze(1)
+        )
         ll3 = torch.stack(
             [calc_ll(r, tgt3) for r in r3], dim=1
-        ).unsqueeze(1)
+        )
 
-        llik = torch.stack(((lp1 * ll1).sum(dim=-1),
-                            (lp2 * ll2).sum(dim=-1),
-                            (lp3 * ll3).sum(dim=-1)), dim=-1).mean(dim=-1)
+        # llik = torch.stack(((lp1 * ll1).sum(dim=-1),
+        #                     (lp2 * ll2).sum(dim=-1),
+        #                     (lp3 * ll3).sum(dim=-1)), dim=-1).mean(dim=-1)
+
+        llik = []
+        for k, vals in knowledge.items():
+            for v0, v1 in vals:
+                llik += [
+                    ll1[:, v0] + ll2[:, v1] + ll3[:, k] - (
+                            lp1[:, v0] + lp2[:, v1] + lp3[:, k]
+                    )
+                ]
+        llik = torch.stack(llik, dim=1)
 
         recon_losses, labels = llik.min(dim=1)
         loss_marginalise = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        # loss_heuristic = recon_losses.mean()
-        # loss_heuristic += F.nll_loss(logpy, labels)
+        loss_heuristic = recon_losses.mean()
+        loss_heuristic += F.nll_loss(logpy, labels)
 
-        return loss_marginalise
+        return loss_marginalise + loss_heuristic
 
     def warmup_hook(self, model, train_loader):
         print(self.beta, self.beta2, model.tau)

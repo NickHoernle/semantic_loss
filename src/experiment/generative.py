@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from symbolic.symbolic import OrList
 import numpy as np
+from torch.nn import functional as F
 
 
 def init_weights(m):
@@ -136,10 +137,10 @@ class MnistVAE(nn.Module):
         self.encoder = nn.Sequential(
             nn.Linear(x_dim, h_dim1),
             nn.ReLU(),
-            # nn.BatchNorm1d(h_dim1),
+            nn.BatchNorm1d(h_dim1),
             nn.Linear(h_dim1, h_dim2),
             nn.ReLU(),
-            # nn.BatchNorm1d(h_dim2)
+            nn.BatchNorm1d(h_dim2)
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
@@ -147,15 +148,15 @@ class MnistVAE(nn.Module):
         self.lv = nn.Sequential(nn.Linear(h_dim2+num_labels, z_dim), nn.Softplus())
 
         self.mu_prior = nn.Linear(num_labels, z_dim)
-        self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim), nn.Softplus())
+        self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim), nn.ReLU(), nn.Softplus())
 
         self.decoder = nn.Sequential(
             nn.Linear(z_dim, h_dim2),
             nn.ReLU(),
-            # nn.BatchNorm1d(h_dim2),
+            nn.BatchNorm1d(h_dim2),
             nn.Linear(h_dim2, h_dim1),
             nn.ReLU(),
-            # nn.BatchNorm1d(h_dim1),
+            nn.BatchNorm1d(h_dim1),
             nn.Linear(h_dim1, x_dim)
         )
 
@@ -220,12 +221,8 @@ class ConstrainedMnistVAE(MnistVAE):
         self.bn1 = nn.BatchNorm1d(self.num_labels)
         self.bn2 = nn.BatchNorm1d(self.num_labels)
         self.bn3 = nn.BatchNorm1d(self.num_labels)
-        self.logic_pred = nn.Sequential(
-            # nn.Tanh(),
-            # nn.Sigmoid(),
-            # nn.BatchNorm1d(3 * self.num_labels),
-            nn.Linear(3 * self.num_labels, len(terms)),
-        )
+        self.logic_pred = nn.Sequential(nn.ReLU(), nn.Linear(3 * self.num_labels, len(terms)), )
+        self.combine = nn.Sequential(nn.Linear(3 * self.num_labels, 3 * self.num_labels), nn.BatchNorm1d(3 * self.num_labels))
         self.warmup = nn.Linear(self.h_dim2, self.z_dim)
         # self._logic_prior = nn.Parameter(torch.randn(len(terms)))
         self._logic_prior = nn.Parameter(torch.ones(len(terms)), requires_grad=False)
@@ -238,7 +235,7 @@ class ConstrainedMnistVAE(MnistVAE):
 
     def encode(self, x):
         h = self.encoder(x)
-        return h, self.label_predict(h)
+        return h, F.relu(self.label_predict(h))
 
     def threshold1p(self):
         self.logic_decoder.threshold1p()
@@ -258,16 +255,22 @@ class ConstrainedMnistVAE(MnistVAE):
         d2 = self.decode(encoded2)
         d3 = self.decode(encoded3)
 
-        cp_sm = torch.cat(((logits1/self.tau).softmax(dim=1), (logits2/self.tau).softmax(dim=1), (logits3/self.tau).softmax(dim=1)), dim=1)
+        # cp_sm = torch.cat(((logits1/self.tau).softmax(dim=1), (logits2/self.tau).softmax(dim=1), (logits3/self.tau).softmax(dim=1)), dim=1)
         # cp_sm = torch.cat(((logits1).softmax(dim=1),
         #                    (logits2).softmax(dim=1),
         #                    (logits3).softmax(dim=1)), dim=1)
         # cp_sm = torch.cat((torch.sigmoid(logits1), torch.sigmoid(logits2), torch.sigmoid(logits3)), dim=1)
-        cp = torch.cat((self.bn1(logits1), self.bn2(logits2), self.bn3(logits3)), dim=1)
+        # combined = self.combine(torch.cat((self.bn1(logits1), self.bn2(logits2), self.bn3(logits3)), dim=1))
+        combined = self.combine(torch.cat(((logits1), (logits2), (logits3)), dim=1))
+        log_p1, log_p2, log_p3 = combined[:, :10].log_softmax(dim=1), combined[:, 10:20].log_softmax(dim=1), combined[:, 20:].log_softmax(dim=1)
+        # cp = torch.cat((self.bn1(logits1), self.bn2(logits2), self.bn3(logits3)), dim=1)
+        # cp = torch.cat((self.bn1(logits1), self.bn2(logits2), self.bn3(logits3)), dim=1)
+        cp = torch.cat((log_p1.exp(), log_p2.exp(), log_p3.exp()), dim=1)
 
-        logic_pred, lpy = self.logic_decoder(cp_sm, self.logic_pred(cp), tau=self.tau)
+        # logic_pred, lpy = self.logic_decoder(cp_sm, self.logic_pred(cp), tau=self.tau)
         # log_p1, log_p2, log_p3 = log_pred1, log_pred2, log_pred3
-        log_p1, log_p2, log_p3 = logic_pred.split(10, dim=-1)
+        # log_p1, log_p2, log_p3 = logic_pred.split(10, dim=-1)
+        lpy = self.logic_pred(combined).log_softmax(dim=1)
 
         return (
             (d1, d2, d3),
