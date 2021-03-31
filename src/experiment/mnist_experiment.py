@@ -41,12 +41,11 @@ class BaseMNISTExperiment(train.Experiment):
         self.hidden_dim1 = hidden_dim1
         self.hidden_dim2 = hidden_dim2
         self.zdim = zdim
-        self.beta = 1.0
         super().__init__(**kwargs)
 
     @property
     def params(self):
-        return f"{self.name}-{self.lr}_{self.seed}_{self.sloss}"
+        return f"{self.name}-{self.lr}_{self.seed}_{self.sloss}_{self.batch_size}"
 
     def get_loaders(self):
         train_loader, val_loader, classes = get_train_valid_loader(
@@ -289,7 +288,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        self.beta = 1.0
+        self.beta = 0.0
         super().__init__(**kwargs)
 
     @property
@@ -325,18 +324,20 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
     def criterion(self, output, target, train=True):
 
+        weight = np.max([0, self.beta])
+
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
         (r1, r2, r3), (lp1, lp2, lp3), logpy = output
 
         # reconstruction accuracies
         ll1 = torch.stack(
-            [calc_ll(r, tgt1, beta=self.beta) for r in r1], dim=1
+            [calc_ll(r, tgt1) for r in r1], dim=1
         )
         ll2 = torch.stack(
-            [calc_ll(r, tgt2, beta=self.beta) for r in r2], dim=1
+            [calc_ll(r, tgt2) for r in r2], dim=1
         )
         ll3 = torch.stack(
-            [calc_ll(r, tgt3, beta=self.beta) for r in r3], dim=1
+            [calc_ll(r, tgt3) for r in r3], dim=1
         )
 
         lp1 = lp1.log_softmax(dim=-1)
@@ -361,8 +362,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         recon_losses, labels = llik.min(dim=1)
 
         loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        # loss += recon_losses.mean()
-        # loss += F.nll_loss(logpy, labels)
+        loss += weight*recon_losses.mean()
+        loss += weight*F.nll_loss(logpy, labels)
 
         # llik = ((lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
         #         (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
@@ -424,6 +425,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
     def epoch_finished_hook(self, epoch, model, val_loader):
         if self.device == "cpu":
             self.plot_model_samples(epoch, model)
+        self.beta -= .05
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)
