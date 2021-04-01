@@ -399,19 +399,19 @@ def build_mixture_dataset(dataset, indices, max_length=10000):
 
     lengths = [(target == k).sum() for k in range(10)]
     print(lengths)
-    # min_length = min((min(lengths), max_length))
-    #
-    # valid = np.zeros_like(target)
-    # for k in range(10):
-    #     valid_k = ((target == k) & ((target == k).cumsum() <= min_length))
-    #     valid += valid_k
-    #
-    # ind1 = ind1[valid > 0]
-    # ind2 = ind2[valid > 0]
-    # target = target[valid > 0]
-    #
-    # lengths = [(target == k).sum() for k in range(10)]
-    # print(lengths)
+    min_length = min((min(lengths), max_length))
+    
+    valid = np.zeros_like(target)
+    for k in range(10):
+        valid_k = ((target == k) & ((target == k).cumsum() <= min_length))
+        valid += valid_k
+    
+    ind1 = ind1[valid > 0]
+    ind2 = ind2[valid > 0]
+    target = target[valid > 0]
+    
+    lengths = [(target == k).sum() for k in range(10)]
+    print(lengths)
 
     dset_1 = []
     dset_2 = []
