@@ -349,9 +349,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         for k, vals in knowledge.items():
             for v0, v1 in vals:
                 
-                weight1 = (torch.ones_like(lp1[:, v0]) + lp1[:, v0].exp()).detach() - lp1[:, v0].exp()
-                weight2 = (torch.ones_like(lp2[:, v1]) + lp2[:, v1].exp()).detach() - lp2[:, v1].exp()
-                weight3 = (torch.ones_like(lp3[:, k])  + lp3[:, k].exp()).detach()  - lp3[:, k].exp()
+                weight1 = (torch.ones_like(lp1[:, v0]) - lp1[:, v0].exp()).detach() + lp1[:, v0].exp()
+                weight2 = (torch.ones_like(lp2[:, v1]) - lp2[:, v1].exp()).detach() + lp2[:, v1].exp()
+                weight3 = (torch.ones_like(lp3[:, k])  - lp3[:, k].exp()).detach()  + lp3[:, k].exp()
                 
                 llik += [
                     (
