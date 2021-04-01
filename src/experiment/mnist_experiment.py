@@ -349,13 +349,15 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         for k, vals in knowledge.items():
             for v0, v1 in vals:
                 
-                weight1 = (torch.ones_like(lp1[:, v0]) - lp1[:, v0].exp()).detach() + lp1[:, v0].exp()
-                weight2 = (torch.ones_like(lp2[:, v1]) - lp2[:, v1].exp()).detach() + lp2[:, v1].exp()
-                weight3 = (torch.ones_like(lp3[:, k])  - lp3[:, k].exp()).detach()  + lp3[:, k].exp()
+                weight1 = (torch.zeros_like(lp1[:, v0]) + lp1[:, v0]).detach() - lp1[:, v0]
+                weight2 = (torch.zeros_like(lp2[:, v1]) + lp2[:, v1]).detach() - lp2[:, v1]
+                weight3 = (torch.zeros_like(lp3[:, k])  + lp3[:, k]).detach()  - lp3[:, k]
                 
                 llik += [
-                    (
-                        weight3*ll3[:, k] + weight1*ll1[:, v0] + weight2*ll2[:, v1]
+                    (   
+                        weight1.exp()*(ll1[:, v0] + weight1)+ 
+                        weight2.exp()*(ll2[:, v1] + weight2)+
+                        weight3.exp()*(ll3[:, k] + weight3) 
                         # ll3[:, k] + ll1[:, v0] + ll2[:, v1]
                         # (ll3[:, k] + weight3 * ll3[:, k]).detach() + weight3 * ll3[:, k] +
                         # (ll1[:, v0] + weight1 * ll1[:, v0]).detach() + weight1 * ll1[:, v0] +
