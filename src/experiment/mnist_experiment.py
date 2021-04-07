@@ -105,7 +105,7 @@ class BaseMNISTExperiment(train.Experiment):
                 std = torch.exp(0.5 * lv_p)
                 z = mu_p + std * torch.randn((1, self.zdim))
 
-                recon = model.decode_one(z)
+                recon = model.decode_one(torch.cat((z, y_onehot), dim=1))
 
                 ax.imshow((torch.sigmoid(recon[0]).view(28, 28).detach().numpy() * 255).astype(np.uint8), cmap='gray_r')
                 ax.grid(False)
@@ -296,9 +296,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         terms = []
         for k, vals in knowledge.items():
             for v0, v1 in vals:
-                constrain = [v0, 10 + v1, 20 + k]
-                lwr_c = np.arange(30)
-                lwr_c = lwr_c[~np.isin(lwr_c, constrain)].tolist()
+                constrain = [v0, v1, k]
+                lwr_c = np.arange(10)
+                lwr_c = [lwr_c[~np.isin(lwr_c, constrain[0])], lwr_c[~np.isin(lwr_c, constrain[1])], lwr_c[~np.isin(lwr_c, constrain[2])]]
 
                 terms.append(
                     ConstantConstraint(
@@ -313,7 +313,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         return terms
 
     def create_model(self):
-        return ConstrainedMnistVAE(
+        self.model = ConstrainedMnistVAE(
             x_dim=784,
             h_dim1=self.hidden_dim1,
             h_dim2=self.hidden_dim2,
@@ -321,6 +321,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             num_labels=10,
             terms=self.logic_terms,
         )
+        return self.model
 
     def criterion(self, output, target, train=True):
 
@@ -339,43 +340,55 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         ll3 = torch.stack(
             [calc_ll(r, tgt3) for r in r3], dim=1
         )
-        
-        lp1 = lp1.log_softmax(dim=-1)
-        lp2 = lp2.log_softmax(dim=-1)
-        lp3 = lp3.log_softmax(dim=-1)
 
-        llik = []
-        count = 0
-        for k, vals in knowledge.items():
-            for v0, v1 in vals:
-                
-                w1 = (torch.zeros_like(lp1[:, count, v0]) + lp1[:, count, v0]).detach() - lp1[:, count, v0]
-                w2 = (torch.zeros_like(lp2[:, count, v1]) + lp2[:, count, v1]).detach() - lp2[:, count, v1]
-                w3 = (torch.zeros_like(lp3[:, count, k])  + lp3[:, count, k]).detach()  - lp3[:, count, k]
-                
-                llik += [
-                    (
-                        w1.exp()*(ll1[:, v0] + w1) +
-                        w2.exp()*(ll2[:, v1] + w2) +
-                        w3.exp()*(ll3[:, k] + w3)
-        #                 (ll1[:, v0] + lp1[:, v0])+ 
-        #                 (ll2[:, v1] + lp2[:, v1])+
-        #                 (ll3[:, k] + lp3[:, k]) 
-        #                 # ll3[:, k] + ll1[:, v0] + ll2[:, v1]
-        #                 # (ll3[:, k] + weight3 * ll3[:, k]).detach() + weight3 * ll3[:, k] +
-        #                 # (ll1[:, v0] + weight1 * ll1[:, v0]).detach() + weight1 * ll1[:, v0] +
-        #                 # (ll2[:, v1] + weight2 * ll2[:, v1]).detach() + weight2 * ll2[:, v1]
-        #                 # - lp3[:, k] - lp1[:, v0] - lp2[:, v1]
-                    ) / 3
-                ]
-                count += 1
+        llik, ll = self.model.logic_decoder((ll1, ll2, ll3, lp1, lp2, lp3), logpy)
 
-        llik = torch.stack(llik, dim=1)
+        # lp1 = lp1.log_softmax(dim=-1)
+        # lp2 = lp2.log_softmax(dim=-1)
+        # lp3 = lp3.log_softmax(dim=-1)
+        #
+        # llik = (
+        #     (lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
+        #     (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
+        #     (lp3.exp() * (ll3 + lp3)).sum(dim=-1)
+        # ) / 3
+
+        # llik = []
+        # count = 0
+        # for k, vals in knowledge.items():
+        #     for v0, v1 in vals:
+        #
+        #         w1a = (torch.zeros_like(lp1[:, count, v0]) + lp1[:, count, v0]).detach() - lp1[:, count, v0]
+        #         w2a = (torch.zeros_like(lp2[:, count, v1]) + lp2[:, count, v1]).detach() - lp2[:, count, v1]
+        #         w3a = (torch.zeros_like(lp3[:, count, k])  + lp3[:, count, k]).detach()  - lp3[:, count, k]
+        #
+        #         w1b = (torch.ones_like(lp1[:, count, v0]) - lp1[:, count, v0].exp()).detach() + lp1[:, count, v0].exp()
+        #         w2b = (torch.ones_like(lp2[:, count, v1]) - lp2[:, count, v1].exp()).detach() + lp2[:, count, v1].exp()
+        #         w3b = (torch.ones_like(lp3[:, count, k]) - lp3[:, count, k].exp()).detach()   + lp3[:, count, k].exp()
+        #
+        #         llik += [
+        #             (
+        #                 w1b*(ll1[:, v0] + w1a) +
+        #                 w2b*(ll2[:, v1] + w2a) +
+        #                 w3b*(ll3[:, k] + w3a)
+        # #                 (ll1[:, v0] + lp1[:, v0])+
+        # #                 (ll2[:, v1] + lp2[:, v1])+
+        # #                 (ll3[:, k] + lp3[:, k])
+        # #                 # ll3[:, k] + ll1[:, v0] + ll2[:, v1]
+        # #                 # (ll3[:, k] + weight3 * ll3[:, k]).detach() + weight3 * ll3[:, k] +
+        # #                 # (ll1[:, v0] + weight1 * ll1[:, v0]).detach() + weight1 * ll1[:, v0] +
+        # #                 # (ll2[:, v1] + weight2 * ll2[:, v1]).detach() + weight2 * ll2[:, v1]
+        # #                 # - lp3[:, k] - lp1[:, v0] - lp2[:, v1]
+        #             ) / 3
+        #         ]
+        #         count += 1
+        #
+        # llik = torch.stack(llik, dim=1)
         recon_losses, labels = llik.min(dim=1)
 
         loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        loss += weight*recon_losses.mean()
-        loss += weight*F.nll_loss(logpy, labels)
+        # loss += weight*recon_losses.mean()
+        # loss += weight*F.nll_loss(logpy, labels)
 
         # llik = ((lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
         #         (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
@@ -435,8 +448,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         )
 
     def epoch_finished_hook(self, epoch, model, val_loader):
-        # if self.device == "cpu":
-            # self.plot_model_samples(epoch, model)
+        if self.device == "cpu":
+            self.plot_model_samples(epoch, model)
         self.beta -= .05
 
     def update_test_meters(self, loss, output, target):

@@ -18,35 +18,41 @@ class ConstantConstraint(nn.Module):
         super(ConstantConstraint, self).__init__()
         self.ixs1 = ixs1
         self.ixs_neg = ixs_less_than
-        self.ixs_not = ixs_not
+        # self.ixs_not = ixs_not
 
-        self.threshold_upper = threshold_upper
-        self.threshold_lower = threshold_lower
-        self.threshold_limit = threshold_limit
+        # self.threshold_upper = threshold_upper
+        # self.threshold_lower = threshold_lower
+        # self.threshold_limit = threshold_limit
 
-        self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
-        self.reverse_transform = np.argsort(self.forward_transform)
+        # self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
+        # self.reverse_transform = np.argsort(self.forward_transform)
 
-        self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
+        # self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
 
     def threshold1p(self):
         if self.threshold_lower > self.threshold_limit:
             self.threshold_lower -= 1
 
     def forward(self, x):
-        split1 = x[:, self.ixs1]
-        split2 = x[:, self.ixs_neg]
-        split3 = x.detach()[:, self.ixs_not]
+        ll1, ll2, ll3, lp1, lp2, lp3 = x
 
-        # s11 = split1 - self.threshold_upper
-        # s21 = split2 - self.threshold_lower
+        lr = 0
+        for i, (ll, lp) in enumerate([[ll1, lp1], [ll2, lp2], [ll3, lp3]]):
+            sll1 = ll[:, self.ixs1[i]]
+            # sll2 = ll[:, self.ixs_neg[i]].detach()
 
-        # s11 = (torch.zeros_like(split1) + split1).detach() - split1
-        # s21 = (torch.ones_like(split2)*float('-inf'))
+            slp1 = F.sigmoid(lp[:, self.ixs1[i]])
+            # slp2 = lp[:, self.ixs_neg[i]].detach()
 
-        return torch.cat((split1, split2, split3), dim=1)[
-               :, self.reverse_transform
-               ]
+            s11 = (torch.ones_like(slp1) - slp1).detach() + slp1
+            # s12 = -F.softplus(-slp2) - 5
+
+            # lp_ = torch.cat((s11, s12), dim=1).log_softmax(dim=1)
+            # ll_ = torch.cat((sll1, sll2), dim=1)
+
+            lr += s11 * sll1
+
+        return lr
 
 
 class GEQConstant(ConstantConstraint):
