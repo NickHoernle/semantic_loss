@@ -103,7 +103,7 @@ class BaseMNISTExperiment(train.Experiment):
 
                 mu_p, lv_p = model.get_priors(y_onehot)
                 std = torch.exp(0.5 * lv_p)
-                z = mu_p + std * torch.randn((1, 10))
+                z = mu_p + std * torch.randn((1, self.zdim))
 
                 recon = model.decode_one(z)
 
@@ -339,32 +339,36 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         ll3 = torch.stack(
             [calc_ll(r, tgt3) for r in r3], dim=1
         )
-
+        
         lp1 = lp1.log_softmax(dim=-1)
         lp2 = lp2.log_softmax(dim=-1)
         lp3 = lp3.log_softmax(dim=-1)
 
         llik = []
-
+        count = 0
         for k, vals in knowledge.items():
             for v0, v1 in vals:
                 
-                # weight1 = (torch.ones_like(lp1[:, v0]) + lp1[:, v0].exp()).detach() - lp1[:, v0].exp()
-                # weight2 = (torch.ones_like(lp2[:, v1]) + lp2[:, v1].exp()).detach() - lp2[:, v1].exp()
-                # weight3 = (torch.ones_like(lp3[:, k])  + lp3[:, k].exp()).detach()  - lp3[:, k].exp()
+                w1 = (torch.zeros_like(lp1[:, count, v0]) + lp1[:, count, v0]).detach() - lp1[:, count, v0]
+                w2 = (torch.zeros_like(lp2[:, count, v1]) + lp2[:, count, v1]).detach() - lp2[:, count, v1]
+                w3 = (torch.zeros_like(lp3[:, count, k])  + lp3[:, count, k]).detach()  - lp3[:, count, k]
                 
                 llik += [
-                    (   
-                        (ll1[:, v0] - lp1[:, v0])+ 
-                        (ll2[:, v1] - lp2[:, v1])+
-                        (ll3[:, k] - lp3[:, k]) 
-                        # ll3[:, k] + ll1[:, v0] + ll2[:, v1]
-                        # (ll3[:, k] + weight3 * ll3[:, k]).detach() + weight3 * ll3[:, k] +
-                        # (ll1[:, v0] + weight1 * ll1[:, v0]).detach() + weight1 * ll1[:, v0] +
-                        # (ll2[:, v1] + weight2 * ll2[:, v1]).detach() + weight2 * ll2[:, v1]
-                        # - lp3[:, k] - lp1[:, v0] - lp2[:, v1]
+                    (
+                        w1.exp()*(ll1[:, v0] + w1) +
+                        w2.exp()*(ll2[:, v1] + w2) +
+                        w3.exp()*(ll3[:, k] + w3)
+        #                 (ll1[:, v0] + lp1[:, v0])+ 
+        #                 (ll2[:, v1] + lp2[:, v1])+
+        #                 (ll3[:, k] + lp3[:, k]) 
+        #                 # ll3[:, k] + ll1[:, v0] + ll2[:, v1]
+        #                 # (ll3[:, k] + weight3 * ll3[:, k]).detach() + weight3 * ll3[:, k] +
+        #                 # (ll1[:, v0] + weight1 * ll1[:, v0]).detach() + weight1 * ll1[:, v0] +
+        #                 # (ll2[:, v1] + weight2 * ll2[:, v1]).detach() + weight2 * ll2[:, v1]
+        #                 # - lp3[:, k] - lp1[:, v0] - lp2[:, v1]
                     ) / 3
                 ]
+                count += 1
 
         llik = torch.stack(llik, dim=1)
         recon_losses, labels = llik.min(dim=1)
@@ -431,8 +435,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         )
 
     def epoch_finished_hook(self, epoch, model, val_loader):
-        if self.device == "cpu":
-            self.plot_model_samples(epoch, model)
+        # if self.device == "cpu":
+            # self.plot_model_samples(epoch, model)
         self.beta -= .05
 
     def update_test_meters(self, loss, output, target):

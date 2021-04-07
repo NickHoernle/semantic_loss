@@ -27,7 +27,7 @@ class ConstantConstraint(nn.Module):
         self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
         self.reverse_transform = np.argsort(self.forward_transform)
 
-        # self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
+        self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
 
     def threshold1p(self):
         if self.threshold_lower > self.threshold_limit:
@@ -38,13 +38,13 @@ class ConstantConstraint(nn.Module):
         split2 = x[:, self.ixs_neg]
         split3 = x.detach()[:, self.ixs_not]
 
-        s11 = split1 - self.threshold_upper
-        s21 = split2 - self.threshold_lower
+        # s11 = split1 - self.threshold_upper
+        # s21 = split2 - self.threshold_lower
 
-        restricted1 = torch.max(torch.stack((s11, split1-split1.detach()), dim=1), dim=1)[0] + self.threshold_upper
-        restricted2 = torch.min(torch.stack((s21, split2-split2.detach()), dim=1), dim=1)[0] + self.threshold_lower
+        # s11 = (torch.zeros_like(split1) + split1).detach() - split1
+        # s21 = (torch.ones_like(split2)*float('-inf'))
 
-        return torch.cat((restricted1, restricted2, split3), dim=1)[
+        return torch.cat((split1, split2, split3), dim=1)[
                :, self.reverse_transform
                ]
 
