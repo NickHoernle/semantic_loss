@@ -11,14 +11,10 @@ class ConstrainedModel(nn.Module):
         self.nterms = len(layers)
         self.nclasses = classes
 
-        self.encoder = WideResNet(
-            depth, classes, widen_factor, dropRate=dropRate
-        )
+        self.encoder = WideResNet(depth, classes, widen_factor, dropRate=dropRate)
 
         self.logic_pred = nn.Sequential(
-            nn.ReLU(),
-            nn.BatchNorm1d(self.classes),
-            nn.Linear(self.nterms)
+            nn.ReLU(), nn.BatchNorm1d(self.classes), nn.Linear(self.nterms)
         )
 
         self.decoder = OrList(terms=layers)

@@ -5,12 +5,13 @@ import numpy as np
 
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 
 from symbolic import symbolic
 from symbolic import train
-from symbolic.utils import (AccuracyMeter, AverageMeter, save_figure)
-from experiment.datasets import (get_synthetic_loaders)
+from symbolic.utils import AccuracyMeter, AverageMeter, save_figure
+from experiment.datasets import get_synthetic_loaders
 from experiment.generative import LinearVAE, ConstrainedVAE
 
 

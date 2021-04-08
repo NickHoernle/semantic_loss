@@ -75,10 +75,12 @@ def get_train_valid_loader(
     train_transforms += [transforms.ToTensor()]
 
     if do_normalize:
-        normalize = [transforms.Normalize(
-            mean=[0.4914, 0.4822, 0.4465],
-            std=[0.2023, 0.1994, 0.2010],
-        )]
+        normalize = [
+            transforms.Normalize(
+                mean=[0.4914, 0.4822, 0.4465],
+                std=[0.2023, 0.1994, 0.2010],
+            )
+        ]
         valid_transforms += normalize
         train_transforms += normalize
 
@@ -400,16 +402,16 @@ def build_mixture_dataset(dataset, indices, max_length=10000):
     lengths = [(target == k).sum() for k in range(10)]
     print(lengths)
     # min_length = min((min(lengths), max_length))
-    
+
     # valid = np.zeros_like(target)
     # for k in range(10):
     #     valid_k = ((target == k) & ((target == k).cumsum() <= min_length))
     #     valid += valid_k
-    
+
     # ind1 = ind1[valid > 0]
     # ind2 = ind2[valid > 0]
     # target = target[valid > 0]
-    
+
     # lengths = [(target == k).sum() for k in range(10)]
     # print(lengths)
 
@@ -425,8 +427,10 @@ def build_mixture_dataset(dataset, indices, max_length=10000):
 
             dset_1 += ind1[valid_idxs].tolist()
             dset_2 += ind2[valid_idxs].tolist()
-            results = np.concatenate((ind1[labels[ind1] == k], ind2[labels[ind2] == k]), axis=0)
-            dset_t += results[:valid_idxs.sum()].tolist()
+            results = np.concatenate(
+                (ind1[labels[ind1] == k], ind2[labels[ind2] == k]), axis=0
+            )
+            dset_t += results[: valid_idxs.sum()].tolist()
 
     indexes = np.arange(len(dset_1))
     np.random.shuffle(indexes)

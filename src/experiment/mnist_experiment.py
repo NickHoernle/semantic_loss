@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from symbolic import train
-from symbolic.symbolic import ConstantConstraint, GEQConstant
+from symbolic.symbolic import ConstantConstraint
 from symbolic.utils import AccuracyMeter, AverageMeter, save_figure
 from experiment.datasets import get_train_valid_loader, get_test_loader
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
@@ -14,7 +14,8 @@ from experiment.class_mapping import mnist_domain_knowledge as knowledge
 
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 
 
 class BaseMNISTExperiment(train.Experiment):
@@ -86,12 +87,9 @@ class BaseMNISTExperiment(train.Experiment):
 
     def pre_train_hook(self, loader):
         pass
-        # self.plot_sampled_images(loader)
 
     def epoch_finished_hook(self, epoch, model, val_loader):
         pass
-        # if (epoch + 1) % 10 == 0:
-        #     self.plot_model_samples(epoch, model)
 
     def plot_model_samples(self, epoch, model):
         fig, axes = plt.subplots(10, 10, figsize=(20, 15))
@@ -107,7 +105,12 @@ class BaseMNISTExperiment(train.Experiment):
 
                 recon = model.decode_one(torch.cat((z, y_onehot), dim=1))
 
-                ax.imshow((torch.sigmoid(recon[0]).view(28, 28).detach().numpy() * 255).astype(np.uint8), cmap='gray_r')
+                ax.imshow(
+                    (
+                        torch.sigmoid(recon[0]).view(28, 28).detach().numpy() * 255
+                    ).astype(np.uint8),
+                    cmap="gray_r",
+                )
                 ax.grid(False)
                 ax.set_axis_off()
         fig_file = os.path.join(self.figures_directory, f"sample_epoch_{epoch}.png")
@@ -119,12 +122,22 @@ class BaseMNISTExperiment(train.Experiment):
             for j in range(15):
                 if j >= 15:
                     break
-                (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3) = data
-                axes[j, 0].imshow((in_data1[j, 0].numpy() * 255).astype(np.uint8), cmap='gray_r')
+                (
+                    (in_data1, in_target1),
+                    (in_data2, in_target2),
+                    (in_data3, in_target3),
+                ) = data
+                axes[j, 0].imshow(
+                    (in_data1[j, 0].numpy() * 255).astype(np.uint8), cmap="gray_r"
+                )
                 axes[j, 0].set_title(in_target1[j])
-                axes[j, 1].imshow((in_data2[j, 0].numpy() * 255).astype(np.uint8), cmap='gray_r')
+                axes[j, 1].imshow(
+                    (in_data2[j, 0].numpy() * 255).astype(np.uint8), cmap="gray_r"
+                )
                 axes[j, 1].set_title(in_target2[j])
-                axes[j, 2].imshow((in_data3[j, 0].numpy() * 255).astype(np.uint8), cmap='gray_r')
+                axes[j, 2].imshow(
+                    (in_data3[j, 0].numpy() * 255).astype(np.uint8), cmap="gray_r"
+                )
                 axes[j, 2].set_title(in_target3[j])
                 axes[j, 0].grid(False)
                 axes[j, 0].set_axis_off()
@@ -139,7 +152,6 @@ class BaseMNISTExperiment(train.Experiment):
 
     def get_optimizer_and_scheduler(self, model, train_loader):
         optimizer = torch.optim.Adam(model.parameters(), self.lr)
-        # optimizer = torch.optim.SGD(model.parameters(), self.lr, momentum=.9)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, len(train_loader) * self.epochs
         )
@@ -161,6 +173,7 @@ class BaseMNISTExperiment(train.Experiment):
 
     def get_input_data(self, data):
         (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3) = data
+
         in_data1 = in_data1.to(self.device).view(len(in_data1), -1)
         in_data2 = in_data2.to(self.device).view(len(in_data2), -1)
         in_data3 = in_data3.to(self.device).view(len(in_data3), -1)
@@ -298,7 +311,11 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             for v0, v1 in vals:
                 constrain = [v0, v1, k]
                 lwr_c = np.arange(10)
-                lwr_c = [lwr_c[~np.isin(lwr_c, constrain[0])], lwr_c[~np.isin(lwr_c, constrain[1])], lwr_c[~np.isin(lwr_c, constrain[2])]]
+                lwr_c = [
+                    lwr_c[~np.isin(lwr_c, constrain[0])],
+                    lwr_c[~np.isin(lwr_c, constrain[1])],
+                    lwr_c[~np.isin(lwr_c, constrain[2])],
+                ]
 
                 terms.append(
                     ConstantConstraint(
@@ -331,41 +348,18 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         (r1, r2, r3), (lp1, lp2, lp3), logpy = output
 
         # reconstruction accuracies
-        ll1 = torch.stack(
-            [calc_ll(r, tgt1) for r in r1], dim=1
-        )
-        ll2 = torch.stack(
-            [calc_ll(r, tgt2) for r in r2], dim=1
-        )
-        ll3 = torch.stack(
-            [calc_ll(r, tgt3) for r in r3], dim=1
-        )
+        ll1 = torch.stack([calc_ll(r, tgt1) for r in r1], dim=1)
+        ll2 = torch.stack([calc_ll(r, tgt2) for r in r2], dim=1)
+        ll3 = torch.stack([calc_ll(r, tgt3) for r in r3], dim=1)
 
         llik, ll = self.model.logic_decoder((ll1, ll2, ll3, lp1, lp2, lp3), logpy)
         recon_losses, labels = llik.min(dim=1)
 
         loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        loss += weight*recon_losses.mean()
-        loss += weight*F.nll_loss(logpy, labels)
+        loss += weight * recon_losses.mean()
+        loss += weight * F.nll_loss(logpy, labels)
 
         return loss
-
-    def warmup_hook(self, model, train_loader):
-        # print("Warming up")
-        # optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-        # for epoch in range(0, 5):
-        #     for batch_idx, ((in_data1, in_target1),
-        #                     (in_data2, in_target2),
-        #                     (in_data3, in_target3)) in enumerate(train_loader):
-        #         targ_data1 = in_data1.reshape(len(in_data1), -1).to(self.device)
-        #
-        #         r = model(targ_data1, warmup=True)
-        #         loss = F.binary_cross_entropy_with_logits(r, targ_data1, reduction="none").sum(dim=1).mean()
-        #         optimizer.zero_grad()
-        #         loss.backward()
-        #         optimizer.step()
-        # print("Warmup Complete")
-        pass
 
     def iter_start_hook(self, epoch, model, data):
         if epoch % 5 != 0:
@@ -408,7 +402,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
     def epoch_finished_hook(self, epoch, model, val_loader):
         if self.device == "cpu":
             self.plot_model_samples(epoch, model)
-        self.beta -= .05
+        self.beta -= 0.05
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)

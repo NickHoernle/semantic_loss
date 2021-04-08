@@ -133,7 +133,7 @@ class MnistVAE(nn.Module):
             nn.BatchNorm1d(h_dim1),
             nn.Linear(h_dim1, h_dim2),
             nn.ReLU(),
-            nn.BatchNorm1d(h_dim2)
+            nn.BatchNorm1d(h_dim2),
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
@@ -145,13 +145,13 @@ class MnistVAE(nn.Module):
         self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim))
 
         self.decoder = nn.Sequential(
-            nn.Linear(z_dim+num_labels, h_dim2),
+            nn.Linear(z_dim + num_labels, h_dim2),
             nn.ReLU(),
             nn.BatchNorm1d(h_dim2),
             nn.Linear(h_dim2, h_dim1),
             nn.ReLU(),
             nn.BatchNorm1d(h_dim1),
-            nn.Linear(h_dim1, x_dim)
+            nn.Linear(h_dim1, x_dim),
         )
 
         self.apply(init_weights)
@@ -214,7 +214,7 @@ class ConstrainedMnistVAE(MnistVAE):
         self.logic_decoder = OrList(terms=terms)
         self.logic_pred = nn.Sequential(
             nn.BatchNorm1d(3 * self.num_labels),
-            nn.Linear(3 * self.num_labels, len(terms))
+            nn.Linear(3 * self.num_labels, len(terms)),
         )
         self.warmup = nn.Linear(self.h_dim2, self.z_dim)
         self.apply(init_weights)
@@ -243,8 +243,8 @@ class ConstrainedMnistVAE(MnistVAE):
 
         cp = torch.cat((log_pred1, log_pred2, log_pred3), dim=1)
 
-        # logic_pred, lpy = self.logic_decoder((log_pred1, log_pred2, log_pred3, d1, d2, d3), self.logic_pred(cp))
-        # log_p1, log_p2, log_p3 = log_pred1, log_pred2, log_pred3
-        # log_p1, log_p2, log_p3 = logic_pred.split(10, dim=-1)
-
-        return ((d1, d2, d3), (log_pred1, log_pred2, log_pred3), self.logic_pred(cp).log_softmax(dim=1))
+        return (
+            (d1, d2, d3),
+            (log_pred1, log_pred2, log_pred3),
+            self.logic_pred(cp).log_softmax(dim=1),
+        )
