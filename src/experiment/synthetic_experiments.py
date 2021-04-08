@@ -65,7 +65,7 @@ class BaseSyntheticExperiment(train.Experiment):
             model_input = self.get_input_data(data)
             with torch.no_grad():
                 output = model(model_input, test=True)
-                recon, (m, lv) = output
+                recon, (m, lv), _ = output
             recons += [recon]
 
         recons = torch.cat(recons, dim=0)

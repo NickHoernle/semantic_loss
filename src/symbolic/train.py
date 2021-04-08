@@ -338,7 +338,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
 
     for i, data in enumerate(train_loader):
 
-        experiment.iter_start_hook(epoch, model, data)
+        experiment.iter_start_hook(i, model, data)
 
         model_input = experiment.get_input_data(data)
         target = experiment.get_target_data(data)

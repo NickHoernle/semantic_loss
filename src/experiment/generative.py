@@ -61,7 +61,7 @@ class LinearVAE(nn.Module):
 
         # decoding
         reconstruction = self.decoder(z)
-        return reconstruction, (mu, log_var)
+        return reconstruction, (mu, log_var), None
 
 
 class ConstrainedVAE(LinearVAE):
