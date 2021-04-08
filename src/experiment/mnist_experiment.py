@@ -368,7 +368,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         pass
 
     def iter_start_hook(self, epoch, model, data):
-        if epoch % 2 == 0:
+        if epoch % 5 != 0:
             model.encoder.eval()
             model.label_predict.eval()
             model.label_encoder.eval()
