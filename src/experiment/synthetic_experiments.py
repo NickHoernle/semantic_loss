@@ -5,19 +5,17 @@ import numpy as np
 
 import matplotlib
 import matplotlib.pyplot as plt
-
-matplotlib.use("Agg")
+matplotlib.use('Agg')
 
 from symbolic import symbolic
 from symbolic import train
-from symbolic.utils import AccuracyMeter, AverageMeter, save_figure
-from experiment.datasets import get_synthetic_loaders
+from symbolic.utils import (AccuracyMeter, AverageMeter, save_figure)
+from experiment.datasets import (get_synthetic_loaders)
 from experiment.generative import LinearVAE, ConstrainedVAE
 
 
 class BaseSyntheticExperiment(train.Experiment):
     """Experimental setup for training with domain knowledge specified by a DNF logic formula on the synthetic dataset with continuous constraints. Wraps: train.Experiment.
-
     Synthetic Experiment Parameters:
         nhidden     num hidden units in the encoder / decoder respectively
         ndims       how many dimensions are we modeling
@@ -77,10 +75,26 @@ class BaseSyntheticExperiment(train.Experiment):
         fig_file = os.path.join(self.figures_directory, f"{epoch}_reconstruction.png")
         save_figure(fig, fig_file, self)
 
+    def plot_prior_samples(self, epoch, model, loader):
+        fig = plt.figure(figsize=(4, 4))
+        ax = fig.gca()
+
+        z = torch.randn(10000, self.nlatent)
+        recons = model.decode(z).detach()
+
+        valid_constraints = [t.valid(recons) for t in self.logic_terms]
+        v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
+        ax.scatter(*recons[v_c].numpy().T, s=0.5, label="valid", c="C2")
+        ax.scatter(*recons[~v_c].numpy().T, s=0.5, label="invalid", c="C3")
+        ax.legend(loc="best")
+        fig_file = os.path.join(self.figures_directory, f"{epoch}_prior_samples.png")
+        save_figure(fig, fig_file, self)
+
     def epoch_finished_hook(self, *args, **kwargs):
         if not args[0] % 10 == 0:
             return
         self.plot_validation_reconstructions(*args)
+        self.plot_prior_samples(*args)
 
     def get_loaders(self):
         train_size = self.size_of_train_set
