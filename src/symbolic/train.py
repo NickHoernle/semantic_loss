@@ -2,8 +2,6 @@ import time
 import git
 from abc import ABC, abstractmethod
 
-import torch
-import torch.nn.functional as F
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
@@ -44,6 +42,7 @@ class Experiment(ABC):
         seed: int = 12,
         start_epoch: int = 0,
         batch_size: int = 256,
+        clip_grad_norm: int = -1,
         learning_rate: float = 1e-1,
         momentum: float = 0.9,
         weight_decay: float = 5e-4,
@@ -70,6 +69,7 @@ class Experiment(ABC):
         self.droprate = droprate
         self.resume = resume
         self.tensorboard = tensorboard
+        self.clip_grad_norm = clip_grad_norm
 
         self.git_commit = ""
         self.device = None
@@ -217,7 +217,9 @@ class Experiment(ABC):
         pass
 
     def iter_done(self, epoch, type="Train"):
-        self.logfile.write(f"[{epoch+1}/{self.epochs}]: {type}: Loss {round(self.losses.avg, 3)}")
+        self.logfile.write(
+            f"[{epoch+1}/{self.epochs}]: {type}: Loss {round(self.losses.avg, 3)}"
+        )
 
 
 def main(experiment):
@@ -340,8 +342,9 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
 
         # compute gradient and do SGD step
         loss.backward()
-        # TODO: make clipping optional
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+        if experiment.clip_grad_norm > 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), experiment.clip_grad_norm)
         optimizer.step()
         scheduler.step()
 
