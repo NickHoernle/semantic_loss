@@ -213,6 +213,9 @@ class Experiment(ABC):
             f"Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
         )
 
+    def iter_start_hook(self, *args, **kwargs):
+        pass
+
     def iter_done(self, epoch, type="Train"):
         self.logfile.write(f"[{epoch+1}/{self.epochs}]: {type}: Loss {round(self.losses.avg, 3)}")
 
@@ -321,6 +324,8 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
     end = time.time()
 
     for i, data in enumerate(train_loader):
+
+        experiment.iter_start_hook(epoch, model, data)
 
         model_input = experiment.get_input_data(data)
         target = experiment.get_target_data(data)

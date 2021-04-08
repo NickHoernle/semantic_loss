@@ -342,61 +342,11 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         )
 
         llik, ll = self.model.logic_decoder((ll1, ll2, ll3, lp1, lp2, lp3), logpy)
-
-        # lp1 = lp1.log_softmax(dim=-1)
-        # lp2 = lp2.log_softmax(dim=-1)
-        # lp3 = lp3.log_softmax(dim=-1)
-        #
-        # llik = (
-        #     (lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
-        #     (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
-        #     (lp3.exp() * (ll3 + lp3)).sum(dim=-1)
-        # ) / 3
-
-        # llik = []
-        # count = 0
-        # for k, vals in knowledge.items():
-        #     for v0, v1 in vals:
-        #
-        #         w1a = (torch.zeros_like(lp1[:, count, v0]) + lp1[:, count, v0]).detach() - lp1[:, count, v0]
-        #         w2a = (torch.zeros_like(lp2[:, count, v1]) + lp2[:, count, v1]).detach() - lp2[:, count, v1]
-        #         w3a = (torch.zeros_like(lp3[:, count, k])  + lp3[:, count, k]).detach()  - lp3[:, count, k]
-        #
-        #         w1b = (torch.ones_like(lp1[:, count, v0]) - lp1[:, count, v0].exp()).detach() + lp1[:, count, v0].exp()
-        #         w2b = (torch.ones_like(lp2[:, count, v1]) - lp2[:, count, v1].exp()).detach() + lp2[:, count, v1].exp()
-        #         w3b = (torch.ones_like(lp3[:, count, k]) - lp3[:, count, k].exp()).detach()   + lp3[:, count, k].exp()
-        #
-        #         llik += [
-        #             (
-        #                 w1b*(ll1[:, v0] + w1a) +
-        #                 w2b*(ll2[:, v1] + w2a) +
-        #                 w3b*(ll3[:, k] + w3a)
-        # #                 (ll1[:, v0] + lp1[:, v0])+
-        # #                 (ll2[:, v1] + lp2[:, v1])+
-        # #                 (ll3[:, k] + lp3[:, k])
-        # #                 # ll3[:, k] + ll1[:, v0] + ll2[:, v1]
-        # #                 # (ll3[:, k] + weight3 * ll3[:, k]).detach() + weight3 * ll3[:, k] +
-        # #                 # (ll1[:, v0] + weight1 * ll1[:, v0]).detach() + weight1 * ll1[:, v0] +
-        # #                 # (ll2[:, v1] + weight2 * ll2[:, v1]).detach() + weight2 * ll2[:, v1]
-        # #                 # - lp3[:, k] - lp1[:, v0] - lp2[:, v1]
-        #             ) / 3
-        #         ]
-        #         count += 1
-        #
-        # llik = torch.stack(llik, dim=1)
         recon_losses, labels = llik.min(dim=1)
 
         loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
         loss += weight*recon_losses.mean()
         loss += weight*F.nll_loss(logpy, labels)
-
-        # llik = ((lp1.exp() * (ll1 + lp1)).sum(dim=-1) +
-        #         (lp2.exp() * (ll2 + lp2)).sum(dim=-1) +
-        #         (lp3.exp() * (ll3 + lp3)).sum(dim=-1))
-
-        # recon_losses, labels = llik.min(dim=1)
-        # loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        # loss += recon_losses.mean()
 
         return loss
 
@@ -416,6 +366,14 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         #         optimizer.step()
         # print("Warmup Complete")
         pass
+
+    def iter_start_hook(self, epoch, model, data):
+        if epoch % 2 == 0:
+            model.encoder.eval()
+            model.label_predict.eval()
+            model.label_encoder.eval()
+            model.mu.eval()
+            model.lv.eval()
 
     def init_meters(self):
         loss = AverageMeter()
