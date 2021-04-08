@@ -4,68 +4,59 @@ import numpy as np
 from torch.nn import functional as F
 
 
-class ConstantConstraint(nn.Module):
+class ConstantEqualityGenerative(nn.Module):
     def __init__(
         self,
-        ixs1,
-        ixs_not,
-        ixs_less_than,
-        threshold_upper,
-        threshold_lower,
-        threshold_limit,
+        ixs_active,
+        ixs_inactive,
         **kwargs
     ):
-        super(ConstantConstraint, self).__init__()
-        self.ixs1 = ixs1
-        self.ixs_neg = ixs_less_than
-        # self.ixs_not = ixs_not
-
-        # self.threshold_upper = threshold_upper
-        # self.threshold_lower = threshold_lower
-        # self.threshold_limit = threshold_limit
-
-        # self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
-        # self.reverse_transform = np.argsort(self.forward_transform)
-
-        # self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
-
-    def threshold1p(self):
-        if self.threshold_lower > self.threshold_limit:
-            self.threshold_lower -= 1
+        super(ConstantEqualityGenerative, self).__init__()
+        self.ixs_active = ixs_active
+        self.ixs_inactive = ixs_inactive
 
     def forward(self, x):
         ll1, ll2, ll3, lp1, lp2, lp3 = x
 
         lr = 0
         for i, (ll, lp) in enumerate([[ll1, lp1], [ll2, lp2], [ll3, lp3]]):
-            sll1 = ll[:, self.ixs1[i]]
-            # sll2 = ll[:, self.ixs_neg[i]].detach()
-
-            slp1 = F.sigmoid(lp[:, self.ixs1[i]])
-            # slp2 = lp[:, self.ixs_neg[i]].detach()
-
+            sll1 = ll[:, self.ixs_active[i]]
+            slp1 = F.sigmoid(lp[:, self.ixs_active[i]])
             s11 = (torch.ones_like(slp1) - slp1).detach() + slp1
-            # s12 = -F.softplus(-slp2) - 5
-
-            # lp_ = torch.cat((s11, s12), dim=1).log_softmax(dim=1)
-            # ll_ = torch.cat((sll1, sll2), dim=1)
-
             lr += s11 * sll1
 
         return lr
 
 
-class GEQConstant(ConstantConstraint):
-    def __init__(self, **kwargs):
-        super(GEQConstant, self).__init__(**kwargs)
-        # self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
+class GEQConstant(nn.Module):
+    def __init__(
+            self,
+            ixs1,
+            ixs_not,
+            ixs_less_than,
+            threshold_upper,
+            threshold_lower,
+            threshold_limit,
+            **kwargs
+    ):
+        super(GEQConstant, self).__init__()
+
+        self.ixs1 = ixs1
+        self.ixs_neg = ixs_less_than
+        self.ixs_not = ixs_not
+
+        self.threshold_upper = threshold_upper
+        self.threshold_lower = threshold_lower
+        self.threshold_limit = threshold_limit
+
+        self.forward_transform = self.ixs1 + self.ixs_neg
+        self.reverse_transform = np.argsort(self.forward_transform)
 
     def threshold1p(self):
         if self.threshold_lower > self.threshold_limit:
             self.threshold_lower -= 1
 
     def forward(self, x):
-        # x = self.fc(x)
 
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_neg]
@@ -151,8 +142,6 @@ class Between(nn.Module):
 
         self.forward_transform = self.ixs1 + self.ixs_less_than
         self.reverse_transform = np.argsort(self.forward_transform)
-
-        # self.fc = nn.Linear(len(self.forward_transform), len(self.forward_transform))
 
     def threshold1p(self):
         pass

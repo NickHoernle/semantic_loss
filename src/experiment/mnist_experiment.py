@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from symbolic import train
-from symbolic.symbolic import ConstantConstraint
+from symbolic.symbolic import ConstantEqualityGenerative
 from symbolic.utils import AccuracyMeter, AverageMeter, save_figure
 from experiment.datasets import get_train_valid_loader, get_test_loader
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
@@ -318,13 +318,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
                 ]
 
                 terms.append(
-                    ConstantConstraint(
-                        ixs1=constrain,
-                        ixs_not=[],
-                        ixs_less_than=lwr_c,
-                        threshold_upper=-1,
-                        threshold_lower=-15,
-                        threshold_limit=-15,
+                    ConstantEqualityGenerative(
+                        ixs_active=constrain,
+                        ixs_inactive=lwr_c,
                     )
                 )
         return terms
