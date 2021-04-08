@@ -77,7 +77,7 @@ class ConstrainedVAE(LinearVAE):
             nn.Linear(self.nhidden, 2 * self.nlatent + self.nterms),
         )
 
-        self._logic_prior = nn.Parameter(torch.randn(len(terms)))
+        self._logic_prior = nn.Parameter(torch.randn(len(terms)), requires_grad=True)
 
     @property
     def logic_prior(self):
