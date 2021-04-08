@@ -145,6 +145,17 @@ class Experiment(ABC):
             )
         return self.logfile_
 
+    def load_model(self, use_final=False):
+        model = self.create_model()
+        checkpoint = self.checkpoint if use_final else self.best_checkpoint
+        if self.device == "cpu":
+            checkpoint = torch.load(checkpoint, map_location=torch.device('cpu'))
+            model.load_state_dict(checkpoint["state_dict"])
+        else:
+            checkpoint = torch.load(checkpoint)
+            model.load_state_dict(checkpoint["state_dict"])
+        return model
+
     def init_meters(self):
         self.losses = AverageMeter()
 

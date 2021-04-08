@@ -76,6 +76,11 @@ class ConstrainedVAE(LinearVAE):
             nn.ReLU(True),
             nn.Linear(self.nhidden, 2 * self.nlatent + self.nterms),
         )
+        self._logic_prior = nn.Parameter(torch.randn(len(terms)))
+
+    @property
+    def logic_prior(self):
+        return self._logic_prior.log_softmax(dim=0)
 
     def encode(self, x):
         return self.encoder(x).split((self.nlatent, self.nlatent, self.nterms), dim=-1)
@@ -84,7 +89,8 @@ class ConstrainedVAE(LinearVAE):
         decoded = self.decoder(z)
 
         if type(labels) == type(None):
-            labelz = torch.randint(low=0, high=self.nterms, size=(len(z),))
+            labelz = torch.tensor(np.random.choice(np.arange(self.nterms), replace=True, size=len(z),
+                                                   p=self.logic_prior.exp().detach().numpy())).long()
             pred = self.logic.all_predictions(decoded)
             idxs = np.arange(len(pred))
             return pred[idxs, labelz]
@@ -102,7 +108,7 @@ class ConstrainedVAE(LinearVAE):
         z = self.reparameterize(mu, log_var)
 
         # decoding
-        return self.decode(z, pred_y, test, **kwargs), (mu, log_var)
+        return self.decode(z, pred_y, test, **kwargs), (mu, log_var), self.logic_prior
 
 
 class Flatten(nn.Module):

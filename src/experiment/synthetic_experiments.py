@@ -129,10 +129,10 @@ class BaseSyntheticExperiment(train.Experiment):
         labels = data[1].to(self.device)
         return samples
 
-    def criterion(self, output, target, train=True):
+    def criterion(self, output, target):
 
-        if not self.baseline and train:
-            (recon, log_py), (mu, lv) = output
+        if not self.baseline:
+            (recon, log_py), (mu, lv), log_prior = output
             ll = []
             for j, p in enumerate(recon.split(1, dim=1)):
                 ll += [
@@ -143,14 +143,14 @@ class BaseSyntheticExperiment(train.Experiment):
             recon_losses, labels = pred_loss.min(dim=1)
 
             kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1).mean()
-            loss = (log_py.exp() * (pred_loss + log_py)).sum(dim=1).mean()
+            loss = (log_py.exp() * (pred_loss + log_py - log_prior)).sum(dim=1).mean()
             loss += recon_losses.mean()
             loss += F.nll_loss(log_py, labels)
             loss += kld
 
             return loss
 
-        recon, (mu, lv) = output
+        recon, (mu, lv), _ = output
         loss = (
             self.weight
             * F.mse_loss(recon.squeeze(1), target, reduction="none").sum(dim=1).mean()
@@ -160,10 +160,10 @@ class BaseSyntheticExperiment(train.Experiment):
 
     def update_train_meters(self, loss, output, target):
         if not self.baseline:
-            (recon, log_py), (mu, lv) = output
+            (recon, log_py), (mu, lv), log_prior = output
             preds = recon[np.arange(len(log_py)), log_py.argmax(dim=1)]
         else:
-            preds, (mu, lv) = output
+            preds, (mu, lv), _ = output
 
         self.losses["loss"].update(loss.data.item(), target.size(0))
         valid_constraints = [t.valid(preds) for t in self.logic_terms]
@@ -171,7 +171,12 @@ class BaseSyntheticExperiment(train.Experiment):
         self.losses["constraint"].update(v_c.tolist(), v_c.size(0))
 
     def update_test_meters(self, loss, output, target):
-        preds, (mu, lv) = output
+        if not self.baseline:
+            (recon, log_py), (mu, lv), log_prior = output
+            preds = recon[np.arange(len(log_py)), log_py.argmax(dim=1)]
+        else:
+            preds, (mu, lv), _ = output
+
         self.losses["loss"].update(loss.data.item(), target.size(0))
         valid_constraints = [t.valid(preds) for t in self.logic_terms]
         v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
