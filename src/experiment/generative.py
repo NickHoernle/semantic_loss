@@ -148,10 +148,10 @@ class MnistVAE(nn.Module):
         self.lv = nn.Linear(h_dim2, z_dim)
 
         self.mu_prior = nn.Linear(num_labels, z_dim)
-        self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim))
+        self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim), nn.Softplus())
 
         self.decoder = nn.Sequential(
-            nn.Linear(z_dim, h_dim2),
+            nn.Linear(z_dim + num_labels, h_dim2),
             nn.ReLU(),
             nn.BatchNorm1d(h_dim2),
             nn.Linear(h_dim2, h_dim1),
@@ -192,8 +192,7 @@ class MnistVAE(nn.Module):
         mu_prior, lv_prior = self.get_priors(one_hot)
 
         z = self.reparameterize(mu, lv)
-        # recon = self.decode_one(torch.cat((z, one_hot), dim=1))
-        recon = self.decode_one(z)
+        recon = self.decode_one(torch.cat((z, one_hot), dim=1))
 
         return (recon, mu, lv, mu_prior, lv_prior, z)
 

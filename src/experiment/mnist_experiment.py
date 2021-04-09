@@ -103,8 +103,8 @@ class BaseMNISTExperiment(train.Experiment):
                 std = torch.exp(0.5 * lv_p)
                 z = mu_p + std * torch.randn((1, self.zdim))
 
-                # recon = model.decode_one(torch.cat((z, y_onehot), dim=1))
-                recon = model.decode_one(z)
+                recon = model.decode_one(torch.cat((z, y_onehot), dim=1))
+                # recon = model.decode_one(z)
 
                 ax.imshow(
                     (
@@ -353,8 +353,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         recon_losses, labels = llik.min(dim=1)
 
         loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        loss += weight * recon_losses.mean()
-        loss += weight * F.nll_loss(logpy, labels)
+        # loss += weight * recon_losses.mean()
+        # loss += weight * F.nll_loss(logpy, labels)
 
         return loss
 
