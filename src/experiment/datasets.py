@@ -312,12 +312,13 @@ class ConstraintedSampler(Gaussian):
             ax = fig.gca()
 
         x, labels = self.sample(5000, get_term_labels=True)
-        for i in range(np.max(labels) + 1):
-            ax.scatter(x[labels == i, 0], x[labels == i, 1], s=5, alpha=0.1, label=i)
+        # for i in range(np.max(labels) + 1):
+        #     ax.scatter(x[labels == i, 0], x[labels == i, 1], s=5, alpha=0.1, label=i)
+        ax.scatter(x[:, 0], x[:, 1], s=5, alpha=0.1, c="C0")
 
         ax.set_xlim([-5, 5])
         ax.set_ylim([-5, 5])
-        ax.grid(True)
+        ax.grid(False)
 
         return ax
 

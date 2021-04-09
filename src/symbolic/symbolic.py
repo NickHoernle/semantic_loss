@@ -57,7 +57,7 @@ class GEQConstant(nn.Module):
             self.threshold_lower -= 1
 
     def forward(self, x):
-
+      
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_neg]
         split3 = x[:, self.ixs_not]
@@ -299,7 +299,7 @@ class Identity(GEQConstant):
 
 
 class OrList(nn.Module):
-    def __init__(self, terms):
+    def __init__(self, terms, dim=10):
         super().__init__()
         self.layers = nn.ModuleList(terms)
 
@@ -310,9 +310,9 @@ class OrList(nn.Module):
     def all_predictions(self, x):
         return torch.stack([f(x) for f in self.layers], dim=1)
 
-    def forward(self, x, class_prediction, test=False):
+    def forward(self, x, class_pred, test=False, tau=1.):
         pred = self.all_predictions(x)
-        log_py = class_prediction.log_softmax(dim=1)
+        log_py = (class_pred/tau).log_softmax(dim=1)
 
         if test:
             return pred[np.arange(len(log_py)), log_py.argmax(dim=1)]

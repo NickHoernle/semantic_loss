@@ -50,6 +50,7 @@ class Experiment(ABC):
         droprate: float = 0.0,
         resume: bool = False,
         tensorboard: bool = False,
+        grad_clip: float = -1.0
     ):
         """
         Creates the experiment object that contains all of the experiment configuration parameters
@@ -70,7 +71,7 @@ class Experiment(ABC):
         self.resume = resume
         self.tensorboard = tensorboard
         self.clip_grad_norm = clip_grad_norm
-
+        
         self.git_commit = ""
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.start_epoch = 0
@@ -238,7 +239,6 @@ def main(experiment):
     repo = git.Repo(search_parent_directories=True)
     # set the git commit for logging purposes
     experiment.git_commit = repo.head.object.hexsha
-    experiment.device = device
 
     # if args.tensorboard: configure(os.path.join(args.checkpoint_dir, git_commit, params))
     # Data loading code
@@ -353,11 +353,12 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
 
         # compute gradient and do SGD step
         loss.backward()
-
+        
         if experiment.clip_grad_norm > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), experiment.clip_grad_norm)
+            
         optimizer.step()
-        scheduler.step()
+        # scheduler.step()
 
         # measure elapsed time
         batch_time.update(time.time() - end)

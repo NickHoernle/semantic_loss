@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from symbolic.symbolic import OrList
 import numpy as np
+from torch.nn import functional as F
 
 
 def init_weights(m):
@@ -181,11 +182,12 @@ class MnistVAE(nn.Module):
         return self.decoder(z)
 
     def reparameterize(self, mu, log_var):
-        std = torch.exp(0.5 * log_var)
-        eps = torch.randn_like(std)
-        return eps.mul(std).add_(mu)
+        # std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(log_var)
+        return eps.mul(log_var).add_(mu)
 
     def collect(self, encoded, label):
+        # labels = torch.ones_like(encoded[:, 0]).long() * label
         one_hot = self.get_one_hot(encoded, label)
 
         mu, lv = self.get_latent(encoded + self.label_encoder(one_hot))
@@ -194,7 +196,7 @@ class MnistVAE(nn.Module):
         z = self.reparameterize(mu, lv)
         recon = self.decode_one(torch.cat((z, one_hot), dim=1))
 
-        return (recon, mu, lv, mu_prior, lv_prior, z)
+        return (recons, mu, lv, mu_prior, lv_prior, z)
 
     def decode(self, encoded):
         return [self.collect(encoded, label) for label in range(self.num_labels)]
@@ -222,12 +224,18 @@ class ConstrainedMnistVAE(MnistVAE):
             nn.BatchNorm1d(3 * self.num_labels),
             nn.Linear(3 * self.num_labels, len(terms)),
         )
-        self.warmup = nn.Linear(self.h_dim2, self.z_dim)
+        # self._logic_prior = nn.Parameter(torch.randn(len(terms)))
+        self._logic_prior = nn.Parameter(torch.ones(len(terms)), requires_grad=False)
+        self.tau = 10.
         self.apply(init_weights)
+
+    @property
+    def logic_prior(self):
+        return self._logic_prior.log_softmax(dim=0)
 
     def encode(self, x):
         h = self.encoder(x)
-        return h, self.label_predict(h)
+        return h, F.relu(self.label_predict(h))
 
     def threshold1p(self):
         self.logic_decoder.threshold1p()
@@ -239,9 +247,9 @@ class ConstrainedMnistVAE(MnistVAE):
 
         x1, x2, x3 = in_data
 
-        encoded1, log_pred1 = self.encode(x1)
-        encoded2, log_pred2 = self.encode(x2)
-        encoded3, log_pred3 = self.encode(x3)
+        encoded1, logits1 = self.encode(x1)
+        encoded2, logits2 = self.encode(x2)
+        encoded3, logits3 = self.encode(x3)
 
         d1 = self.decode(encoded1)
         d2 = self.decode(encoded2)

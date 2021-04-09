@@ -31,9 +31,11 @@ class BaseMNISTExperiment(train.Experiment):
         self,
         sloss: bool = False,
         name: str = "MNIST",
-        hidden_dim1: int = 250,
-        hidden_dim2: int = 100,
-        zdim: int = 10,
+        hidden_dim1: int = 500,
+        hidden_dim2: int = 250,
+        zdim: int = 25,
+        beta: float = .1,
+        beta2: float = 1.,
         **kwargs,
     ):
         self.dataset = "mnist"
@@ -90,6 +92,7 @@ class BaseMNISTExperiment(train.Experiment):
 
     def epoch_finished_hook(self, epoch, model, val_loader):
         pass
+        # self.plot_model_samples(epoch, model)
 
     def plot_model_samples(self, epoch, model):
         fig, axes = plt.subplots(10, 10, figsize=(20, 15))
@@ -204,18 +207,18 @@ class BaseMNISTExperiment(train.Experiment):
         ll1, ll2, ll3 = [], [], []
 
         for i in range(10):
-            ll1.append(calc_ll(recons1[i], tgt1))
+            ll1.append(calc_ll(recons1[i], tgt1, self.beta2))
 
         for j in range(10):
-            ll2.append(calc_ll(recons2[j], tgt2))
+            ll2.append(calc_ll(recons2[j], tgt2, self.beta2))
 
         for k in range(10):
-            ll3.append(calc_ll(recons3[k], tgt3))
+            ll3.append(calc_ll(recons3[k], tgt3, self.beta2))
 
         return (
-            (lp1.exp() * (torch.stack(ll1, dim=1) + lp1)).sum(dim=1).mean()
-            + (lp2.exp() * (torch.stack(ll2, dim=1) + lp2)).sum(dim=1).mean()
-            + (lp3.exp() * (torch.stack(ll3, dim=1) + lp3)).sum(dim=1).mean()
+            (lp1.exp() * (torch.stack(ll1, dim=1) + lp1 - np.log(0.1))).sum(dim=1).mean()
+            + (lp2.exp() * (torch.stack(ll2, dim=1) + lp2 - np.log(0.1))).sum(dim=1).mean()
+            + (lp3.exp() * (torch.stack(ll3, dim=1) + lp3 - np.log(0.1))).sum(dim=1).mean()
         )
 
     def update_train_meters(self, loss, output, target):
@@ -277,23 +280,20 @@ class BaseMNISTExperiment(train.Experiment):
         return False
 
 
-def calc_ll(params, target, beta=1.0):
+def calc_ll(params, target, weight_factor=5):
     """
     Helper to calculate the ll of a single prediction for one of the images that are being processed
     """
     recon, mu, lv, mu_prior, lv_prior, z = params
 
-    std = torch.exp(0.5 * lv)
-    std_prior = torch.exp(0.5 * lv_prior)
-
-    kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
+    kld = (Normal(mu, lv).log_prob(z) - Normal(mu_prior, lv_prior).log_prob(z)).sum(
         dim=1
     )
     rcon = F.binary_cross_entropy_with_logits(recon, target, reduction="none").sum(
         dim=-1
     )
 
-    return rcon + beta * kld
+    return rcon + kld
 
 
 class ConstrainedMNIST(BaseMNISTExperiment):
@@ -302,7 +302,10 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        self.beta = 1.0
+        beta = 0.
+        beta2 = 1.
+        kwargs["beta"] = beta
+        kwargs["beta2"] = beta2
         super().__init__(**kwargs)
 
     @property
@@ -337,12 +340,24 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         )
         return self.model
 
+    def epoch_finished_hook(self, epoch, model, val_loader):
+        if self.device == "cpu":
+            self.plot_model_samples(epoch, model)
+
+        model.tau -= .5
+        if model.tau < 1.:
+            model.tau = 1.
+
+        self.beta += .1
+        if self.beta > 1.:
+            self.beta = 1.
+
     def criterion(self, output, target, train=True):
 
         weight = np.max([0, self.beta])
 
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (r1, r2, r3), (lp1, lp2, lp3), logpy = output
+        (r1, r2, r3), (lp1, lp2, lp3), (logpy, log_prior) = output
 
         # reconstruction accuracies
         ll1 = torch.stack([calc_ll(r, tgt1) for r in r1], dim=1)
@@ -356,7 +371,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         # loss += weight * recon_losses.mean()
         # loss += weight * F.nll_loss(logpy, labels)
 
-        return loss
+        return loss_marginalise + loss_heuristic
 
     def iter_start_hook(self, iteration_count, model, data):
         # pass
@@ -379,7 +394,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
     def update_train_meters(self, loss, output, target):
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
+        (recons1, recons2, recons3), (lp1, lp2, lp3), (logpy, log_prior) = output
 
         vals = (
             torch.tensor([k for k, vals in knowledge.items() for v in vals])[None, :]
