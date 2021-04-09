@@ -148,7 +148,7 @@ class MnistVAE(nn.Module):
         self.lv = nn.Linear(h_dim2, z_dim)
 
         self.mu_prior = nn.Linear(num_labels, z_dim)
-        self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim), nn.Softplus())
+        self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim))
 
         self.decoder = nn.Sequential(
             nn.Linear(z_dim, h_dim2),
