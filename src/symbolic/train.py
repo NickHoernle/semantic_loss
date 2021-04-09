@@ -72,7 +72,7 @@ class Experiment(ABC):
         self.clip_grad_norm = clip_grad_norm
 
         self.git_commit = ""
-        self.device = None
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.start_epoch = 0
         self.losses = AverageMeter()
         self.best_loss = np.infty
