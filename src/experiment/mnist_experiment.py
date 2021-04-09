@@ -103,7 +103,8 @@ class BaseMNISTExperiment(train.Experiment):
                 std = torch.exp(0.5 * lv_p)
                 z = mu_p + std * torch.randn((1, self.zdim))
 
-                recon = model.decode_one(torch.cat((z, y_onehot), dim=1))
+                # recon = model.decode_one(torch.cat((z, y_onehot), dim=1))
+                recon = model.decode_one(z)
 
                 ax.imshow(
                     (
