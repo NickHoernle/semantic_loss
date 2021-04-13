@@ -282,17 +282,19 @@ def calc_ll(params, target, beta=1.0):
     """
     recon, mu, lv, mu_prior, lv_prior, z = params
 
-    std = torch.exp(0.5 * lv)
-    std_prior = torch.exp(0.5 * lv_prior)
+    # std = torch.exp(0.5 * lv)
+    # std_prior = torch.exp(0.5 * lv_prior)
 
-    kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
-        dim=1
-    )
+    # kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
+    #     dim=1
+    # )
     rcon = F.binary_cross_entropy_with_logits(recon, target, reduction="none").sum(
         dim=-1
     )
 
-    return rcon + beta * kld
+    kld = (-0.5 + lv_prior - lv + (lv.exp() + (mu - mu_prior).pow(2))/(2*lv_prior.exp())).sum(dim=1)
+
+    return rcon + kld
 
 
 class ConstrainedMNIST(BaseMNISTExperiment):
@@ -361,7 +363,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         if iteration_count % 2 == 0:
             model.encoder.eval()
             model.label_predict.eval()
-            model.label_encoder.eval()
+            # model.label_encoder.eval()
             model.mu.eval()
             model.lv.eval()
 

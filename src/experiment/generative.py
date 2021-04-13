@@ -143,15 +143,14 @@ class MnistVAE(nn.Module):
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
-        self.label_encoder = nn.Linear(num_labels, h_dim2)
-        self.mu = nn.Linear(h_dim2, z_dim)
-        self.lv = nn.Linear(h_dim2, z_dim)
+        self.mu = nn.Linear(h_dim2+num_labels, z_dim)
+        self.lv = nn.Linear(h_dim2+num_labels, z_dim)
 
         self.mu_prior = nn.Linear(num_labels, z_dim)
         self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim))
 
         self.decoder = nn.Sequential(
-            nn.Linear(z_dim + num_labels, h_dim2),
+            nn.Linear(z_dim+num_labels, h_dim2),
             nn.ReLU(),
             nn.BatchNorm1d(h_dim2),
             nn.Linear(h_dim2, h_dim1),
@@ -188,7 +187,7 @@ class MnistVAE(nn.Module):
     def collect(self, encoded, label):
         one_hot = self.get_one_hot(encoded, label)
 
-        mu, lv = self.get_latent(encoded + self.label_encoder(one_hot))
+        mu, lv = self.get_latent(torch.cat((encoded, one_hot), dim=1))
         mu_prior, lv_prior = self.get_priors(one_hot)
 
         z = self.reparameterize(mu, lv)
