@@ -26,7 +26,7 @@ class ConstantEqualityGenerative(nn.Module):
             s11 = (torch.zeros_like(slp1) + slp1).detach() - slp1
             # s12 = (torch.zeros_like(slp2) + slp2).detach() - slp2
 
-            lr += s11.exp() * (sll1 + s11)
+            lr += s11.exp() * sll1
 
         return lr
 
