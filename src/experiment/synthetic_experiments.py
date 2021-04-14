@@ -219,6 +219,22 @@ class BaseSyntheticExperiment(train.Experiment):
         return False
 
 
+class DL2SyntheicExperiment(BaseSyntheticExperiment):
+    """[summary]
+
+    Args:
+        BaseSyntheticExperiment ([type]): [description]
+    """
+
+    def __init__(self, name: str = "SyntheticDL2", **kwargs):
+        """[summary]
+
+        Args:
+            name (str, optional): [description]. Defaults to "SyntheticDL2".
+        """
+        super().__init__(name=name, **kwargs)
+
+
 class FullyKnownConstraintsSyntheticExperiment(BaseSyntheticExperiment):
     def __init__(self, name: str = "SyntheticFull", **kwargs):
         super().__init__(name=name, **kwargs)
