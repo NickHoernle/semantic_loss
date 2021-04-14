@@ -143,11 +143,13 @@ class MnistVAE(nn.Module):
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
-        self.mu = nn.Linear(h_dim2+num_labels, z_dim)
-        self.lv = nn.Linear(h_dim2+num_labels, z_dim)
+        self.mu = nn.Linear(h_dim2, z_dim)
+        self.lv = nn.Linear(h_dim2, z_dim)
 
-        self.mu_prior = nn.Linear(num_labels, z_dim)
-        self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim))
+        self.Wy = nn.Linear(num_labels, z_dim)
+        self.Ws = nn.Linear(num_labels, z_dim)
+        # self.mu_prior = nn.Linear(num_labels, z_dim)
+        # self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim))
 
         self.decoder = nn.Sequential(
             nn.Linear(z_dim+num_labels, h_dim2),
@@ -176,8 +178,13 @@ class MnistVAE(nn.Module):
     def get_latent(self, encoded):
         return self.mu(encoded), self.lv(encoded)
 
-    def decode_one(self, z):
-        return self.decoder(z)
+    def decode_one(self, z, y_onehot):
+        Wyy = self.Wy(y_onehot)
+        Wzz = F.softplus(self.Ws(y_onehot)) * z
+        h1 = Wyy + Wzz
+        import pdb
+        pdb.set_trace()
+        return self.decoder(h1)
 
     def reparameterize(self, mu, log_var):
         std = torch.exp(0.5 * log_var)
@@ -188,12 +195,12 @@ class MnistVAE(nn.Module):
         one_hot = self.get_one_hot(encoded, label)
 
         mu, lv = self.get_latent(torch.cat((encoded, one_hot), dim=1))
-        mu_prior, lv_prior = self.get_priors(one_hot)
+        # mu_prior, lv_prior = self.get_priors(one_hot)
 
         z = self.reparameterize(mu, lv)
-        recon = self.decode_one(torch.cat((z, one_hot), dim=1))
+        recon = self.decode_one(z, one_hot)
 
-        return (recon, mu, lv, mu_prior, lv_prior, z)
+        return (recon, mu, lv, None, None, z)
 
     def decode(self, encoded):
         return [self.collect(encoded, label) for label in range(self.num_labels)]

@@ -21,12 +21,12 @@ class ConstantEqualityGenerative(nn.Module):
         lr = 0
         for i, (ll, lp) in enumerate([[ll1, lp1], [ll2, lp2], [ll3, lp3]]):
             sll1 = ll[:, self.ixs_active[i]]
-            slp1 = (lp).log_softmax(dim=1)[:, self.ixs_active[i]]
+            slp1 = lp.softmax(dim=1)[:, self.ixs_active[i]]
 
-            s11 = (torch.zeros_like(slp1) + slp1).detach() - slp1
+            s11 = (torch.ones_like(slp1) + slp1).detach() - slp1
             # s12 = (torch.zeros_like(slp2) + slp2).detach() - slp2
 
-            lr += s11.exp() * sll1
+            lr += s11 * sll1
 
         return lr
 

@@ -99,11 +99,13 @@ class BaseMNISTExperiment(train.Experiment):
                 y_onehot = torch.zeros((1, 10)).float()
                 y_onehot[:, j] = 1
 
-                mu_p, lv_p = model.get_priors(y_onehot)
-                std = torch.exp(0.5 * lv_p)
-                z = mu_p + std * torch.randn((1, self.zdim))
+                # mu_p, lv_p = model.get_priors(y_onehot)
+                # std = torch.exp(0.5 * lv_p)
+                # z = mu_p + std * torch.randn((1, self.zdim))
+                z = torch.randn((1, self.zdim))
 
-                recon = model.decode_one(torch.cat((z, y_onehot), dim=1))
+                # recon = model.decode_one(torch.cat((z, y_onehot), dim=1))
+                recon = model.decode_one(z, y_onehot)
 
                 ax.imshow(
                     (
@@ -292,7 +294,8 @@ def calc_ll(params, target, beta=1.0):
         dim=-1
     )
 
-    kld = (-0.5 + lv_prior - lv + (lv.exp() + (mu - mu_prior).pow(2))/(2*lv_prior.exp())).sum(dim=1)
+    # kld = (-0.5 + lv_prior - lv + (lv.exp() + (mu - mu_prior).pow(2))/(2*lv_prior.exp())).sum(dim=1)
+    kld =  -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp())
 
     return rcon + kld
 
