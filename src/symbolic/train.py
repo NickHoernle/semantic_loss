@@ -108,7 +108,8 @@ class Experiment(ABC):
 
         else:
             assert self.git_commit != ""
-            path = os.path.join(self.checkpoint_dir, self.git_commit, self.params)
+            path = os.path.join(self.checkpoint_dir,
+                                self.git_commit, self.params)
 
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
@@ -149,7 +150,8 @@ class Experiment(ABC):
         model = self.create_model()
         checkpoint = self.checkpoint if use_final else self.best_checkpoint
         if self.device == "cpu":
-            checkpoint = torch.load(checkpoint, map_location=torch.device('cpu'))
+            checkpoint = torch.load(
+                checkpoint, map_location=torch.device('cpu'))
             model.load_state_dict(checkpoint["state_dict"])
         else:
             checkpoint = torch.load(checkpoint)
@@ -247,7 +249,8 @@ def main(experiment):
     # create model
     model = experiment.create_model()
 
-    experiment.log(f"Running experiment at checkpoint: {experiment.git_commit}", True)
+    experiment.log(
+        f"Running experiment at checkpoint: {experiment.git_commit}", True)
     experiment.log(f"Starting experiment with params: {experiment.params}")
 
     # get the number of model parameters
@@ -261,21 +264,24 @@ def main(experiment):
     # optionally resume from a checkpoint
     if experiment.resume:
         if os.path.isfile(experiment.checkpoint):
-            experiment.log(f"=> loading checkpoint from '{experiment.checkpoint}'")
+            experiment.log(
+                f"=> loading checkpoint from '{experiment.checkpoint}'")
             checkpoint = torch.load(experiment.checkpoint)
             experiment.start_epoch = checkpoint["epoch"]
-            experiment.best_loss = checkpoint["best_loss"]
+            experiment.best_loss = checkpoint["best_prec1"]
             model.load_state_dict(checkpoint["state_dict"])
             experiment.log(
                 f"=> loaded checkpoint '{experiment.checkpoint}' (epoch {checkpoint['epoch']})"
             )
         else:
-            experiment.log(f"=> no checkpoint found at '{experiment.checkpoint}'")
+            experiment.log(
+                f"=> no checkpoint found at '{experiment.checkpoint}'")
 
     # TODO: why do I need this again?
     cudnn.benchmark = True
 
-    optimizer, scheduler = experiment.get_optimizer_and_scheduler(model, train_loader)
+    optimizer, scheduler = experiment.get_optimizer_and_scheduler(
+        model, train_loader)
 
     experiment.pre_train_hook(train_loader)
     experiment.warmup_hook(model, train_loader)
@@ -355,7 +361,8 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
         loss.backward()
 
         if experiment.clip_grad_norm > 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), experiment.clip_grad_norm)
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(), experiment.clip_grad_norm)
         optimizer.step()
         scheduler.step()
 

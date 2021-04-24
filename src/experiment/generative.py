@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from symbolic.symbolic import OrList
 import numpy as np
+from torch.nn import functional as F
 
 
 def init_weights(m):
@@ -20,12 +21,14 @@ class LinearVAE(nn.Module):
 
         # encoder
         self.encoder = nn.Sequential(
-            nn.Linear(ndims, nhidden), nn.ReLU(True), nn.Linear(nhidden, 2 * nlatent)
+            nn.Linear(ndims, nhidden), nn.ReLU(
+                True), nn.Linear(nhidden, 2 * nlatent)
         )
 
         # decoder
         self.decoder = nn.Sequential(
-            nn.Linear(nlatent, nhidden), nn.ReLU(True), nn.Linear(nhidden, ndims)
+            nn.Linear(nlatent, nhidden), nn.ReLU(
+                True), nn.Linear(nhidden, ndims)
         )
 
         self.apply(init_weights)
@@ -90,7 +93,8 @@ class ConstrainedVAE(LinearVAE):
         decoded = self.decoder(z)
 
         if type(labels) == type(None):
-            labelz = torch.tensor(np.random.choice(np.arange(self.nterms), replace=True, size=len(z), p=self.logic_prior.exp().detach().numpy())).long()
+            labelz = torch.tensor(np.random.choice(np.arange(self.nterms), replace=True, size=len(
+                z), p=self.logic_prior.exp().detach().numpy())).long()
             pred = self.logic.all_predictions(decoded)
             idxs = np.arange(len(pred))
             return pred[idxs, labelz]
@@ -143,12 +147,14 @@ class MnistVAE(nn.Module):
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
+
         self.label_encoder = nn.Linear(num_labels, h_dim2)
         self.mu = nn.Linear(h_dim2, z_dim)
         self.lv = nn.Linear(h_dim2, z_dim)
 
         self.mu_prior = nn.Linear(num_labels, z_dim)
-        self.lv_prior = nn.Sequential(nn.Linear(num_labels, z_dim))
+        self.lv_prior = nn.Sequential(
+            nn.Linear(num_labels, z_dim), nn.Tanh())
 
         self.decoder = nn.Sequential(
             nn.Linear(z_dim + num_labels, h_dim2),
@@ -163,7 +169,8 @@ class MnistVAE(nn.Module):
         self.apply(init_weights)
 
     def get_one_hot(self, x, y):
-        y_one_hot = torch.zeros_like(x[:, 0])[:, None].repeat(1, self.num_labels)
+        y_one_hot = torch.zeros_like(
+            x[:, 0])[:, None].repeat(1, self.num_labels)
         y_one_hot[:, y] = 1
         return y_one_hot
 

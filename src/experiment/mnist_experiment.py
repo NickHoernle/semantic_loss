@@ -107,13 +107,15 @@ class BaseMNISTExperiment(train.Experiment):
 
                 ax.imshow(
                     (
-                        torch.sigmoid(recon[0]).view(28, 28).detach().numpy() * 255
+                        torch.sigmoid(recon[0]).view(
+                            28, 28).detach().numpy() * 255
                     ).astype(np.uint8),
                     cmap="gray_r",
                 )
                 ax.grid(False)
                 ax.set_axis_off()
-        fig_file = os.path.join(self.figures_directory, f"sample_epoch_{epoch}.png")
+        fig_file = os.path.join(self.figures_directory,
+                                f"sample_epoch_{epoch}.png")
         save_figure(fig, fig_file, self)
 
     def plot_sampled_images(self, loader):
@@ -348,7 +350,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         ll2 = torch.stack([calc_ll(r, tgt2) for r in r2], dim=1)
         ll3 = torch.stack([calc_ll(r, tgt3) for r in r3], dim=1)
 
-        llik, ll = self.model.logic_decoder((ll1, ll2, ll3, lp1, lp2, lp3), logpy)
+        llik, ll = self.model.logic_decoder(
+            (ll1, ll2, ll3, lp1, lp2, lp3), logpy)
         recon_losses, labels = llik.min(dim=1)
 
         loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
@@ -380,7 +383,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
 
         vals = (
-            torch.tensor([k for k, vals in knowledge.items() for v in vals])[None, :]
+            torch.tensor([k for k, vals in knowledge.items()
+                          for v in vals])[None, :]
             .repeat(len(logpy), 1)
             .to(self.device)
         )
