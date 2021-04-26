@@ -215,6 +215,9 @@ class Experiment(ABC):
     def get_target_data(self, data):
         pass
 
+    def train_loader_shuffler(self, train_loader):
+        return train_loader
+
     def log(self, text, print_to_console=False):
         self.logfile.write(f"{text}\n")
         if print_to_console:
@@ -306,6 +309,7 @@ def main(experiment):
             experiment,
         )
         experiment.epoch_finished_hook(epoch, model, val_loader)
+        train_loader = experiment.train_loader_shuffler(train_loader)
 
     experiment.post_train_hook()
 

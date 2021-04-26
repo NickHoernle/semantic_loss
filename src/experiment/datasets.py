@@ -126,8 +126,8 @@ def get_train_valid_loader(
     train_idx, valid_idx = indices[split:], indices[:split]
 
     if dataset.upper() == "MNIST":
-        train_dataset = build_mixture_dataset(train_dataset, train_idx)
-        valid_dataset = build_mixture_dataset(valid_dataset, valid_idx)
+        train_dataset = build_mixture_dataset(train_dataset, train_idx)# balance=True, max_length=6000)
+        valid_dataset = build_mixture_dataset(valid_dataset, valid_idx, balance=True, max_length=1000)
         train_sampler = None
         valid_sampler = None
 
@@ -150,7 +150,57 @@ def get_train_valid_loader(
         pin_memory=pin_memory,
     )
 
-    return train_loader, valid_loader, classes
+    return train_loader, valid_loader, classes, train_idx
+
+
+def resampled_train(
+    train_idx,
+    data_dir,
+    batch_size,
+    augment,
+    dataset="cifar10",
+    num_workers=4,
+    pin_memory=False,
+    do_normalize=True,
+):
+    train_transforms = []
+    if augment:
+        train_transforms += [
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+        ]
+
+    train_transforms += [transforms.ToTensor()]
+
+    if do_normalize:
+        normalize = [
+            transforms.Normalize(
+                mean=[0.4914, 0.4822, 0.4465],
+                std=[0.2023, 0.1994, 0.2010],
+            )
+        ]
+        train_transforms += normalize
+
+    train_transform = transforms.Compose(train_transforms)
+    train_dataset = datasets.__dict__[dataset.upper()](
+        root=data_dir,
+        train=True,
+        download=True,
+        transform=train_transform,
+    )
+
+    np.random.shuffle(train_idx)
+
+    train_dataset = build_mixture_dataset(train_dataset, train_idx)# balance=True, max_length=6000)
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        sampler=None,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+    )
+
+    return train_loader
 
 
 def get_test_loader(
@@ -386,11 +436,11 @@ class Joint(torch.utils.data.Dataset):
         return len(self.dataset1)
 
 
-def build_mixture_dataset(dataset, indices, max_length=10000):
+def build_mixture_dataset(dataset, indices, max_length=10000, balance=False):
     nd = len(indices)
 
-    ind1 = np.random.choice(indices, size=2 * nd, replace=True)
-    ind2 = np.random.choice(indices, size=2 * nd, replace=True)
+    ind1 = np.random.choice(indices, size=2 * nd + 10*nd*balance, replace=True)
+    ind2 = np.random.choice(indices, size=2 * nd + 10*nd*balance, replace=True)
 
     try:
         labels = np.array(dataset.train_labels)
@@ -400,20 +450,23 @@ def build_mixture_dataset(dataset, indices, max_length=10000):
     target = labels[ind1] + labels[ind2]
 
     lengths = [(target == k).sum() for k in range(10)]
+
     print(lengths)
-    # min_length = min((min(lengths), max_length))
 
-    # valid = np.zeros_like(target)
-    # for k in range(10):
-    #     valid_k = ((target == k) & ((target == k).cumsum() <= min_length))
-    #     valid += valid_k
+    if balance:
+        min_length = min((min(lengths), max_length))
 
-    # ind1 = ind1[valid > 0]
-    # ind2 = ind2[valid > 0]
-    # target = target[valid > 0]
+        valid = np.zeros_like(target)
+        for k in range(10):
+            valid_k = ((target == k) & ((target == k).cumsum() <= min_length))
+            valid += valid_k
 
-    # lengths = [(target == k).sum() for k in range(10)]
-    # print(lengths)
+        ind1 = ind1[valid > 0]
+        ind2 = ind2[valid > 0]
+        target = target[valid > 0]
+
+        lengths = [(target == k).sum() for k in range(10)]
+        print(lengths)
 
     dset_1 = []
     dset_2 = []

@@ -21,11 +21,9 @@ class ConstantEqualityGenerative(nn.Module):
         lr = 0
         for i, (ll, lp) in enumerate([[ll1, lp1], [ll2, lp2], [ll3, lp3]]):
             sll1 = ll[:, self.ixs_active[i]]
-            slp1 = F.softmax(lp, dim=1)[:, self.ixs_active[i]]
-            s11 = (torch.ones_like(slp1) - slp1).detach() + slp1
-            lr += s11*sll1
+            lr += sll1
 
-        return lr
+        return lr / 3
 
 
 class GEQConstant(nn.Module):

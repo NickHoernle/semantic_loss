@@ -7,7 +7,7 @@ import numpy as np
 from symbolic import train
 from symbolic.symbolic import ConstantEqualityGenerative
 from symbolic.utils import AccuracyMeter, AverageMeter, save_figure
-from experiment.datasets import get_train_valid_loader, get_test_loader
+from experiment.datasets import get_train_valid_loader, get_test_loader, resampled_train
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
 from torch.distributions.normal import Normal
 from experiment.class_mapping import mnist_domain_knowledge as knowledge
@@ -49,12 +49,12 @@ class BaseMNISTExperiment(train.Experiment):
         return f"{self.name}-{self.lr}_{self.seed}_{self.sloss}_{self.batch_size}"
 
     def get_loaders(self):
-        train_loader, val_loader, classes = get_train_valid_loader(
+        train_loader, val_loader, classes, train_indexes = get_train_valid_loader(
             data_dir=self.dataset_path,
             batch_size=self.batch_size,
             augment=False,
             random_seed=self.seed,
-            valid_size=0.1,
+            valid_size=0.3,
             shuffle=True,
             dataset=self.dataset,
             num_workers=self.num_workers,
@@ -72,9 +72,22 @@ class BaseMNISTExperiment(train.Experiment):
             do_normalize=False,
         )
 
+        self.train_indexes = train_indexes
         self.classes = classes
 
         return train_loader, val_loader, test_loader
+
+    def train_loader_shuffler(self, train_loader):
+        return resampled_train(
+            train_idx=self.train_indexes,
+            data_dir=self.dataset_path,
+            batch_size=self.batch_size,
+            augment=False,
+            dataset=self.dataset,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            do_normalize=False,
+        )
 
     def create_model(self):
         return MnistVAE(
@@ -93,17 +106,19 @@ class BaseMNISTExperiment(train.Experiment):
 
     def plot_model_samples(self, epoch, model):
         fig, axes = plt.subplots(10, 10, figsize=(20, 15))
+        model.eval()
 
         for i, row in enumerate(axes):
+            z_ = torch.randn((1, self.zdim))
             for j, ax in enumerate(row):
-                y_onehot = torch.zeros((1, 10)).float()
-                y_onehot[:, j] = 1
-
-                mu_p, lv_p = model.get_priors(y_onehot)
+                # y_onehot = torch.zeros((1, 10)).float()
+                # y_onehot[:, j] = 1
+                lbl = torch.ones(1).long() * j
+                mu_p, lv_p = model.get_priors(lbl)
                 std = torch.exp(0.5 * lv_p)
-                z = mu_p + std * torch.randn((1, self.zdim))
+                z = mu_p + std * z_
 
-                recon = model.decode_one(torch.cat((z, y_onehot), dim=1))
+                recon = model.decode_one(z, label=j)
 
                 ax.imshow(
                     (
@@ -361,10 +376,11 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         return loss
 
     def iter_start_hook(self, iteration_count, model, data):
+        # pass
         if iteration_count % 2 == 0:
             model.encoder.eval()
             model.label_predict.eval()
-            model.label_encoder.eval()
+            # model.label_encoder.eval()
             model.mu.eval()
             model.lv.eval()
 
