@@ -348,6 +348,9 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
 
     for i, data in enumerate(train_loader):
 
+        if len(data) <= 1:
+            continue
+
         experiment.iter_start_hook(i, model, data)
 
         model_input = experiment.get_input_data(data)
@@ -397,6 +400,10 @@ def validate(val_loader, model, epoch, experiment):
     end = time.time()
 
     for i, data in enumerate(val_loader):
+
+        if len(data) <= 1:
+            continue
+
         model_input = experiment.get_input_data(data)
         target = experiment.get_target_data(data)
 
