@@ -126,7 +126,7 @@ def get_train_valid_loader(
     train_idx, valid_idx = indices[split:], indices[:split]
 
     if dataset.upper() == "MNIST":
-        train_dataset = build_mixture_dataset(train_dataset, train_idx)# balance=True, max_length=6000)
+        train_dataset = build_mixture_dataset(train_dataset, train_idx, balance=True, max_length=6000)
         valid_dataset = build_mixture_dataset(valid_dataset, valid_idx, balance=True, max_length=1000)
         train_sampler = None
         valid_sampler = None
@@ -191,7 +191,7 @@ def resampled_train(
 
     np.random.shuffle(train_idx)
 
-    train_dataset = build_mixture_dataset(train_dataset, train_idx)# balance=True, max_length=6000)
+    train_dataset = build_mixture_dataset(train_dataset, train_idx, balance=True, max_length=6000)
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,

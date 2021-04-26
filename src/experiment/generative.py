@@ -190,8 +190,8 @@ class MnistVAE(nn.Module):
         return self.mu(encoded), self.lv(encoded)
 
     def decode_one(self, z, label):
-        # lbl = torch.ones_like(z[:, 0]).long() * label
-        one_hot = self.get_one_hot(z, label)
+        lbl = torch.ones_like(z[:, 0]).long() * label
+        # one_hot = self.get_one_hot(z, label)
         return self.decoder(z)
 
     def reparameterize(self, mu, log_var):
@@ -233,7 +233,13 @@ class ConstrainedMnistVAE(MnistVAE):
         super().__init__(**kwargs)
         self.num_terms = len(terms)
         self.logic_decoder = OrList(terms=terms)
+
+        self.bn1 = nn.BatchNorm1d(self.num_labels)
+        self.bn2 = nn.BatchNorm1d(self.num_labels),
+        self.bn3 = nn.BatchNorm1d(self.num_labels),
+
         self.logic_pred = nn.Sequential(
+            # nn.ReLU(),
             nn.BatchNorm1d(3 * self.num_labels),
             nn.Linear(3 * self.num_labels, len(terms)),
         )
