@@ -51,8 +51,26 @@ class BaseSyntheticExperiment(train.Experiment):
     def pre_train_hook(self, train_loader):
         fig = plt.figure(figsize=(4, 4))
         ax = fig.gca()
-        train_loader.dataset.sampler.plot(ax=ax, with_term_labels=True)
+        train_loader.dataset.sampler.plot(ax=ax, with_term_labels=False)
         fig_file = os.path.join(self.figures_directory, f"generated_data.png")
+
+        ax.legend(loc="best")
+        # draw the constraints here
+        for term in self.logic_terms:
+
+            p1 = term.rotate(term.lims[[0, 1], [0, 1]][None, :]).squeeze()
+            p2 = term.rotate(term.lims[[0, 1], [0, 0]][None, :]).squeeze()
+            p3 = term.rotate(term.lims[[0, 1], [1, 1]][None, :]).squeeze()
+            p4 = term.rotate(term.lims[[0, 1], [1, 0]][None, :]).squeeze()
+
+            # import pdb
+            # pdb.set_trace()
+
+            ax.plot([p1[0], p2[0]], [p1[1], p2[1]], c="C3")
+            ax.plot([p3[0], p4[0]], [p3[1], p4[1]], c="C3")
+            ax.plot([p2[0], p4[0]], [p2[1], p4[1]], c="C3")
+            ax.plot([p1[0], p3[0]], [p1[1], p3[1]], c="C3")
+
         save_figure(fig, fig_file, self)
 
     def plot_validation_reconstructions(self, epoch, model, loader):
@@ -251,10 +269,11 @@ class FullyKnownConstraintsSyntheticExperiment(BaseSyntheticExperiment):
                 lims=((-ll, ll), (-5.5, -2.5)),
                 theta=3 * np.pi / 4,
             ),
-            symbolic.Box(
+            symbolic.RotatedBox(
                 constrained_ixs=[0, 1],
                 not_constrained_ixs=[],
                 lims=((-ll, ll), (-5.5, -2.5)),
+                theta=0,
             ),
             symbolic.RotatedBox(
                 constrained_ixs=[0, 1],

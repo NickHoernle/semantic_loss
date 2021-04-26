@@ -267,10 +267,10 @@ class generator:
             fig = plt.figure(figsize=(4, 4))
             ax = fig.gca()
         x = self.sample(samples)
-        ax.scatter(x[:, 0], x[:, 1], s=5, alpha=0.1)
+        ax.scatter(x[:, 0], x[:, 1], s=5, alpha=0.5, label="Samples")
 
-        ax.set_xlim([-5, 5])
-        ax.set_ylim([-5, 5])
+        ax.set_xlim([-6, 6])
+        ax.set_ylim([-6, 6])
         ax.grid(True)
         return ax
 
