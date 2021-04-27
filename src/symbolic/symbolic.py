@@ -23,7 +23,7 @@ class ConstantEqualityGenerative(nn.Module):
             sll1 = ll[:, self.ixs_active[i]]
             lr += sll1
 
-        return lr / 3
+        return lr / 3 - lp3.log_softmax(dim=1)[:, self.ixs_active[i]]
 
 
 class GEQConstant(nn.Module):

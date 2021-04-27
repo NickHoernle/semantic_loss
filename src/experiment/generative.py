@@ -227,14 +227,10 @@ class ConstrainedMnistVAE(MnistVAE):
         self.num_terms = len(terms)
         self.logic_decoder = OrList(terms=terms)
 
-        self.bn1 = nn.BatchNorm1d(self.num_labels)
-        self.bn2 = nn.BatchNorm1d(self.num_labels),
-        self.bn3 = nn.BatchNorm1d(self.num_labels),
-
         self.logic_pred = nn.Sequential(
             # nn.ReLU(),
-            nn.BatchNorm1d(3 * self.num_labels),
-            nn.Linear(3 * self.num_labels, len(terms)),
+            nn.BatchNorm1d(2 * self.num_labels),
+            nn.Linear(2 * self.num_labels, len(terms)),
         )
         self.warmup = nn.Linear(self.h_dim2, self.z_dim)
         self.apply(init_weights)
@@ -261,7 +257,7 @@ class ConstrainedMnistVAE(MnistVAE):
         d2 = self.decode(encoded2)
         d3 = self.decode(encoded3)
 
-        cp = torch.cat((log_pred1, log_pred2, log_pred3), dim=1)
+        cp = torch.cat((log_pred1, log_pred2), dim=1)
 
         return (
             (d1, d2, d3),
