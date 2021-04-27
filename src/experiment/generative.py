@@ -157,7 +157,8 @@ class MnistVAE(nn.Module):
         # self.label_encoder_enc = nn.Embedding(num_labels, h_dim2)
         self.label_encoder_dec = nn.Embedding(num_labels, z_dim)
         self.mu_prior = nn.Embedding(num_labels, z_dim)
-        self.lv_prior = nn.Sequential(nn.Embedding(num_labels, z_dim), nn.Tanh())
+        self.lv_prior = nn.Sequential(
+            nn.Embedding(num_labels, z_dim), nn.Tanh())
 
         self.decoder = nn.Sequential(
             # nn.ReLU(),
@@ -191,6 +192,7 @@ class MnistVAE(nn.Module):
 
     def decode_one(self, z, label):
         lbl = torch.ones_like(z[:, 0]).long() * label
+        # one_hot = self.get_one_hot(z, label)
         return self.decoder(z + self.label_encoder_dec(lbl))
 
     def reparameterize(self, mu, log_var):

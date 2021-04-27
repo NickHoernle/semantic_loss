@@ -126,8 +126,10 @@ def get_train_valid_loader(
     train_idx, valid_idx = indices[split:], indices[:split]
 
     if dataset.upper() == "MNIST":
-        train_dataset = build_mixture_dataset(train_dataset, train_idx, balance=True, max_length=6000)
-        valid_dataset = build_mixture_dataset(valid_dataset, valid_idx, balance=True, max_length=1000)
+        train_dataset = build_mixture_dataset(
+            train_dataset, train_idx, balance=True, max_length=6000)
+        valid_dataset = build_mixture_dataset(
+            valid_dataset, valid_idx, balance=True, max_length=1000)
         train_sampler = None
         valid_sampler = None
 
@@ -191,7 +193,8 @@ def resampled_train(
 
     np.random.shuffle(train_idx)
 
-    train_dataset = build_mixture_dataset(train_dataset, train_idx, balance=True, max_length=6000)
+    train_dataset = build_mixture_dataset(
+        train_dataset, train_idx, balance=True, max_length=6000)
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
@@ -316,7 +319,8 @@ class ConstraintedSampler(Gaussian):
         )
 
     def term1(self, x):
-        valid = (x[:, 1] > 2.5) & (x[:, 1] < 5.5) & (x[:, 0] > -0.5) & (x[:, 0] < 0.5)
+        valid = (x[:, 1] > 2.5) & (x[:, 1] < 5.5) & (
+            x[:, 0] > -0.5) & (x[:, 0] < 0.5)
         return valid
 
     def rotate(self, x, theta=np.pi / 4):
@@ -343,9 +347,11 @@ class ConstraintedSampler(Gaussian):
 
         samples = np.concatenate(terms, axis=0)
         labels = np.concatenate(
-            [i * np.ones_like(t[:, 0]).astype(int) for i, t in enumerate(terms)]
+            [i * np.ones_like(t[:, 0]).astype(int)
+             for i, t in enumerate(terms)]
         )
-        idxs = np.random.choice(np.arange(len(labels)), size=len(labels), replace=False)
+        idxs = np.random.choice(np.arange(len(labels)),
+                                size=len(labels), replace=False)
         samples = samples[idxs]
         labels = labels[idxs]
 
@@ -363,7 +369,8 @@ class ConstraintedSampler(Gaussian):
 
         x, labels = self.sample(5000, get_term_labels=True)
         for i in range(np.max(labels) + 1):
-            ax.scatter(x[labels == i, 0], x[labels == i, 1], s=5, alpha=0.1, label=i)
+            ax.scatter(x[labels == i, 0], x[labels == i, 1],
+                       s=5, alpha=0.1, label=i)
 
         ax.set_xlim([-5, 5])
         ax.set_ylim([-5, 5])
@@ -475,7 +482,8 @@ def build_mixture_dataset(dataset, indices, max_length=10000, balance=False):
     for k, conditions in knowledge.items():
         for val in conditions:
             valid_idxs = (
-                (target == k) & (labels[ind1] == val[0]) & (labels[ind2] == val[1])
+                (target == k) & (labels[ind1] == val[0]) & (
+                    labels[ind2] == val[1])
             )
 
             dset_1 += ind1[valid_idxs].tolist()
