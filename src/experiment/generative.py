@@ -11,7 +11,7 @@ def init_weights(m):
         m.bias.data.fill_(0.01)
 
     if type(m) == nn.Embedding:
-        nn.init.uniform_(m.weight, -5, 5)
+        nn.init.uniform_(m.weight, -10, 10)
 
 
 class LinearVAE(nn.Module):
@@ -154,7 +154,7 @@ class MnistVAE(nn.Module):
         self.mu = nn.Sequential(nn.ReLU(), nn.Linear(h_dim2, z_dim))
         self.lv = nn.Sequential(nn.ReLU(), nn.Linear(h_dim2, z_dim))
 
-        self.label_encoder_enc = nn.Embedding(num_labels, h_dim2)
+        # self.label_encoder_enc = nn.Embedding(num_labels, h_dim2)
         self.label_encoder_dec = nn.Embedding(num_labels, z_dim)
         self.mu_prior = nn.Embedding(num_labels, z_dim)
         self.lv_prior = nn.Sequential(nn.Embedding(num_labels, z_dim), nn.Tanh())
@@ -191,28 +191,21 @@ class MnistVAE(nn.Module):
 
     def decode_one(self, z, label):
         lbl = torch.ones_like(z[:, 0]).long() * label
-        # one_hot = self.get_one_hot(z, label)
-        return self.decoder(z)
+        return self.decoder(z + self.label_encoder_dec(lbl))
 
     def reparameterize(self, mu, log_var):
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
         return eps.mul(std).add_(mu)
 
-    def collect(self, encoded, label):
-        one_hot = self.get_one_hot(encoded, label)
-        lbl = torch.ones_like(encoded[:, 0]).long() * label
-
-        mu, lv = self.get_latent(encoded + self.label_encoder_enc(lbl))
-        mu_prior, lv_prior = self.get_priors(lbl)
-
-        z = self.reparameterize(mu, lv)
+    def collect(self, z, mu, lv, label):
         recon = self.decode_one(z, label)
-
-        return (recon, mu, lv, mu_prior, lv_prior, z)
+        return (recon, mu, lv, None, None, z)
 
     def decode(self, encoded):
-        return [self.collect(encoded, label) for label in range(self.num_labels)]
+        mu, lv = self.get_latent(encoded)
+        z = self.reparameterize(mu, lv)
+        return [self.collect(z, mu, lv, label) for label in range(self.num_labels)]
 
     def forward(self, in_data, test=False):
         x1, x2, x3 = in_data

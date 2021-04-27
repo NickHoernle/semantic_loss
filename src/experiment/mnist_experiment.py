@@ -113,12 +113,12 @@ class BaseMNISTExperiment(train.Experiment):
             for j, ax in enumerate(row):
                 # y_onehot = torch.zeros((1, 10)).float()
                 # y_onehot[:, j] = 1
-                lbl = torch.ones(1).long() * j
-                mu_p, lv_p = model.get_priors(lbl)
-                std = torch.exp(0.5 * lv_p)
-                z = mu_p + std * z_
+                # lbl = torch.ones(1).long() * j
+                # mu_p, lv_p = model.get_priors(lbl)
+                # std = torch.exp(0.5 * lv_p)
+                # z = mu_p + std * z_
 
-                recon = model.decode_one(z, label=j)
+                recon = model.decode_one(z_, label=j)
 
                 ax.imshow(
                     (
@@ -299,17 +299,16 @@ def calc_ll(params, target, beta=1.0):
     """
     recon, mu, lv, mu_prior, lv_prior, z = params
 
-    std = torch.exp(0.5 * lv)
-    std_prior = torch.exp(0.5 * lv_prior)
+    # std = torch.exp(0.5 * lv)
+    # std_prior = torch.exp(0.5 * lv_prior)
 
-    kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
-        dim=1
-    )
     rcon = F.binary_cross_entropy_with_logits(recon, target, reduction="none").sum(
         dim=-1
     )
 
-    return rcon + beta * kld
+    kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1)
+
+    return rcon + kld
 
 
 class ConstrainedMNIST(BaseMNISTExperiment):
@@ -376,17 +375,12 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         return loss
 
     def iter_start_hook(self, iteration_count, model, data):
-        if iteration_count % 2 == 0:
+        # pass
+        if iteration_count % 5 != 0:
             model.encoder.eval()
-
-            model.label_encoder_enc.eval()
-            model.label_predict.eval()
-
-            model.mu_prior.eval()
-            model.lv_prior.eval()
-
-            # model.mu.eval()
-            # model.lv.eval()
+            model.label_encoder_dec.eval()
+            model.mu.eval()
+            model.lv.eval()
 
     def init_meters(self):
         loss = AverageMeter()
