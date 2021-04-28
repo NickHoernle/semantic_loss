@@ -375,6 +375,38 @@ class DL2SyntheticExperiment(BaseSyntheticExperiment):
         # v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
         self.losses["constraint"].update(v_c, len(v_c))
 
+    def plot_validation_reconstructions(self, epoch, model, loader):
+        fig = plt.figure(figsize=(4, 4))
+        ax = fig.gca()
+        recons = []
+        for i, data in enumerate(loader):
+            model_input = self.get_input_data(data)
+            with torch.no_grad():
+                output = model(model_input, test=True)
+                recon, (m, lv), _ = output
+            recons += [recon]
+
+        recons = torch.cat(recons, dim=0)
+        v_c = self._satisfied
+        ax.scatter(*recons[v_c].numpy().T, s=0.5, label="valid", c="C2")
+        ax.scatter(*recons[~v_c].numpy().T, s=0.5, label="invalid", c="C3")
+        ax.legend(loc="best")
+        fig_file = os.path.join(self.figures_directory, f"{epoch}_reconstruction.png")
+        save_figure(fig, fig_file, self)
+
+    def plot_prior_samples(self, epoch, model, loader):
+        fig = plt.figure(figsize=(4, 4))
+        ax = fig.gca()
+
+        z = torch.randn(10000, self.nlatent)
+        recons = model.decode(z).detach()
+
+        v_c = self._satisfied
+        ax.scatter(*recons[v_c].numpy().T, s=0.5, label="valid", c="C2")
+        ax.scatter(*recons[~v_c].numpy().T, s=0.5, label="invalid", c="C3")
+        ax.legend(loc="best")
+        fig_file = os.path.join(self.figures_directory, f"{epoch}_prior_samples.png")
+        save_figure(fig, fig_file, self)
 
 
 class FullyKnownConstraintsSyntheticExperiment(BaseSyntheticExperiment):
@@ -460,15 +492,6 @@ class PartiallyKnownConstraintsSyntheticExperiment(
         return get_synthetic_loaders(
             train_size, valid_size, test_size, sampler_params=sampler_params
         )
-
-class DL2Arg:
-    """[summary]
-    """
-    # or = 'mul'
-
-    # def __init__(orArg='mul'):
-    #     assert orArg == 'mul' or orArg == 'min'
-    #     self.or = orArg
 
 synthetic_experiment_options = {
     "synthetic_full": FullyKnownConstraintsSyntheticExperiment,
