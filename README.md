@@ -12,7 +12,7 @@ pip install -r requirements.txt
 ```
 If you are using a virtual environment then make sure to install DL2 in that environment.
 Now DL2 can be imported as a python libary.
-To achieve this just extend the python path to also point to the DL2 directory.
+To achieve this just extend the PYTHONPATH variable to also point to the DL2 directory.
 
 # Execution:
 Run CIFAR10 experiment:
