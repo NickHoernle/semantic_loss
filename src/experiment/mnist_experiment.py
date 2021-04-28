@@ -375,11 +375,12 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         return loss
 
     def iter_start_hook(self, iteration_count, model, data):
-        if iteration_count % 5 != 0:
-            # model.encoder.eval()
-            model.label_encoder_dec.eval()
-            model.mu.eval()
-            model.lv.eval()
+        pass
+        # if iteration_count % 2 != 0:
+        #     model.encoder.eval()
+            # model.label_encoder_dec.eval()
+            # model.mu.eval()
+            # model.lv.eval()
 
     def init_meters(self):
         loss = AverageMeter()
