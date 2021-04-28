@@ -12,11 +12,18 @@ from experiment.generative import MnistVAE, ConstrainedMnistVAE
 from torch.distributions.normal import Normal
 from experiment.class_mapping import mnist_domain_knowledge as knowledge
 
+from torch.distributions.categorical import Categorical
+
 import matplotlib
 import matplotlib.pyplot as plt
+import random
+import math
 
 matplotlib.use("Agg")
 
+EPS_START = 0.9
+EPS_END = 0.05
+EPS_DECAY = 200
 
 class BaseMNISTExperiment(train.Experiment):
     """
@@ -311,6 +318,19 @@ def calc_ll(params, target, beta=1.0):
     return rcon + kld
 
 
+def select_action(device, n_actions, best_guess):
+    global steps_done
+    sample = random.random()
+    eps_threshold = EPS_END + (EPS_START - EPS_END) * \
+        math.exp(-1. * steps_done / EPS_DECAY)
+    steps_done += 1
+
+    if sample > eps_threshold:
+        return best_guess
+    else:
+        return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
+
+
 class ConstrainedMNIST(BaseMNISTExperiment):
     def __init__(
         self,
@@ -369,18 +389,23 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         recon_losses, labels = llik.min(dim=1)
 
         loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        loss += weight*recon_losses.mean()
-        loss += weight*F.nll_loss(logpy, labels)
-
-        return loss
+        # loss += weight*recon_losses.mean()
+        # loss += weight*F.nll_loss(logpy, labels)
+        # z = Categorical(logpy.exp()).sample((10,)).T
+        # idxs = torch.arange(z.shape[0])[:, None]  # .repeat(1, z.shape[1])
+        # loss = - (logpy[idxs, z] * (llik[idxs, z] - logpy[idxs, z])).mean(dim=1)
+        return loss.mean()
+        # return loss
 
     def iter_start_hook(self, iteration_count, model, data):
-        # pass
-        if iteration_count % 5 != 0:
-        #     # model.encoder.eval()
-            model.label_encoder_dec.eval()
+        if iteration_count % 2 != 0:
+            model.label_encoder_dec1.eval()
+            model.label_encoder_dec2.eval()
             model.mu.eval()
             model.lv.eval()
+        # else:
+        #     model.label_predict.eval()
+        #     model.logic_pred.eval()
 
     def init_meters(self):
         loss = AverageMeter()
