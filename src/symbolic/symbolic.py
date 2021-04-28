@@ -25,15 +25,15 @@ class ConstantEqualityGenerative(nn.Module):
             # ss = (torch.ones_like(lp1) - lp1).detach() + lp1
             lr += sll1
 
-        lp1 = torch.softmax(lp1, dim=1)[:, self.ixs_active[0]]
-        lp2 = torch.softmax(lp2, dim=1)[:, self.ixs_active[1]]
-        lp3 = torch.softmax(lp3, dim=1)[:, self.ixs_active[2]]
+        # lp1 = torch.softmax(lp1, dim=1)[:, self.ixs_active[0]]
+        # lp2 = torch.softmax(lp2, dim=1)[:, self.ixs_active[1]]
+        # lp3 = torch.softmax(lp3, dim=1)[:, self.ixs_active[2]]
+        #
+        # ss1 = (torch.ones_like(lp1) - lp1).detach() + lp1
+        # ss2 = (torch.ones_like(lp2) - lp2).detach() + lp2
+        # ss3 = (torch.ones_like(lp3) - lp3).detach() + lp3
 
-        ss1 = (torch.ones_like(lp1) - lp1).detach() + lp1
-        ss2 = (torch.ones_like(lp2) - lp2).detach() + lp2
-        ss3 = (torch.ones_like(lp3) - lp3).detach() + lp3
-
-        return ss1*ss2*ss3*(lr / 3)  # - lp3.log_softmax(dim=1)[:, self.ixs_active[2]]
+        return (lr / 3)  # - lp3.log_softmax(dim=1)[:, self.ixs_active[2]]
 
 
 class GEQConstant(nn.Module):
