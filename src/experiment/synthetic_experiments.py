@@ -2,11 +2,14 @@ import os
 import torch
 import torch.nn.functional as F
 import numpy as np
+import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('Agg')
 import math
+
+import pdb
 
 import dl2lib as dl2
 import dl2lib.query as q
@@ -246,49 +249,21 @@ class DL2SyntheticExperiment(BaseSyntheticExperiment):
         super().__init__(name=name, **kwargs)
         print('before')
         self.model = self.create_model()
-        self.oracle = DL2_Oracle(learning_rate=0.01, net=self.model, constraint=constraint, use_cuda=use_cuda)
+        # self.oracle = DL2_Oracle(learning_rate=0.01, net=self.model, constraint=constraint, use_cuda=use_cuda)
+        parser = argparse.ArgumentParser(description='desc')
+        # parser.add("--eps-const", type=float, default=1e-5, required=False, help="the epsilon for boolean constants")
+        parser.add("--eps-check", type=float, default=0, required=False, help="the epsilon for checking comparisons of floating point values; note that a nonzero value slightly changes the semantics of DL2")
+        parser.add_argument('--or', default='mul', type=str, help='help this is a hack')
+        try:
+            self._args = parser.parse_args()
+            self._args = parser.parse_known_args()[0]
+        except:
+            self._args = parser.parse_known_args()[0]
         print("done")
     
     @property
     def logic_terms(self):
-        # self.create_model()
-        print('logic terms')
-
-        ll = 0.5
-        constraints = []
-
-        # constraints.append( dl2.GEQ(, ll) )
-        # constraints.append(dl2.Implication(dl2.BoolConst(targets == I['car']), dl2.GEQ(z_out[:, I['truck']], z_out[:, I['dog']] + self.margin)))
-        thetas = [
-            np.pi, 
-            np.pi / 4,
-            2 * np.pi / 4,
-            3 * np.pi / 4,
-            0,
-            5 * np.pi / 4,
-            6 * np.pi / 4,
-            7 * np.pi / 4
-        ]
-        box_points = [(-ll, -5.5), (ll, -5.5), (ll, -2.5), (-ll, -2.5)]
-        boxes = []
-        for theta in thetas:
-            boxes.append([self.__rotate_around_origin(p, theta) for p in box_points] )
-        print(boxes)
-
-        for box in boxes:
-            box_constraint = self.__box_to_constraint(box, (0.5,-5))
-            constraints.append(box_constraint)
-        
-        # rules = [
-        #     symbolic.RotatedBox(
-        #         constrained_ixs=[0, 1],
-        #         not_constrained_ixs=[],
-        #         lims=((-ll, ll), (-5.5, -2.5)),
-        #         theta=np.pi,
-        #     )
-        # ]
-
-        return dl2.Or(constraints)  
+        return []  
     
     def __rotate_around_origin(self, xy, radians):
         """[summary]
@@ -308,24 +283,24 @@ class DL2SyntheticExperiment(BaseSyntheticExperiment):
         return xx, yy
     
     def __box_to_constraint(self, box, point):
-        x, y = point
+        # x, y = point
         box_conditions = []
 
-        print()
+        # print()
         temp_box = box[1: ] + box[0: 1]
         for p1, p2 in zip(box, temp_box):
             max_x = max(p1[0], p2[0])
             min_x = min(p1[0], p2[0])
             max_y = max(p1[1], p2[1])
             min_y = min(p1[1], p2[1])
-            print(p1, p2)
-            print(min_x, max_x, min_y, max_y)
+            # print(p1, p2)
+            # print(min_x, max_x, min_y, max_y)
             if min_x == max_x:
-                box_conditions.append(dl2.And( [dl2.GEQ(point, min_y), dl2.LEQ(point, max_y)] ))
+                box_conditions.append(dl2.And( [dl2.GEQ(point[:, 1], min_y), dl2.LEQ(point[:, 1], max_y)] ))
             elif min_y == max_y:
-                box_conditions.append(dl2.And( [dl2.GEQ(point, min_x), dl2.LEQ(point, max_x)] ))
+                box_conditions.append(dl2.And( [dl2.GEQ(point[:, 0], min_x), dl2.LEQ(point[:, 0], max_x)] ))
             else:
-                box_conditions.append(dl2.And( [dl2.GEQ(point, min_y), dl2.LEQ(point, max_y), dl2.GEQ(point, min_x), dl2.LEQ(point, max_x)] ))
+                box_conditions.append(dl2.And( [dl2.GEQ(point[:, 1], min_y), dl2.LEQ(point[:, 1], max_y), dl2.GEQ(point[:, 0], min_x), dl2.LEQ(point[:, 0], max_x)] ))
         return dl2.And( box_conditions )
     
     def criterion(self, output, target):
@@ -338,38 +313,38 @@ class DL2SyntheticExperiment(BaseSyntheticExperiment):
         Returns:
             [type]: [description]
         """
-        # print('target', target, output)
-        # if not self.baseline:
-        #     (recon, log_py), (mu, lv), log_prior = output
-        #     ll = []
-        #     for j, p in enumerate(recon.split(1, dim=1)):
-        #         ll += [
-        #             self.weight
-        #             * F.mse_loss(p.squeeze(1), target, reduction="none").sum(dim=1)
-        #         ]
-        #     pred_loss = torch.stack(ll, dim=1)
-        #     recon_losses, labels = pred_loss.min(dim=1)
-
-        #     kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1).mean()
-        #     loss = (log_py.exp() * (pred_loss + log_py - log_prior)).sum(dim=1).mean()
-        #     loss += recon_losses.mean()
-        #     loss += F.nll_loss(log_py, labels)
-        #     loss += kld
-
-            # return loss
-
         recon, (mu, lv), _ = output
-        loss = (
-            self.weight
-            * F.mse_loss(recon.squeeze(1), target, reduction="none").sum(dim=1).mean()
-        )
-        loss += -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1).mean()
+        
+        thetas = [
+            np.pi, 
+            np.pi / 4,
+            2 * np.pi / 4,
+            3 * np.pi / 4,
+            0,
+            5 * np.pi / 4,
+            6 * np.pi / 4,
+            7 * np.pi / 4
+        ]
+        ll = 0.5
+        box = [(-ll, -5.5), (ll, -5.5), (ll, -2.5), (-ll, -2.5)]
+        constraints = []
+        for theta in thetas:
+            rotation_matrix = torch.tensor(
+                [
+                    [np.cos(theta), -np.sin(theta)],
+                    [np.sin(theta), np.cos(theta)],
+                ]
+            ).float()
+            rotated_recon = recon.mm(rotation_matrix)
+            constraints.append(self.__box_to_constraint(box, rotated_recon))
+        constraint = dl2.Or(constraints)
+        
+        # pdb.set_trace()
+        self._satisfied = constraint.satisfy(self._args)
+        loss = (constraint.loss(self._args).mean())
+        # Is the next line needed?
+        # loss += -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1).mean()
         return loss
-        # return super().criterion(output, target)
-    
-    # def create_model(self):
-    #     super().create_model()
-    #     return self.model
     
     def update_train_meters(self, loss, output, target):
         if not self.baseline:
@@ -379,15 +354,26 @@ class DL2SyntheticExperiment(BaseSyntheticExperiment):
             preds, (mu, lv), _ = output
 
         self.losses["loss"].update(loss.data.item(), target.size(0))
-        z_batches = self.oracle.general_attack(x_batches, y_batches, domains, num_restarts=1, num_iters=args.num_iters, args=args)
-        valid_constraints = []
-        valid_constraints = [t.valid(preds) for t in self.logic_terms]
-        v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
-        self.losses["constraint"].update(v_c.tolist(), v_c.size(0))
-        # return super().update_train_meters(loss, output, target)
+        # z_batches = self.oracle.general_attack(x_batches, y_batches, domains, num_restarts=1, num_iters=args.num_iters, args=args)
+        v_c = self._satisfied
+        # print(v_c)
+        # print(valid_constraints)
+        # valid_constraints = [t.valid(preds) for t in self.logic_terms]
+        # v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
+        self.losses["constraint"].update(v_c, len(v_c))
 
     def update_test_meters(self, loss, output, target):
-        return super().update_test_meters(loss, output, target)
+        if not self.baseline:
+            (recon, log_py), (mu, lv), log_prior = output
+            preds = recon[np.arange(len(log_py)), log_py.argmax(dim=1)]
+        else:
+            preds, (mu, lv), _ = output
+
+        self.losses["loss"].update(loss.data.item(), target.size(0))
+        v_c = self._satisfied
+        # v_c = [satisfied for satisfied in self._satisfied]
+        # v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
+        self.losses["constraint"].update(v_c, len(v_c))
 
 
 
@@ -475,6 +461,14 @@ class PartiallyKnownConstraintsSyntheticExperiment(
             train_size, valid_size, test_size, sampler_params=sampler_params
         )
 
+class DL2Arg:
+    """[summary]
+    """
+    # or = 'mul'
+
+    # def __init__(orArg='mul'):
+    #     assert orArg == 'mul' or orArg == 'min'
+    #     self.or = orArg
 
 synthetic_experiment_options = {
     "synthetic_full": FullyKnownConstraintsSyntheticExperiment,
