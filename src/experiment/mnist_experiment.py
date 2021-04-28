@@ -369,18 +369,18 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         recon_losses, labels = llik.min(dim=1)
 
         loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        loss += weight * recon_losses.mean()
-        loss += weight * F.nll_loss(logpy, labels)
+        loss += weight*recon_losses.mean()
+        loss += weight*F.nll_loss(logpy, labels)
 
         return loss
 
     def iter_start_hook(self, iteration_count, model, data):
-        pass
-        # if iteration_count % 2 != 0:
-        #     model.encoder.eval()
-            # model.label_encoder_dec.eval()
-            # model.mu.eval()
-            # model.lv.eval()
+        # pass
+        if iteration_count % 5 != 0:
+        #     # model.encoder.eval()
+            model.label_encoder_dec.eval()
+            model.mu.eval()
+            model.lv.eval()
 
     def init_meters(self):
         loss = AverageMeter()
