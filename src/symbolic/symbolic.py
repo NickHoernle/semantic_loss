@@ -21,19 +21,11 @@ class ConstantEqualityGenerative(nn.Module):
         lr = 0
         for i, (ll, lp) in enumerate([[ll1, lp1], [ll2, lp2], [ll3, lp3]]):
             sll1 = ll[:, self.ixs_active[i]]
-            # lp1 = torch.sigmoid(lp[:, self.ixs_active[i]])
-            # ss = (torch.ones_like(lp1) - lp1).detach() + lp1
-            lr += sll1
+            lp1 = torch.softmax(lp, dim=1)[:, self.ixs_active[i]]
+            ss = (torch.ones_like(lp1) - lp1).detach() + lp1
+            lr += ss*sll1
 
-        # lp1 = torch.softmax(lp1, dim=1)[:, self.ixs_active[0]]
-        # lp2 = torch.softmax(lp2, dim=1)[:, self.ixs_active[1]]
-        # lp3 = torch.softmax(lp3, dim=1)[:, self.ixs_active[2]]
-        #
-        # ss1 = (torch.ones_like(lp1) - lp1).detach() + lp1
-        # ss2 = (torch.ones_like(lp2) - lp2).detach() + lp2
-        # ss3 = (torch.ones_like(lp3) - lp3).detach() + lp3
-
-        return (lr / 3)  # - lp3.log_softmax(dim=1)[:, self.ixs_active[2]]
+        return lr / 3
 
 
 class GEQConstant(nn.Module):

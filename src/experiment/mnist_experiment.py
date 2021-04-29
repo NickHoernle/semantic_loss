@@ -387,18 +387,30 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         llik, ll = self.model.logic_decoder(
             (ll1, ll2, ll3, lp1, lp2, lp3), logpy)
         recon_losses, labels = llik.min(dim=1)
+        idxs = np.arange(len(labels))
 
-        loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
+        # lp1 = lp1.logsoftmax(dim=1)
+        # lp2 = lp2.logsoftmax(dim=1)
+        # lp3 = lp3.logsoftmax(dim=1)
+
+        # lp1.exp() * (ll1 + lp1)
+        # lp2.exp() * (ll2 + lp2)
+        # lp3.exp() * (ll3 + lp3)
+        loss = (logpy.exp() * (llik + logpy)).sum(dim=1).mean()
+        loss += ((logpy.detach()[idxs, labels].exp())*recon_losses).mean()
         # loss += weight*recon_losses.mean()
         # loss += weight*F.nll_loss(logpy, labels)
         # z = Categorical(logpy.exp()).sample((10,)).T
         # idxs = torch.arange(z.shape[0])[:, None]  # .repeat(1, z.shape[1])
         # loss = - (logpy[idxs, z] * (llik[idxs, z] - logpy[idxs, z])).mean(dim=1)
-        return loss.mean()
-        # return loss
+        # return loss.mean()
+        return loss
 
     def iter_start_hook(self, iteration_count, model, data):
-        if iteration_count % 5 != 0:
+        # pass
+        if iteration_count % 2 != 0:
+            # model.encoder.eval()
+            # model.decoder.eval()
             model.label_encoder_dec1.eval()
             model.label_encoder_dec2.eval()
             model.mu.eval()
