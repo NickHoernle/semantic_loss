@@ -25,6 +25,7 @@ EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = 200
 
+
 class BaseMNISTExperiment(train.Experiment):
     """
     Experimental setup for training with domain knowledge specified by a DNF logic formula on the synthetic dataset
@@ -389,35 +390,23 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         recon_losses, labels = llik.min(dim=1)
         idxs = np.arange(len(labels))
 
-        # lp1 = lp1.logsoftmax(dim=1)
-        # lp2 = lp2.logsoftmax(dim=1)
-        # lp3 = lp3.logsoftmax(dim=1)
-
-        # lp1.exp() * (ll1 + lp1)
-        # lp2.exp() * (ll2 + lp2)
-        # lp3.exp() * (ll3 + lp3)
         loss = (logpy.exp() * (llik + logpy)).sum(dim=1).mean()
-        loss += ((logpy.detach()[idxs, labels].exp())*recon_losses).mean()
-        # loss += weight*recon_losses.mean()
-        # loss += weight*F.nll_loss(logpy, labels)
-        # z = Categorical(logpy.exp()).sample((10,)).T
-        # idxs = torch.arange(z.shape[0])[:, None]  # .repeat(1, z.shape[1])
-        # loss = - (logpy[idxs, z] * (llik[idxs, z] - logpy[idxs, z])).mean(dim=1)
-        # return loss.mean()
+        loss += weight*recon_losses.mean()
+        loss += weight*F.nll_loss(logpy, labels)
+
         return loss
 
     def iter_start_hook(self, iteration_count, model, data):
-        # pass
-        if iteration_count % 2 != 0:
-            # model.encoder.eval()
-            # model.decoder.eval()
+        if iteration_count % 10 != 0:
+            model.encoder.eval()
             model.label_encoder_dec1.eval()
-            model.label_encoder_dec2.eval()
             model.mu.eval()
             model.lv.eval()
-        # else:
-        #     model.label_predict.eval()
-        #     model.logic_pred.eval()
+        else:
+            model.encoder.train()
+            model.label_encoder_dec1.train()
+            model.mu.train()
+            model.lv.train()
 
     def init_meters(self):
         loss = AverageMeter()
