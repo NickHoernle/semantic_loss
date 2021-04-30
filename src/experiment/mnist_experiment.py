@@ -398,17 +398,17 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
     def iter_start_hook(self, iteration_count, model, data):
         if iteration_count % 5 != 0:
-            model.encoder.eval()
+            model.decoder.eval()
             model.label_encoder_dec1.eval()
             model.label_encoder_dec2.eval()
-            model.mu.eval()
-            model.lv.eval()
+            # model.mu.eval()
+            # model.lv.eval()
         else:
-            model.encoder.train()
+            model.decoder.train()
             model.label_encoder_dec1.train()
             model.label_encoder_dec2.train()
-            model.mu.train()
-            model.lv.train()
+            # model.mu.train()
+            # model.lv.train()
 
     def init_meters(self):
         loss = AverageMeter()
