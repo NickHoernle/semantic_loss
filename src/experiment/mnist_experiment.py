@@ -398,24 +398,25 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         return loss
 
     def iter_start_hook(self, iteration_count, model, data):
-        if iteration_count % 2 == 0:
-            model.decoder.eval()
-            model.label_encoder_dec1.eval()
-            model.label_encoder_dec2.eval()
+        pass
+        # if iteration_count % 2 == 0:
+        #     model.decoder.eval()
+        #     model.label_encoder_dec1.eval()
+        #     model.label_encoder_dec2.eval()
+        #
+        #     # model.mu.train()
+        #     # model.lv.train()
+        #     # model.encoder.train()
+        #     # model.mu.eval()
+        #     # model.lv.eval()
+        # else:
+        #     model.decoder.train()
+        #     model.label_encoder_dec1.train()
+        #     model.label_encoder_dec2.train()
 
-            model.mu.train()
-            model.lv.train()
-            model.encoder.train()
             # model.mu.eval()
             # model.lv.eval()
-        else:
-            model.decoder.train()
-            model.label_encoder_dec1.train()
-            model.label_encoder_dec2.train()
-
-            model.mu.eval()
-            model.lv.eval()
-            model.encoder.eval()
+            # model.encoder.eval()
 
         if len(data[0][0]) <= 1:
             return False
