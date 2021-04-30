@@ -400,11 +400,13 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         if iteration_count % 5 != 0:
             model.encoder.eval()
             model.label_encoder_dec1.eval()
+            model.label_encoder_dec2.eval()
             model.mu.eval()
             model.lv.eval()
         else:
             model.encoder.train()
             model.label_encoder_dec1.train()
+            model.label_encoder_dec2.train()
             model.mu.train()
             model.lv.train()
 

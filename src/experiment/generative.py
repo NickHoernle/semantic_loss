@@ -11,7 +11,7 @@ def init_weights(m):
         m.bias.data.fill_(0.01)
 
     if type(m) == nn.Embedding:
-        nn.init.uniform_(m.weight, -10, 10)
+        nn.init.uniform_(m.weight, -2, 2)
 
 
 class LinearVAE(nn.Module):
@@ -154,7 +154,7 @@ class MnistVAE(nn.Module):
         self.mu = nn.Sequential(nn.ReLU(), nn.Linear(h_dim2, z_dim))
         self.lv = nn.Sequential(nn.ReLU(), nn.Linear(h_dim2, z_dim))
 
-        # self.label_encoder_enc = nn.Embedding(num_labels, h_dim2)
+        self.label_encoder_dec2 = nn.Sequential(nn.Embedding(num_labels, z_dim), nn.Sigmoid())
         self.label_encoder_dec1 = nn.Embedding(num_labels, z_dim)
         self.mu_prior = nn.Embedding(num_labels, z_dim)
         self.lv_prior = nn.Sequential(
@@ -165,10 +165,10 @@ class MnistVAE(nn.Module):
             # nn.BatchNorm1d(z_dim),
             nn.Linear(z_dim, h_dim2),
             nn.ReLU(),
-            # nn.BatchNorm1d(h_dim2),
+            nn.BatchNorm1d(h_dim2),
             nn.Linear(h_dim2, h_dim1),
             nn.ReLU(),
-            # nn.BatchNorm1d(h_dim1),
+            nn.BatchNorm1d(h_dim1),
             nn.Linear(h_dim1, x_dim),
         )
 
@@ -192,7 +192,7 @@ class MnistVAE(nn.Module):
 
     def decode_one(self, z, label):
         lbl = torch.ones_like(z[:, 0]).long() * label
-        return self.decoder(z + self.label_encoder_dec1(lbl))
+        return self.decoder(self.label_encoder_dec2(lbl)*z + self.label_encoder_dec1(lbl))
 
     def reparameterize(self, mu, log_var):
         std = torch.exp(0.5 * log_var)
