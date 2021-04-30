@@ -390,14 +390,14 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         recon_losses, labels = llik.min(dim=1)
         idxs = np.arange(len(labels))
 
-        loss = (logpy.exp() * (llik + logpy)).sum(dim=1).mean()
+        loss = (1-weight)*(logpy.exp() * (llik + logpy)).sum(dim=1).mean()
         loss += weight*recon_losses.mean()
         loss += weight*F.nll_loss(logpy, labels)
 
         return loss
 
     def iter_start_hook(self, iteration_count, model, data):
-        if iteration_count % 10 != 0:
+        if iteration_count % 20 != 0:
             model.encoder.eval()
             model.label_encoder_dec1.eval()
             model.mu.eval()
