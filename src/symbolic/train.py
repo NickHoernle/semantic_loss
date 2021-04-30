@@ -230,7 +230,7 @@ class Experiment(ABC):
         )
 
     def iter_start_hook(self, *args, **kwargs):
-        pass
+        return True
 
     def iter_done(self, epoch, type="Train"):
         self.logfile.write(
@@ -348,10 +348,9 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
 
     for i, data in enumerate(train_loader):
 
-        if len(data) <= 1:
+        valid = experiment.iter_start_hook(i, model, data)
+        if not valid:
             continue
-
-        experiment.iter_start_hook(i, model, data)
 
         model_input = experiment.get_input_data(data)
         target = experiment.get_target_data(data)

@@ -409,6 +409,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             model.label_encoder_dec2.train()
             # model.mu.train()
             # model.lv.train()
+        if len(data[0][0]) <= 1:
+            return False
+        return True
 
     def init_meters(self):
         loss = AverageMeter()
