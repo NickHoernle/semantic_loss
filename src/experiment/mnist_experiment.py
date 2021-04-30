@@ -391,20 +391,22 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         idxs = np.arange(len(labels))
 
         log_prior = torch.tensor([1/len(j) for i,j in knowledge.items() for k in range(len(j))]).to(self.device).log_softmax(dim=0)
-        loss = (logpy.exp() * (llik + logpy)).sum(dim=1).mean()
+        loss = (logpy.exp() * (llik + logpy - log_prior)).sum(dim=1).mean()
         loss += weight*recon_losses.mean()
         loss += weight*F.nll_loss(logpy, labels)
 
         return loss
 
     def iter_start_hook(self, epoch, iteration_count, model, data):
-        if iteration_count % 2 == 0:
+        if iteration_count % 2 != 0:
             model.encoder.eval()
             model.label_encoder_dec1.eval()
             model.mu.eval()
             model.lv.eval()
 
             model.decoder.train()
+            if epoch > 20:
+                model.label_encoder_dec1.train()
 
         else:
             model.encoder.train()
@@ -413,9 +415,6 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
             model.decoder.eval()
             model.label_encoder_dec1.eval()
-
-        if epoch > 20:
-            model.label_encoder_dec1.train()
 
         # # pass
         # if iteration_count % 2 == 0:
