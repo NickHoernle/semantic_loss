@@ -22,8 +22,8 @@ class ConstantEqualityGenerative(nn.Module):
         for i, (ll, lp) in enumerate([[ll1, lp1], [ll2, lp2], [ll3, lp3]]):
             sll1 = ll[:, self.ixs_active[i]]
             # lp_ = torch.softmax(lp, dim=1)[:, self.ixs_active[i]]
-            # ss = (torch.ones_like(lp_) - lp_).detach() + lp_
-            lr += sll1
+            # ss = (torch.ones_like(lp_) + lp_).detach() - lp_
+            lr += sll1 - lp.log_softmax(dim=1)[:, self.ixs_active[i]]
 
         return lr / 3  # - lp3.log_softmax(dim=1)[:, self.ixs_active[2]]
 
