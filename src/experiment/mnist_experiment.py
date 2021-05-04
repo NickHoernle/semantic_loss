@@ -338,7 +338,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        self.beta = 1.0
+        self.beta = 0.95
         super().__init__(**kwargs)
 
     @property
@@ -391,20 +391,18 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         idxs = np.arange(len(labels))
 
         log_prior = torch.tensor([1/len(j) for i,j in knowledge.items() for k in range(len(j))]).to(self.device).log_softmax(dim=0)
-        loss = (logpy.exp() * (llik + logpy)).sum(dim=1).mean()
+        loss = (1-weight)*(logpy.exp() * (llik + logpy)).sum(dim=1).mean()
         loss += weight*recon_losses.mean()
         loss += weight*F.nll_loss(logpy, labels)
 
         return loss
 
     def iter_start_hook(self, iteration_count, model, data):
-        if iteration_count % 20 != 0:
-            model.encoder.eval()
+        if iteration_count % 2 != 0:
             model.label_encoder_dec1.eval()
             model.mu.eval()
             model.lv.eval()
         else:
-            model.encoder.train()
             model.label_encoder_dec1.train()
             model.mu.train()
             model.lv.train()
