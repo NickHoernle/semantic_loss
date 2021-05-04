@@ -445,7 +445,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
         (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
 
-        vals = torch.tensor(flat_knowledge)
+        vals = torch.tensor(flat_knowledge).to(self.device)
         pred1 = vals[:, 0][logpy.argmax(dim=1)]
         pred2 = vals[:, 1][logpy.argmax(dim=1)]
         pred3 = vals[:, 2][logpy.argmax(dim=1)]
