@@ -398,7 +398,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         return loss
 
     def iter_start_hook(self, iteration_count, model, data):
-        if iteration_count % 2 != 0:
+        if iteration_count % 5 != 0:
             model.encoder.eval()
             model.label_encoder_dec1.eval()
             model.mu.eval()
@@ -434,12 +434,14 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
     def init_meters(self):
         loss = AverageMeter()
+        mae = AverageMeter()
         acc = AccuracyMeter()
         entropy = AverageMeter()
         self.losses = {
             "loss": loss,
             "accuracy": acc,
             "entropy": entropy,
+            "mae": mae
         }
 
     def update_train_meters(self, loss, output, target):
@@ -462,6 +464,10 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             (-(logpy.exp() * logpy).sum(dim=1)).mean().data.item(),
             tgt3.size(0),
         )
+        self.losses["mae"].update(
+            (vals[np.arange(len(logpy)), logpy.argmax(dim=1)].float() - lbl3.float()).pow(2).sqrt().mean().data.item(),
+            lbl3.size(0)
+        )
 
     def epoch_finished_hook(self, epoch, model, val_loader):
         if self.device == "cpu":
@@ -477,6 +483,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             f"Time {round(batch_time.val, 3)} ({round(batch_time.avg, 3)})\t"
             f'Loss {round(self.losses["loss"].val, 3)} ({self.losses["loss"].avg})\t'
             f'Acc {round(self.losses["accuracy"].val, 3)} ({round(self.losses["accuracy"].avg, 3)})\t'
+            f'MAE {round(self.losses["mae"].val, 3)} ({round(self.losses["mae"].avg, 3)})\t'
             f'Ent {round(self.losses["entropy"].val, 3)} ({round(self.losses["entropy"].avg, 3)})\n'
         )
 
@@ -484,6 +491,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         text = (
             f'{type} [{epoch+1}/{self.epochs}]: Loss {round(self.losses["loss"].avg, 3)}\t '
             f'Acc {round(self.losses["accuracy"].avg, 3)} \t'
+            f'MAE {round(self.losses["mae"].avg, 3)} \t'
             f'Ent {round(self.losses["entropy"].avg, 3)} \n'
         )
 
