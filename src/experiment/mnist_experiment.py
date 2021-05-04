@@ -399,10 +399,12 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
     def iter_start_hook(self, iteration_count, model, data):
         if iteration_count % 2 != 0:
+            model.encoder.eval()
             model.label_encoder_dec1.eval()
             model.mu.eval()
             model.lv.eval()
         else:
+            model.encoder.train()
             model.label_encoder_dec1.train()
             model.mu.train()
             model.lv.train()
