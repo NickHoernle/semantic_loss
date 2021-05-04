@@ -348,7 +348,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
 
     for i, data in enumerate(train_loader):
 
-        valid = experiment.iter_start_hook(i, model, data)
+        valid = experiment.iter_start_hook(i, epoch, model, data)
         if not valid:
             continue
 
