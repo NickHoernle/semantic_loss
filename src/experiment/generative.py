@@ -229,7 +229,7 @@ class ConstrainedMnistVAE(MnistVAE):
         self.logic_decoder = OrList(terms=terms)
 
         self.logic_pred = nn.Sequential(
-            # nn.ReLU(),
+            nn.ReLU(),
             nn.BatchNorm1d(3 * self.num_labels),
             nn.Linear(3 * self.num_labels, len(terms)),
         )
