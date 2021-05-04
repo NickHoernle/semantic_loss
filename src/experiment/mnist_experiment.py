@@ -11,6 +11,7 @@ from experiment.datasets import get_train_valid_loader, get_test_loader, resampl
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
 from torch.distributions.normal import Normal
 from experiment.class_mapping import mnist_domain_knowledge as knowledge
+from experiment.class_mapping import flat_class_mapping as flat_knowledge
 
 from torch.distributions.categorical import Categorical
 
@@ -338,7 +339,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        self.beta = 0.95
+        self.beta = 1.0
         super().__init__(**kwargs)
 
     @property
@@ -387,51 +388,42 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
         llik, ll = self.model.logic_decoder(
             (ll1, ll2, ll3, lp1, lp2, lp3), logpy)
-        recon_losses, labels = llik.min(dim=1)
-        idxs = np.arange(len(labels))
-
-        log_prior = torch.tensor([1/len(j) for i,j in knowledge.items() for k in range(len(j))]).to(self.device).log_softmax(dim=0)
-        loss = (1-weight)*(logpy.exp() * (llik + logpy)).sum(dim=1).mean()
-        loss += weight*recon_losses.mean()
-        loss += weight*F.nll_loss(logpy, labels)
+        # import pdb
+        # pdb.set_trace()
+        # r1, lbl1 = llik[:, :, 0].min(dim=1)
+        # r2, lbl2 = llik[:, :, 1].min(dim=1)
+        # r3, labels = ((llik[:, :, 0] + llik[:, :, 1])/2).min(dim=1)
+        # idxs = np.arange(len(labels))
+        # loss = ((r1 + r2 + llik[idxs, labels, 2])/3).mean()
+        recon, labels = llik.min(dim=1)
+        # loss = r.mean()
+        loss = (1 - weight)*(logpy.exp() * (llik + logpy)).sum(dim=1).mean()
+        loss += weight * recon.mean()
+        # loss += weight * F.nll_loss(logpy, labels).mean()
+        # import pdb
+        # pdb.set_trace()
+        # loss = llik[:, :, 2]
+        # recon_losses, labels = llik.min(dim=1)
+        # idxs = np.arange(len(labels))
+        #
+        # log_prior = torch.tensor([1/len(j) for i,j in knowledge.items() for k in range(len(j))]).to(self.device).log_softmax(dim=0)
+        # loss = (1-weight)*(logpy.exp() * (llik + logpy)).sum(dim=1).mean()
+        # loss += weight*recon_losses.mean()
 
         return loss
 
     def iter_start_hook(self, iteration_count, epoch, model, data):
-        if epoch < 2:
-            model.encoder.eval()
-            model.label_encoder_dec1.eval()
-            model.mu.eval()
-            model.lv.eval()
-        # if iteration_count % 5 != 0:
-        #     model.encoder.eval()
-        #     model.label_encoder_dec1.eval()
-        #     model.mu.eval()
-        #     model.lv.eval()
-        # else:
-        #     model.encoder.train()
-        #     model.label_encoder_dec1.train()
-        #     model.mu.train()
-        #     model.lv.train()
-        # # pass
-        # if iteration_count % 2 == 0:
-        #     model.decoder.eval()
-        #     model.label_encoder_dec1.eval()
-        #     # model.label_encoder_dec2.eval()
-        #
-        #     # model.mu.train()
-        #     # model.lv.train()
-        #     # model.encoder.train()
-        #     # model.mu.eval()
-        #     # model.lv.eval()
-        # else:
-        #     model.decoder.train()
-        #     model.label_encoder_dec1.train()
-        #     # model.label_encoder_dec2.train()
-        #
-        #     # model.mu.eval()
-        #     # model.lv.eval()
-        #     # model.encoder.eval()
+        if epoch < 5:
+            if iteration_count % 20 == 0:
+                model.encoder.eval()
+                model.label_encoder_dec1.eval()
+                model.mu.eval()
+                model.lv.eval()
+            else:
+                model.encoder.train()
+                model.label_encoder_dec1.train()
+                model.mu.train()
+                model.lv.train()
 
         if len(data[0][0]) <= 1:
             return False
@@ -453,31 +445,33 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
         (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
 
-        vals = (
-            torch.tensor([k for k, vals in knowledge.items()
-                          for v in vals])[None, :]
-            .repeat(len(logpy), 1)
-            .to(self.device)
-        )
-        acc = (
-            (vals[np.arange(len(logpy)), logpy.argmax(dim=1)] == lbl3).float()
-        ).tolist()
+        vals = torch.tensor(flat_knowledge)
+        pred1 = vals[:, 0][logpy.argmax(dim=1)]
+        pred2 = vals[:, 1][logpy.argmax(dim=1)]
+        pred3 = vals[:, 2][logpy.argmax(dim=1)]
+
+        acc1 = ((pred1 == lbl1).float()).tolist()
+        acc2 = ((pred2 == lbl2).float()).tolist()
+        acc3 = ((pred3 == lbl3).float()).tolist()
 
         self.losses["loss"].update(loss.data.item(), tgt1.size(0))
-        self.losses["accuracy"].update(acc, tgt3.size(0))
+        self.losses["accuracy"].update(acc1, tgt3.size(0))
+        self.losses["accuracy"].update(acc2, tgt3.size(0))
+        self.losses["accuracy"].update(acc3, tgt3.size(0))
         self.losses["entropy"].update(
             (-(logpy.exp() * logpy).sum(dim=1)).mean().data.item(),
             tgt3.size(0),
         )
-        self.losses["mae"].update(
-            (vals[np.arange(len(logpy)), logpy.argmax(dim=1)].float() - lbl3.float()).pow(2).sqrt().mean().data.item(),
-            lbl3.size(0)
-        )
+        # self.losses["mae"].update(
+        #     (vals[np.arange(len(logpy)), logpy.argmax(dim=1)].float() - lbl3.float()).pow(2).sqrt().mean().data.item(),
+        #     lbl3.size(0)
+        # )
 
     def epoch_finished_hook(self, epoch, model, val_loader):
         if self.device == "cpu":
             self.plot_model_samples(epoch, model)
-        self.beta -= 0.05
+        if epoch > 5:
+            self.beta -= 0.05
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)
