@@ -388,27 +388,10 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
         llik, ll = self.model.logic_decoder(
             (ll1, ll2, ll3, lp1, lp2, lp3), logpy)
-        # import pdb
-        # pdb.set_trace()
-        # r1, lbl1 = llik[:, :, 0].min(dim=1)
-        # r2, lbl2 = llik[:, :, 1].min(dim=1)
-        # r3, labels = ((llik[:, :, 0] + llik[:, :, 1])/2).min(dim=1)
-        # idxs = np.arange(len(labels))
-        # loss = ((r1 + r2 + llik[idxs, labels, 2])/3).mean()
+
         recon, labels = llik.min(dim=1)
-        # loss = r.mean()
         loss = (1 - weight)*(logpy.exp() * (llik + logpy)).sum(dim=1).mean()
         loss += weight * recon.mean()
-        # loss += weight * F.nll_loss(logpy, labels).mean()
-        # import pdb
-        # pdb.set_trace()
-        # loss = llik[:, :, 2]
-        # recon_losses, labels = llik.min(dim=1)
-        # idxs = np.arange(len(labels))
-        #
-        # log_prior = torch.tensor([1/len(j) for i,j in knowledge.items() for k in range(len(j))]).to(self.device).log_softmax(dim=0)
-        # loss = (1-weight)*(logpy.exp() * (llik + logpy)).sum(dim=1).mean()
-        # loss += weight*recon_losses.mean()
 
         return loss
 
@@ -462,15 +445,19 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             (-(logpy.exp() * logpy).sum(dim=1)).mean().data.item(),
             tgt3.size(0),
         )
-        # self.losses["mae"].update(
-        #     (vals[np.arange(len(logpy)), logpy.argmax(dim=1)].float() - lbl3.float()).pow(2).sqrt().mean().data.item(),
-        #     lbl3.size(0)
-        # )
+        self.losses["mae"].update(
+            (
+                (pred1 - lbl1).float().pow(2).sqrt() +
+                (pred2 - lbl2).float().pow(2).sqrt() +
+                (pred3 - lbl3).float().pow(2).sqrt()
+            ).mean().data.item(),
+            lbl3.size(0)
+        )
 
     def epoch_finished_hook(self, epoch, model, val_loader):
         if self.device == "cpu":
             self.plot_model_samples(epoch, model)
-        if epoch > 5:
+        if epoch > 2:
             self.beta -= 0.05
 
     def update_test_meters(self, loss, output, target):

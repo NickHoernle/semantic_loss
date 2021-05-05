@@ -205,8 +205,8 @@ class MnistVAE(nn.Module):
 
     def decode(self, encoded):
         mu, lv = self.get_latent(encoded)
-        # z = self.reparameterize(mu, lv)
-        z = torch.randn_like(mu)
+        z = self.reparameterize(mu, lv)
+        # z = torch.randn_like(mu)
         return [self.collect(z, mu, lv, label) for label in range(self.num_labels)]
 
     def forward(self, in_data, test=False):
