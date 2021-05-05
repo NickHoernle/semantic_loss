@@ -506,9 +506,9 @@ def build_mixture_dataset(dataset, indices, max_length=10000, balance=False):
     np.random.shuffle(indexes)
 
     return Joint(
-        Subset(dataset, np.array(dset_1)[indexes]),
-        Subset(dataset, np.array(dset_2)[indexes]),
-        Subset(dataset, np.array(dset_t)[indexes]),
+        Subset(dataset, dset1[indexes]),
+        Subset(dataset, dset2[indexes]),
+        Subset(dataset, dsett[indexes]),
     )
 
 

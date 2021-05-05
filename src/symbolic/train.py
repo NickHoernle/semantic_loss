@@ -154,7 +154,7 @@ class Experiment(ABC):
                 checkpoint, map_location=torch.device('cpu'))
             model.load_state_dict(checkpoint["state_dict"])
         else:
-            checkpoint = torch.load(checkpoint)
+            checkpoint = torch.load(checkpoint, map_location=torch.device('cpu'))
             model.load_state_dict(checkpoint["state_dict"])
         return model
 
