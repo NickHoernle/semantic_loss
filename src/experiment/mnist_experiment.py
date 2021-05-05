@@ -339,7 +339,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        self.beta = 1.0
+        self.beta = 1.
         super().__init__(**kwargs)
 
     @property
@@ -401,6 +401,9 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             model.label_encoder_dec1.eval()
             model.mu.eval()
             model.lv.eval()
+            model.logic_pred.eval()
+        else:
+            self.beta = np.max([0, 1-(epoch-4)*0.05])
 
         if len(data[0][0]) <= 1:
             return False
@@ -451,8 +454,6 @@ class ConstrainedMNIST(BaseMNISTExperiment):
     def epoch_finished_hook(self, epoch, model, val_loader):
         if self.device == "cpu":
             self.plot_model_samples(epoch, model)
-        if epoch > 2:
-            self.beta -= 0.05
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)
