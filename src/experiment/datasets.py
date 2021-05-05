@@ -488,10 +488,19 @@ def build_mixture_dataset(dataset, indices, max_length=10000, balance=False):
 
             dset_1 += ind1[valid_idxs].tolist()
             dset_2 += ind2[valid_idxs].tolist()
+
             results = np.concatenate(
                 (ind1[labels[ind1] == k], ind2[labels[ind2] == k]), axis=0
             )
             dset_t += results[: valid_idxs.sum()].tolist()
+
+    dset1 = np.array(dset_1)
+    dset2 = np.array(dset_2)
+    dsett = np.array(dset_t)
+
+    dset2[labels[dset1] == labels[dset2]] = dset1[labels[dset1] == labels[dset2]]
+    dsett[labels[dset1] == labels[dsett]] = dset1[labels[dset1] == labels[dsett]]
+    dsett[labels[dset2] == labels[dsett]] = dset2[labels[dset2] == labels[dsett]]
 
     indexes = np.arange(len(dset_1))
     np.random.shuffle(indexes)
