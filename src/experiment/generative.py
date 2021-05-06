@@ -7,11 +7,11 @@ from torch.nn import functional as F
 
 def init_weights(m):
     if type(m) == nn.Linear:
-        torch.nn.init.kaiming_normal_(m.weight)
+        torch.nn.init.normal_(m.weight, 0, .1)
         m.bias.data.fill_(0.01)
 
     if type(m) == nn.Embedding:
-        nn.init.uniform_(m.weight, -10, 10)
+        nn.init.uniform_(m.weight, -1, 1)
         # torch.nn.init.normal_(m.weight, 0, 5)
 
 class LinearVAE(nn.Module):
@@ -268,8 +268,7 @@ class ConstrainedMnistVAE(MnistVAE):
         cp = torch.cat(((log_pred1),
                         (log_pred2),
                         log_pred3,
-                        log_pred4
-                        ), dim=1)
+                        log_pred4), dim=1)
 
         return (
             (d1, d2, d3, d4),

@@ -313,7 +313,7 @@ class BaseMNISTExperiment(train.Experiment):
         return False
 
 
-def calc_ll(params, target, beta=1.0):
+def calc_ll(params, target, w=1.0):
     """
     Helper to calculate the ll of a single prediction for one of the images that are being processed
     """
@@ -328,7 +328,7 @@ def calc_ll(params, target, beta=1.0):
 
     kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1)
 
-    return rcon + kld
+    return rcon + w*kld
 
 
 def select_action(device, n_actions, best_guess):
@@ -393,30 +393,24 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         (r1, r2, r3, r4), (lp1, lp2, lp3, lp4), logpy = output
 
         # reconstruction accuracies
-        ll1 = torch.stack([calc_ll(r, tgt1) for r in r1], dim=1)
-        ll2 = torch.stack([calc_ll(r, tgt2) for r in r2], dim=1)
-        ll3 = torch.stack([calc_ll(r, tgt3) for r in r3], dim=1)
-        ll4 = torch.stack([calc_ll(r, tgt4) for r in r3], dim=1)
+        ll1 = torch.stack([calc_ll(r, tgt1, self.kl_weight) for r in r1], dim=1)
+        ll2 = torch.stack([calc_ll(r, tgt2, self.kl_weight) for r in r2], dim=1)
+        ll3 = torch.stack([calc_ll(r, tgt3, self.kl_weight) for r in r3], dim=1)
+        ll4 = torch.stack([calc_ll(r, tgt4, self.kl_weight) for r in r3], dim=1)
 
         llik, ll = self.model.logic_decoder(
             (ll1, ll2, ll3, ll4, lp1, lp2, lp3, lp4), logpy)
 
         recon, labels = llik.min(dim=1)
-        loss = (1 - weight)*(logpy.exp() * (llik + logpy)).sum(dim=1).mean()
+        loss = (1-weight)*(logpy.exp() * (llik + logpy)).sum(dim=1).mean()
         loss += weight * recon.mean()
-        loss += weight * F.nll_loss(logpy, labels)
 
         return loss
 
     def iter_start_hook(self, iteration_count, epoch, model, data):
-        if epoch < 5:
-            model.encoder.eval()
-            model.label_encoder_dec1.eval()
-            model.mu.eval()
-            model.lv.eval()
-            model.logic_pred.eval()
-        else:
-            self.beta = np.max([0, 1-(epoch-4)*0.05])
+
+        self.beta = np.max([0, .95-epoch*0.05])
+        self.kl_weight = np.max([1, 20-epoch])
 
         if len(data[0][0]) <= 1:
             return False

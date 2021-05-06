@@ -127,7 +127,7 @@ def get_train_valid_loader(
 
     if dataset.upper() == "MNIST":
         train_dataset = build_mixture_dataset(
-            train_dataset, train_idx)#, balance=True, max_length=1000)
+            train_dataset, train_idx, balance=True, max_length=1000)
         valid_dataset = build_mixture_dataset(
             valid_dataset, valid_idx, balance=True, max_length=1000)
         train_sampler = None
@@ -194,7 +194,7 @@ def resampled_train(
     np.random.shuffle(train_idx)
 
     train_dataset = build_mixture_dataset(
-        train_dataset, train_idx)#, balance=True, max_length=1000)
+        train_dataset, train_idx, balance=True, max_length=1000)
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
@@ -457,7 +457,7 @@ def build_mixture_dataset(dataset, indices, max_length=10000, balance=False):
 
     target = labels[ind1] + labels[ind2]
 
-    lengths = [(target == k).sum() for k in range(10)]
+    lengths = [(target == k).sum() for k in range(19)]
 
     print(lengths)
 
@@ -465,7 +465,7 @@ def build_mixture_dataset(dataset, indices, max_length=10000, balance=False):
         min_length = min((min(lengths), max_length))
 
         valid = np.zeros_like(target)
-        for k in range(10):
+        for k in range(19):
             valid_k = ((target == k) & ((target == k).cumsum() <= min_length))
             valid += valid_k
 
@@ -473,7 +473,7 @@ def build_mixture_dataset(dataset, indices, max_length=10000, balance=False):
         ind2 = ind2[valid > 0]
         target = target[valid > 0]
 
-        lengths = [(target == k).sum() for k in range(10)]
+        lengths = [(target == k).sum() for k in range(19)]
         print(lengths)
 
     dset_1 = []

@@ -32,7 +32,7 @@ class ConstantEqualityGenerative(nn.Module):
         # s2 = (torch.ones_like(p2) + p2).detach() - p2
         # s3 = (torch.ones_like(p3) + p3).detach() - p3
 
-        return (sll1 + sll2 + sll3 + sll4)/4 # - p3
+        return (sll1 + sll2 + sll3 + sll4)/2 # - p3
 
 
 class GEQConstant(nn.Module):
