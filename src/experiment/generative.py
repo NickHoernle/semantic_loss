@@ -276,6 +276,8 @@ class ConstrainedMnistVAE(MnistVAE):
         #                 (log_pred2)), dim=1)
         lp1 = log_pred1.log_softmax(dim=1)
         lp2 = log_pred2.log_softmax(dim=1)
+
+
         lp = []
         for l1, l2, k in flat_knowledge:
             lp += [lp1[:, l1] + lp2[:, l2]]

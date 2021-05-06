@@ -398,12 +398,28 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         ll3 = torch.stack([calc_ll(r, tgt3, self.kl_weight) for r in r3], dim=1)
         ll4 = torch.stack([calc_ll(r, tgt4, self.kl_weight) for r in r3], dim=1)
 
-        llik, ll = self.model.logic_decoder(
-            (ll1, ll2, ll3, ll4, lp1, lp2, lp3, lp4), logpy)
+        llik, ll = self.model.logic_decoder((ll1, ll2, ll3, ll4, lp1, lp2, lp3, lp4), logpy)
+
+        lp3 = lp3.log_softmax(dim=1)
+        lp4 = lp4.log_softmax(dim=1)
+
+        lp = []
+        ll = []
+        for k, val in knowledge.items():
+            ll += [(ll3[:, 1 * (k >= 10)] + ll4[:, (k % 10)])/2]
+            lp += [(lp3[:, 1 * (k >= 10)] + lp4[:, (k % 10)])]
+
+        lp = torch.stack(lp, dim=1).log_softmax(dim=1)
+        lp_ = []
+        for l1, l2, k in flat_knowledge:
+            lp_.append(lp[:, k])
+
+        # ll = torch.stack(ll, dim=1)
+        lp_ = torch.stack(lp_, dim=1)
 
         recon, labels = llik.min(dim=1)
-        loss = (logpy.exp() * (llik + logpy)).sum(dim=1).mean()
-        loss += weight * recon.mean()
+        loss = (logpy.exp() * (llik + logpy - lp_)).sum(dim=1).mean()
+        # loss += (lp.exp() * (ll + lp)).sum(dim=1).mean()
 
         return loss
 
