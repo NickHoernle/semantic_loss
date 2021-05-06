@@ -3,6 +3,7 @@ import torch.nn as nn
 from symbolic.symbolic import OrList
 import numpy as np
 from torch.nn import functional as F
+from experiment.class_mapping import flat_class_mapping as flat_knowledge
 
 
 def init_weights(m):
@@ -232,11 +233,18 @@ class ConstrainedMnistVAE(MnistVAE):
         self.num_terms = len(terms)
         self.logic_decoder = OrList(terms=terms)
 
-        self.logic_pred = nn.Sequential(
+        self.logic_pred1 = nn.Sequential(
             nn.ReLU(),
-            nn.BatchNorm1d(4 * self.num_labels),
-            nn.Linear(4 * self.num_labels, len(terms)),
+            nn.BatchNorm1d(2 * self.num_labels),
+            nn.Linear(2 * self.num_labels, len(terms)),
         )
+
+        self.logic_pred2 = nn.Sequential(
+            nn.ReLU(),
+            nn.BatchNorm1d(2 * self.num_labels),
+            nn.Linear(2 * self.num_labels, len(terms)),
+        )
+
         self.warmup = nn.Linear(self.h_dim2, self.z_dim)
         self.apply(init_weights)
 
@@ -264,13 +272,18 @@ class ConstrainedMnistVAE(MnistVAE):
         d3 = self.decode(encoded3)
         d4 = self.decode(encoded4)
 
-        cp = torch.cat(((log_pred1),
-                        (log_pred2),
-                        log_pred3,
-                        log_pred4), dim=1)
+        # cp1 = torch.cat(((log_pred1),
+        #                 (log_pred2)), dim=1)
+        lp1 = log_pred1.log_softmax(dim=1)
+        lp2 = log_pred2.log_softmax(dim=1)
+        lp = []
+        for l1, l2, k in flat_knowledge:
+            lp += [lp1[:, l1] + lp2[:, l2]]
+
+        lp = torch.stack(lp, dim=1).log_softmax(dim=1)
 
         return (
             (d1, d2, d3, d4),
             (log_pred1, log_pred2, log_pred3, log_pred4),
-            self.logic_pred(cp).log_softmax(dim=1),
+            lp
         )
