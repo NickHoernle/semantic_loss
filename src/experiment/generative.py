@@ -7,7 +7,7 @@ from torch.nn import functional as F
 
 def init_weights(m):
     if type(m) == nn.Linear:
-        torch.nn.init.xavier_normal_(m.weight)
+        torch.nn.init.kaiming_normal_(m.weight)
         m.bias.data.fill_(0.01)
 
     if type(m) == nn.Embedding:
