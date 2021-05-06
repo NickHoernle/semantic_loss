@@ -143,7 +143,7 @@ class BaseMNISTExperiment(train.Experiment):
         save_figure(fig, fig_file, self)
 
     def plot_sampled_images(self, loader):
-        fig, axes = plt.subplots(15, 3, figsize=(10, 45))
+        fig, axes = plt.subplots(15, 4, figsize=(10, 45))
         for i, data in enumerate(loader):
             for j in range(15):
                 if j >= 15:
@@ -152,6 +152,7 @@ class BaseMNISTExperiment(train.Experiment):
                     (in_data1, in_target1),
                     (in_data2, in_target2),
                     (in_data3, in_target3),
+                    (in_data4, in_target4),
                 ) = data
                 axes[j, 0].imshow(
                     (in_data1[j, 0].numpy() * 255).astype(np.uint8), cmap="gray_r"
@@ -165,12 +166,19 @@ class BaseMNISTExperiment(train.Experiment):
                     (in_data3[j, 0].numpy() * 255).astype(np.uint8), cmap="gray_r"
                 )
                 axes[j, 2].set_title(in_target3[j])
+                axes[j, 3].imshow(
+                    (in_data4[j, 0].numpy() * 255).astype(np.uint8), cmap="gray_r"
+                )
+                axes[j, 3].set_title(in_target4[j])
+
                 axes[j, 0].grid(False)
                 axes[j, 0].set_axis_off()
                 axes[j, 1].grid(False)
                 axes[j, 1].set_axis_off()
                 axes[j, 2].grid(False)
                 axes[j, 2].set_axis_off()
+                axes[j, 3].grid(False)
+                axes[j, 3].set_axis_off()
             break
 
         fig_file = os.path.join(self.figures_directory, f"example_data.png")
@@ -198,34 +206,37 @@ class BaseMNISTExperiment(train.Experiment):
         }
 
     def get_input_data(self, data):
-        (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3) = data
+        (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3), (in_data4, in_target4) = data
 
         in_data1 = in_data1.to(self.device).view(len(in_data1), -1)
         in_data2 = in_data2.to(self.device).view(len(in_data2), -1)
         in_data3 = in_data3.to(self.device).view(len(in_data3), -1)
+        in_data4 = in_data4.to(self.device).view(len(in_data4), -1)
 
-        return (in_data1, in_data2, in_data3)
+        return (in_data1, in_data2, in_data3, in_data4)
 
     def get_target_data(self, data):
-        (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3) = data
+        (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3), (in_data4, in_target4) = data
 
         in_data1 = in_data1.to(self.device).view(len(in_data1), -1)
         in_data2 = in_data2.to(self.device).view(len(in_data2), -1)
         in_data3 = in_data3.to(self.device).view(len(in_data3), -1)
+        in_data4 = in_data4.to(self.device).view(len(in_data4), -1)
 
         in_target1 = in_target1.to(self.device)
         in_target2 = in_target2.to(self.device)
         in_target3 = in_target3.to(self.device)
+        in_target4 = in_target4.to(self.device)
 
-        in_data = (in_data1, in_data2, in_data3)
-        labels = (in_target1, in_target2, in_target3)
+        in_data = (in_data1, in_data2, in_data3, in_data4)
+        labels = (in_target1, in_target2, in_target3, in_target4)
 
         return in_data, labels
 
     def criterion(self, output, target, train=True):
 
-        (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
+        (tgt1, tgt2, tgt3, tgt4), (lbl1, lbl2, lbl3, lbl4) = target
+        (recons1, recons2, recons3, recons4), (lp1, lp2, lp3, lp4), logpy = output
         ll1, ll2, ll3 = [], [], []
 
         for i in range(10):
@@ -244,8 +255,8 @@ class BaseMNISTExperiment(train.Experiment):
         )
 
     def update_train_meters(self, loss, output, target):
-        (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
+        (tgt1, tgt2, tgt3, tgt4), (lbl1, lbl2, lbl3, lbl4) = target
+        (recons1, recons2, recons3, recons4), (lp1, lp2, lp3, lp4), logpy = output
 
         # TODO: note you should actually measure the most likely prediction...
         self.losses["loss"].update(loss.data.item(), tgt1.size(0))
@@ -378,16 +389,17 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
         weight = np.max([0, self.beta])
 
-        (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (r1, r2, r3), (lp1, lp2, lp3), logpy = output
+        (tgt1, tgt2, tgt3, tgt4), (lbl1, lbl2, lbl3, lbl4) = target
+        (r1, r2, r3, r4), (lp1, lp2, lp3, lp4), logpy = output
 
         # reconstruction accuracies
         ll1 = torch.stack([calc_ll(r, tgt1) for r in r1], dim=1)
         ll2 = torch.stack([calc_ll(r, tgt2) for r in r2], dim=1)
         ll3 = torch.stack([calc_ll(r, tgt3) for r in r3], dim=1)
+        ll4 = torch.stack([calc_ll(r, tgt4) for r in r3], dim=1)
 
         llik, ll = self.model.logic_decoder(
-            (ll1, ll2, ll3, lp1, lp2, lp3), logpy)
+            (ll1, ll2, ll3, ll4, lp1, lp2, lp3, lp4), logpy)
 
         recon, labels = llik.min(dim=1)
         loss = (1 - weight)*(logpy.exp() * (llik + logpy)).sum(dim=1).mean()
@@ -423,22 +435,22 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         }
 
     def update_train_meters(self, loss, output, target):
-        (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
+        (tgt1, tgt2, tgt3, tgt4), (lbl1, lbl2, lbl3, lbl4) = target
+        (r1, r2, r3, r4), (lp1, lp2, lp3, lp4), logpy = output
 
         vals = torch.tensor(flat_knowledge).to(self.device)
         pred1 = vals[:, 0][logpy.argmax(dim=1)]
         pred2 = vals[:, 1][logpy.argmax(dim=1)]
-        pred3 = vals[:, 2][logpy.argmax(dim=1)]
+        # pred3 = vals[:, 2][logpy.argmax(dim=1)]
 
         acc1 = ((pred1 == lbl1).float()).tolist()
         acc2 = ((pred2 == lbl2).float()).tolist()
-        acc3 = ((pred3 == lbl3).float()).tolist()
+        # acc3 = ((pred3 == lbl3).float()).tolist()
 
         self.losses["loss"].update(loss.data.item(), tgt1.size(0))
         self.losses["accuracy"].update(acc1, tgt3.size(0))
         self.losses["accuracy"].update(acc2, tgt3.size(0))
-        self.losses["accuracy"].update(acc3, tgt3.size(0))
+        # self.losses["accuracy"].update(acc3, tgt3.size(0))
         self.losses["entropy"].update(
             (-(logpy.exp() * logpy).sum(dim=1)).mean().data.item(),
             tgt3.size(0),
@@ -446,8 +458,8 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         self.losses["mae"].update(
             (
                 (pred1 - lbl1).float().pow(2).sqrt() +
-                (pred2 - lbl2).float().pow(2).sqrt() +
-                (pred3 - lbl3).float().pow(2).sqrt()
+                (pred2 - lbl2).float().pow(2).sqrt()
+                # (pred3 - lbl3).float().pow(2).sqrt()
             ).mean().data.item(),
             lbl3.size(0)
         )

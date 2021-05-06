@@ -431,13 +431,14 @@ def get_synthetic_loaders(
 
 
 class Joint(torch.utils.data.Dataset):
-    def __init__(self, dataset1, dataset2, dataset3):
+    def __init__(self, dataset1, dataset2, dataset3, dataset4):
         self.dataset1 = dataset1
         self.dataset2 = dataset2
         self.dataset3 = dataset3
+        self.dataset4 = dataset4
 
     def __getitem__(self, index):
-        return self.dataset1[index], self.dataset2[index], self.dataset3[index]
+        return self.dataset1[index], self.dataset2[index], self.dataset3[index], self.dataset4[index]
 
     def __len__(self):
         return len(self.dataset1)
@@ -477,7 +478,8 @@ def build_mixture_dataset(dataset, indices, max_length=10000, balance=False):
 
     dset_1 = []
     dset_2 = []
-    dset_t = []
+    dset_t0 = []
+    dset_t1 = []
 
     for k, conditions in knowledge.items():
         for val in conditions:
@@ -489,18 +491,32 @@ def build_mixture_dataset(dataset, indices, max_length=10000, balance=False):
             dset_1 += ind1[valid_idxs].tolist()
             dset_2 += ind2[valid_idxs].tolist()
 
+            # build units column
             results = np.concatenate(
-                (ind1[labels[ind1] == k], ind2[labels[ind2] == k]), axis=0
+                (ind1[labels[ind1] == (k%10)], ind2[labels[ind2] == (k%10)]), axis=0
             )
-            dset_t += results[: valid_idxs.sum()].tolist()
+
+            dset_t1 += results[: valid_idxs.sum()].tolist()
+
+            # build 10s column
+            results = np.concatenate(
+                (ind1[labels[ind1] == (0 if k <= 9 else 1)],
+                 ind2[labels[ind2] == (0 if k <= 9 else 1)],
+                 ind1[labels[ind1] == (0 if k <= 9 else 1)],
+                 ind2[labels[ind2] == (0 if k <= 9 else 1)],
+                 ind1[labels[ind1] == (0 if k <= 9 else 1)],
+                 ind2[labels[ind2] == (0 if k <= 9 else 1)]), axis=0
+            )
+            dset_t0 += results[: valid_idxs.sum()].tolist()
 
     dset1 = np.array(dset_1)
     dset2 = np.array(dset_2)
-    dsett = np.array(dset_t)
+    dsett0 = np.array(dset_t0)
+    dsett1 = np.array(dset_t1)
 
-    dset2[labels[dset1] == labels[dset2]] = dset1[labels[dset1] == labels[dset2]]
-    dsett[labels[dset1] == labels[dsett]] = dset1[labels[dset1] == labels[dsett]]
-    dsett[labels[dset2] == labels[dsett]] = dset2[labels[dset2] == labels[dsett]]
+    # dset2[labels[dset1] == labels[dset2]] = dset1[labels[dset1] == labels[dset2]]
+    # dsett[labels[dset1] == labels[dsett]] = dset1[labels[dset1] == labels[dsett]]
+    # dsett[labels[dset2] == labels[dsett]] = dset2[labels[dset2] == labels[dsett]]
 
     indexes = np.arange(len(dset_1))
     np.random.shuffle(indexes)
@@ -508,7 +524,8 @@ def build_mixture_dataset(dataset, indices, max_length=10000, balance=False):
     return Joint(
         Subset(dataset, dset1[indexes]),
         Subset(dataset, dset2[indexes]),
-        Subset(dataset, dsett[indexes]),
+        Subset(dataset, dsett0[indexes]),
+        Subset(dataset, dsett1[indexes]),
     )
 
 

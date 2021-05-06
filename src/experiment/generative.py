@@ -210,17 +210,19 @@ class MnistVAE(nn.Module):
         return [self.collect(z, mu, lv, label) for label in range(self.num_labels)]
 
     def forward(self, in_data, test=False):
-        x1, x2, x3 = in_data
+        x1, x2, x3, x4 = in_data
 
         encoded1, log_pred1 = self.encode(x1)
         encoded2, log_pred2 = self.encode(x2)
         encoded3, log_pred3 = self.encode(x3)
+        encoded4, log_pred4 = self.encode(x4)
 
         d1 = self.decode(encoded1)
         d2 = self.decode(encoded2)
         d3 = self.decode(encoded3)
+        d4 = self.decode(encoded4)
 
-        return (d1, d2, d3), (log_pred1, log_pred2, log_pred3), None
+        return (d1, d2, d3, d4), (log_pred1, log_pred2, log_pred3, log_pred4), None
 
 
 class ConstrainedMnistVAE(MnistVAE):
@@ -231,8 +233,8 @@ class ConstrainedMnistVAE(MnistVAE):
 
         self.logic_pred = nn.Sequential(
             nn.ReLU(),
-            nn.BatchNorm1d(3 * self.num_labels),
-            nn.Linear(3 * self.num_labels, len(terms)),
+            nn.BatchNorm1d(4 * self.num_labels),
+            nn.Linear(4 * self.num_labels, len(terms)),
         )
         self.warmup = nn.Linear(self.h_dim2, self.z_dim)
         self.apply(init_weights)
@@ -245,27 +247,30 @@ class ConstrainedMnistVAE(MnistVAE):
         self.logic_decoder.threshold1p()
 
     def forward(self, in_data, test=False, warmup=False):
-        if warmup:
-            encoded, log_pred1 = self.encode(in_data)
-            return self.decoder(self.warmup(encoded))
+        # if warmup:
+        #     encoded, log_pred1 = self.encode(in_data)
+        #     return self.decoder(self.warmup(encoded))
 
-        x1, x2, x3 = in_data
+        x1, x2, x3, x4 = in_data
 
         encoded1, log_pred1 = self.encode(x1)
         encoded2, log_pred2 = self.encode(x2)
         encoded3, log_pred3 = self.encode(x3)
+        encoded4, log_pred4 = self.encode(x4)
 
         d1 = self.decode(encoded1)
         d2 = self.decode(encoded2)
         d3 = self.decode(encoded3)
+        d4 = self.decode(encoded4)
 
         cp = torch.cat(((log_pred1),
                         (log_pred2),
-                        log_pred3
+                        log_pred3,
+                        log_pred4
                         ), dim=1)
 
         return (
-            (d1, d2, d3),
-            (log_pred1, log_pred2, log_pred3),
+            (d1, d2, d3, d4),
+            (log_pred1, log_pred2, log_pred3, log_pred4),
             self.logic_pred(cp).log_softmax(dim=1),
         )
