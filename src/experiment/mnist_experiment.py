@@ -330,20 +330,6 @@ def calc_ll(params, target, w=1.0):
 
     return rcon + w*kld
 
-
-def select_action(device, n_actions, best_guess):
-    global steps_done
-    sample = random.random()
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-        math.exp(-1. * steps_done / EPS_DECAY)
-    steps_done += 1
-
-    if sample > eps_threshold:
-        return best_guess
-    else:
-        return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
-
-
 class ConstrainedMNIST(BaseMNISTExperiment):
     def __init__(
         self,

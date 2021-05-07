@@ -150,7 +150,6 @@ class MnistVAE(nn.Module):
         )
 
         self.label_predict = nn.Linear(h_dim2, num_labels)
-
         self.mu = nn.Sequential(nn.ReLU(), nn.Linear(h_dim2, z_dim))
         self.lv = nn.Sequential(nn.ReLU(), nn.Linear(h_dim2, z_dim))
 

@@ -22,13 +22,7 @@ class ConstantEqualityGenerative(nn.Module):
         sll2 = ll2[:, self.ixs_active[1]]
         sll3 = ll3[:, 1 * (self.ixs_active[2] >= 10)]
         sll4 = ll4[:, (self.ixs_active[2] % 10)]
-
-        # p1 = lp1.softmax(dim=1)[:, self.ixs_active[0]]
-        # p2 = lp2.softmax(dim=1)[:, self.ixs_active[1]]
-        # s1 = (torch.ones_like(p1) + p1).detach() - p1
-        # s2 = (torch.ones_like(p2) + p2).detach() - p2
-        # s3 = (torch.ones_like(p3) + p3).detach() - p3
-
+        
         return (sll1 + sll2 + sll3 + sll4)/4
 
 
