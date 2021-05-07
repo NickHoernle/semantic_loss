@@ -143,7 +143,12 @@ class BaseImageExperiment(train.Experiment):
     def get_target_data(self, data):
         input_imgs, targets = data
         targets = targets.to(self.device)
-        return targets
+        new_tgts = torch.zeros_like(targets)
+        for j, ixs in enumerate(self.class_idxs[1:]):
+            new_tgts += (j + 1) * (
+                torch.stack([targets == k for k in ixs], dim=1).any(dim=1)
+            ).long()
+        return new_tgts
 
     def criterion(self, output, target, train=True):
         if self.sloss and train:
@@ -166,19 +171,8 @@ class BaseImageExperiment(train.Experiment):
             loss += recon_losses.mean()
             loss += F.nll_loss(logic_preds, labels)
 
-        elif self.superclass:
-            class_pred = output
-            new_tgts = torch.zeros_like(target)
-            for j, ixs in enumerate(self.class_idxs[1:]):
-                new_tgts += (j + 1) * (
-                    torch.stack([target == k for k in ixs], dim=1).any(dim=1)
-                ).long()
-            target = new_tgts
-            loss = F.cross_entropy(class_pred, target)
-
         else:
-            class_preds = output
-            loss = F.cross_entropy(class_preds, target)
+            loss = F.cross_entropy(output, target)
 
         return loss
 
