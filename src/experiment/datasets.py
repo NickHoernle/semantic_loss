@@ -126,8 +126,10 @@ def get_train_valid_loader(
     train_idx, valid_idx = indices[split:], indices[:split]
 
     if dataset.upper() == "MNIST":
-        train_dataset = build_mixture_dataset(train_dataset, train_idx)
-        valid_dataset = build_mixture_dataset(valid_dataset, valid_idx)
+        train_dataset = build_mixture_dataset(
+            train_dataset, train_idx, balance=True, max_length=6000)
+        valid_dataset = build_mixture_dataset(
+            valid_dataset, valid_idx, balance=True, max_length=1000)
         train_sampler = None
         valid_sampler = None
 
@@ -150,7 +152,58 @@ def get_train_valid_loader(
         pin_memory=pin_memory,
     )
 
-    return train_loader, valid_loader, classes
+    return train_loader, valid_loader, classes, train_idx
+
+
+def resampled_train(
+    train_idx,
+    data_dir,
+    batch_size,
+    augment,
+    dataset="cifar10",
+    num_workers=4,
+    pin_memory=False,
+    do_normalize=True,
+):
+    train_transforms = []
+    if augment:
+        train_transforms += [
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+        ]
+
+    train_transforms += [transforms.ToTensor()]
+
+    if do_normalize:
+        normalize = [
+            transforms.Normalize(
+                mean=[0.4914, 0.4822, 0.4465],
+                std=[0.2023, 0.1994, 0.2010],
+            )
+        ]
+        train_transforms += normalize
+
+    train_transform = transforms.Compose(train_transforms)
+    train_dataset = datasets.__dict__[dataset.upper()](
+        root=data_dir,
+        train=True,
+        download=True,
+        transform=train_transform,
+    )
+
+    np.random.shuffle(train_idx)
+
+    train_dataset = build_mixture_dataset(
+        train_dataset, train_idx, balance=True, max_length=6000)
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        sampler=None,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+    )
+
+    return train_loader
 
 
 def get_test_loader(
@@ -217,10 +270,10 @@ class generator:
             fig = plt.figure(figsize=(4, 4))
             ax = fig.gca()
         x = self.sample(samples)
-        ax.scatter(x[:, 0], x[:, 1], s=5, alpha=0.1)
+        ax.scatter(x[:, 0], x[:, 1], s=5, alpha=0.5, label="Samples")
 
-        ax.set_xlim([-5, 5])
-        ax.set_ylim([-5, 5])
+        ax.set_xlim([-6, 6])
+        ax.set_ylim([-6, 6])
         ax.grid(True)
         return ax
 
@@ -266,7 +319,8 @@ class ConstraintedSampler(Gaussian):
         )
 
     def term1(self, x):
-        valid = (x[:, 1] > 2.5) & (x[:, 1] < 5.5) & (x[:, 0] > -0.5) & (x[:, 0] < 0.5)
+        valid = (x[:, 1] > 2.5) & (x[:, 1] < 5.5) & (
+            x[:, 0] > -0.5) & (x[:, 0] < 0.5)
         return valid
 
     def rotate(self, x, theta=np.pi / 4):
@@ -293,9 +347,11 @@ class ConstraintedSampler(Gaussian):
 
         samples = np.concatenate(terms, axis=0)
         labels = np.concatenate(
-            [i * np.ones_like(t[:, 0]).astype(int) for i, t in enumerate(terms)]
+            [i * np.ones_like(t[:, 0]).astype(int)
+             for i, t in enumerate(terms)]
         )
-        idxs = np.random.choice(np.arange(len(labels)), size=len(labels), replace=False)
+        idxs = np.random.choice(np.arange(len(labels)),
+                                size=len(labels), replace=False)
         samples = samples[idxs]
         labels = labels[idxs]
 
@@ -313,7 +369,8 @@ class ConstraintedSampler(Gaussian):
 
         x, labels = self.sample(5000, get_term_labels=True)
         for i in range(np.max(labels) + 1):
-            ax.scatter(x[labels == i, 0], x[labels == i, 1], s=5, alpha=0.1, label=i)
+            ax.scatter(x[labels == i, 0], x[labels == i, 1],
+                       s=5, alpha=0.1, label=i)
 
         ax.set_xlim([-5, 5])
         ax.set_ylim([-5, 5])
@@ -374,23 +431,24 @@ def get_synthetic_loaders(
 
 
 class Joint(torch.utils.data.Dataset):
-    def __init__(self, dataset1, dataset2, dataset3):
+    def __init__(self, dataset1, dataset2, dataset3, dataset4):
         self.dataset1 = dataset1
         self.dataset2 = dataset2
         self.dataset3 = dataset3
+        self.dataset4 = dataset4
 
     def __getitem__(self, index):
-        return self.dataset1[index], self.dataset2[index], self.dataset3[index]
+        return self.dataset1[index], self.dataset2[index], self.dataset3[index], self.dataset4[index]
 
     def __len__(self):
         return len(self.dataset1)
 
 
-def build_mixture_dataset(dataset, indices, max_length=10000):
+def build_mixture_dataset(dataset, indices, max_length=10000, balance=False):
     nd = len(indices)
 
-    ind1 = np.random.choice(indices, size=20 * nd, replace=True)
-    ind2 = np.random.choice(indices, size=20 * nd, replace=True)
+    ind1 = np.random.choice(indices, size=2 * nd + 10*nd*balance, replace=True)
+    ind2 = np.random.choice(indices, size=2 * nd + 10*nd*balance, replace=True)
 
     try:
         labels = np.array(dataset.train_labels)
@@ -399,46 +457,75 @@ def build_mixture_dataset(dataset, indices, max_length=10000):
 
     target = labels[ind1] + labels[ind2]
 
-    lengths = [(target == k).sum() for k in range(10)]
+    lengths = [(target == k).sum() for k in range(19)]
+
     print(lengths)
-    min_length = min((min(lengths), max_length))
 
-    valid = np.zeros_like(target)
-    for k in range(10):
-        valid_k = ((target == k) & ((target == k).cumsum() <= min_length))
-        valid += valid_k
+    if balance:
+        min_length = min((min(lengths), max_length))
 
-    ind1 = ind1[valid > 0]
-    ind2 = ind2[valid > 0]
-    target = target[valid > 0]
+        valid = np.zeros_like(target)
+        for k in range(19):
+            valid_k = ((target == k) & ((target == k).cumsum() <= min_length))
+            valid += valid_k
 
-    lengths = [(target == k).sum() for k in range(10)]
-    print(lengths)
+        ind1 = ind1[valid > 0]
+        ind2 = ind2[valid > 0]
+        target = target[valid > 0]
+
+        lengths = [(target == k).sum() for k in range(19)]
+        print(lengths)
 
     dset_1 = []
     dset_2 = []
-    dset_t = []
+    dset_t0 = []
+    dset_t1 = []
 
     for k, conditions in knowledge.items():
         for val in conditions:
             valid_idxs = (
-                (target == k) & (labels[ind1] == val[0]) & (labels[ind2] == val[1])
+                (target == k) & (labels[ind1] == val[0]) & (
+                    labels[ind2] == val[1])
             )
 
             dset_1 += ind1[valid_idxs].tolist()
             dset_2 += ind2[valid_idxs].tolist()
+
+            # build units column
             results = np.concatenate(
-                (ind1[labels[ind1] == k], ind2[labels[ind2] == k]), axis=0
+                (ind1[labels[ind1] == (k%10)], ind2[labels[ind2] == (k%10)]), axis=0
             )
-            dset_t += results[: valid_idxs.sum()].tolist()
+
+            dset_t1 += results[: valid_idxs.sum()].tolist()
+
+            # build 10s column
+            results = np.concatenate(
+                (ind1[labels[ind1] == (0 if k <= 9 else 1)],
+                 ind2[labels[ind2] == (0 if k <= 9 else 1)],
+                 ind1[labels[ind1] == (0 if k <= 9 else 1)],
+                 ind2[labels[ind2] == (0 if k <= 9 else 1)],
+                 ind1[labels[ind1] == (0 if k <= 9 else 1)],
+                 ind2[labels[ind2] == (0 if k <= 9 else 1)]), axis=0
+            )
+            dset_t0 += results[: valid_idxs.sum()].tolist()
+
+    dset1 = np.array(dset_1)
+    dset2 = np.array(dset_2)
+    dsett0 = np.array(dset_t0)
+    dsett1 = np.array(dset_t1)
+
+    # dset2[labels[dset1] == labels[dset2]] = dset1[labels[dset1] == labels[dset2]]
+    # dsett[labels[dset1] == labels[dsett]] = dset1[labels[dset1] == labels[dsett]]
+    # dsett[labels[dset2] == labels[dsett]] = dset2[labels[dset2] == labels[dsett]]
 
     indexes = np.arange(len(dset_1))
     np.random.shuffle(indexes)
 
     return Joint(
-        Subset(dataset, np.array(dset_1)[indexes]),
-        Subset(dataset, np.array(dset_2)[indexes]),
-        Subset(dataset, np.array(dset_t)[indexes]),
+        Subset(dataset, dset1[indexes]),
+        Subset(dataset, dset2[indexes]),
+        Subset(dataset, dsett0[indexes]),
+        Subset(dataset, dsett1[indexes]),
     )
 
 

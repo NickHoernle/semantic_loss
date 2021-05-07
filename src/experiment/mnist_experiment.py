@@ -7,15 +7,24 @@ import numpy as np
 from symbolic import train
 from symbolic.symbolic import ConstantEqualityGenerative
 from symbolic.utils import AccuracyMeter, AverageMeter, save_figure
-from experiment.datasets import get_train_valid_loader, get_test_loader
+from experiment.datasets import get_train_valid_loader, get_test_loader, resampled_train
 from experiment.generative import MnistVAE, ConstrainedMnistVAE
 from torch.distributions.normal import Normal
 from experiment.class_mapping import mnist_domain_knowledge as knowledge
+from experiment.class_mapping import flat_class_mapping as flat_knowledge
+
+from torch.distributions.categorical import Categorical
 
 import matplotlib
 import matplotlib.pyplot as plt
+import random
+import math
 
 matplotlib.use("Agg")
+
+EPS_START = 0.9
+EPS_END = 0.05
+EPS_DECAY = 200
 
 
 class BaseMNISTExperiment(train.Experiment):
@@ -49,12 +58,12 @@ class BaseMNISTExperiment(train.Experiment):
         return f"{self.name}-{self.lr}_{self.seed}_{self.sloss}_{self.batch_size}"
 
     def get_loaders(self):
-        train_loader, val_loader, classes = get_train_valid_loader(
+        train_loader, val_loader, classes, train_indexes = get_train_valid_loader(
             data_dir=self.dataset_path,
             batch_size=self.batch_size,
             augment=False,
             random_seed=self.seed,
-            valid_size=0.1,
+            valid_size=0.3,
             shuffle=True,
             dataset=self.dataset,
             num_workers=self.num_workers,
@@ -72,9 +81,22 @@ class BaseMNISTExperiment(train.Experiment):
             do_normalize=False,
         )
 
+        self.train_indexes = train_indexes
         self.classes = classes
 
         return train_loader, val_loader, test_loader
+
+    def train_loader_shuffler(self, train_loader):
+        return resampled_train(
+            train_idx=self.train_indexes,
+            data_dir=self.dataset_path,
+            batch_size=self.batch_size,
+            augment=False,
+            dataset=self.dataset,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            do_normalize=False,
+        )
 
     def create_model(self):
         return MnistVAE(
@@ -93,33 +115,35 @@ class BaseMNISTExperiment(train.Experiment):
 
     def plot_model_samples(self, epoch, model):
         fig, axes = plt.subplots(10, 10, figsize=(20, 15))
+        model.eval()
 
         for i, row in enumerate(axes):
+            z_ = torch.randn((1, self.zdim))
             for j, ax in enumerate(row):
-                y_onehot = torch.zeros((1, 10)).float()
-                y_onehot[:, j] = 1
-
-                # mu_p, lv_p = model.get_priors(y_onehot)
+                # y_onehot = torch.zeros((1, 10)).float()
+                # y_onehot[:, j] = 1
+                # lbl = torch.ones(1).long() * j
+                # mu_p, lv_p = model.get_priors(lbl)
                 # std = torch.exp(0.5 * lv_p)
-                # z = mu_p + std * torch.randn((1, self.zdim))
-                z = torch.randn((1, self.zdim))
+                # z = mu_p + std * z_
 
-                # recon = model.decode_one(torch.cat((z, y_onehot), dim=1))
-                recon = model.decode_one(z, y_onehot)
+                recon = model.decode_one(z_, label=j)
 
                 ax.imshow(
                     (
-                        torch.sigmoid(recon[0]).view(28, 28).detach().numpy() * 255
+                        torch.sigmoid(recon[0]).view(
+                            28, 28).detach().numpy() * 255
                     ).astype(np.uint8),
                     cmap="gray_r",
                 )
                 ax.grid(False)
                 ax.set_axis_off()
-        fig_file = os.path.join(self.figures_directory, f"sample_epoch_{epoch}.png")
+        fig_file = os.path.join(self.figures_directory,
+                                f"sample_epoch_{epoch}.png")
         save_figure(fig, fig_file, self)
 
     def plot_sampled_images(self, loader):
-        fig, axes = plt.subplots(15, 3, figsize=(10, 45))
+        fig, axes = plt.subplots(15, 4, figsize=(10, 45))
         for i, data in enumerate(loader):
             for j in range(15):
                 if j >= 15:
@@ -128,6 +152,7 @@ class BaseMNISTExperiment(train.Experiment):
                     (in_data1, in_target1),
                     (in_data2, in_target2),
                     (in_data3, in_target3),
+                    (in_data4, in_target4),
                 ) = data
                 axes[j, 0].imshow(
                     (in_data1[j, 0].numpy() * 255).astype(np.uint8), cmap="gray_r"
@@ -141,12 +166,19 @@ class BaseMNISTExperiment(train.Experiment):
                     (in_data3[j, 0].numpy() * 255).astype(np.uint8), cmap="gray_r"
                 )
                 axes[j, 2].set_title(in_target3[j])
+                axes[j, 3].imshow(
+                    (in_data4[j, 0].numpy() * 255).astype(np.uint8), cmap="gray_r"
+                )
+                axes[j, 3].set_title(in_target4[j])
+
                 axes[j, 0].grid(False)
                 axes[j, 0].set_axis_off()
                 axes[j, 1].grid(False)
                 axes[j, 1].set_axis_off()
                 axes[j, 2].grid(False)
                 axes[j, 2].set_axis_off()
+                axes[j, 3].grid(False)
+                axes[j, 3].set_axis_off()
             break
 
         fig_file = os.path.join(self.figures_directory, f"example_data.png")
@@ -174,34 +206,37 @@ class BaseMNISTExperiment(train.Experiment):
         }
 
     def get_input_data(self, data):
-        (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3) = data
+        (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3), (in_data4, in_target4) = data
 
         in_data1 = in_data1.to(self.device).view(len(in_data1), -1)
         in_data2 = in_data2.to(self.device).view(len(in_data2), -1)
         in_data3 = in_data3.to(self.device).view(len(in_data3), -1)
+        in_data4 = in_data4.to(self.device).view(len(in_data4), -1)
 
-        return (in_data1, in_data2, in_data3)
+        return (in_data1, in_data2, in_data3, in_data4)
 
     def get_target_data(self, data):
-        (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3) = data
+        (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3), (in_data4, in_target4) = data
 
         in_data1 = in_data1.to(self.device).view(len(in_data1), -1)
         in_data2 = in_data2.to(self.device).view(len(in_data2), -1)
         in_data3 = in_data3.to(self.device).view(len(in_data3), -1)
+        in_data4 = in_data4.to(self.device).view(len(in_data4), -1)
 
         in_target1 = in_target1.to(self.device)
         in_target2 = in_target2.to(self.device)
         in_target3 = in_target3.to(self.device)
+        in_target4 = in_target4.to(self.device)
 
-        in_data = (in_data1, in_data2, in_data3)
-        labels = (in_target1, in_target2, in_target3)
+        in_data = (in_data1, in_data2, in_data3, in_data4)
+        labels = (in_target1, in_target2, in_target3, in_target4)
 
         return in_data, labels
 
     def criterion(self, output, target, train=True):
 
-        (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
+        (tgt1, tgt2, tgt3, tgt4), (lbl1, lbl2, lbl3, lbl4) = target
+        (recons1, recons2, recons3, recons4), (lp1, lp2, lp3, lp4), logpy = output
         ll1, ll2, ll3 = [], [], []
 
         for i in range(10):
@@ -220,8 +255,8 @@ class BaseMNISTExperiment(train.Experiment):
         )
 
     def update_train_meters(self, loss, output, target):
-        (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
+        (tgt1, tgt2, tgt3, tgt4), (lbl1, lbl2, lbl3, lbl4) = target
+        (recons1, recons2, recons3, recons4), (lp1, lp2, lp3, lp4), logpy = output
 
         # TODO: note you should actually measure the most likely prediction...
         self.losses["loss"].update(loss.data.item(), tgt1.size(0))
@@ -278,7 +313,7 @@ class BaseMNISTExperiment(train.Experiment):
         return False
 
 
-def calc_ll(params, target, beta=1.0):
+def calc_ll(params, target, w=1.0):
     """
     Helper to calculate the ll of a single prediction for one of the images that are being processed
     """
@@ -287,18 +322,13 @@ def calc_ll(params, target, beta=1.0):
     # std = torch.exp(0.5 * lv)
     # std_prior = torch.exp(0.5 * lv_prior)
 
-    # kld = (Normal(mu, std).log_prob(z) - Normal(mu_prior, std_prior).log_prob(z)).sum(
-    #     dim=1
-    # )
     rcon = F.binary_cross_entropy_with_logits(recon, target, reduction="none").sum(
         dim=-1
     )
 
-    # kld = (-0.5 + lv_prior - lv + (lv.exp() + (mu - mu_prior).pow(2))/(2*lv_prior.exp())).sum(dim=1)
-    kld =  -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp())
+    kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1)
 
-    return rcon + kld
-
+    return rcon + w*kld
 
 class ConstrainedMNIST(BaseMNISTExperiment):
     def __init__(
@@ -306,7 +336,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         **kwargs,
     ):
         kwargs["sloss"] = True
-        self.beta = 1.0
+        self.beta = 1.
         super().__init__(**kwargs)
 
     @property
@@ -345,65 +375,94 @@ class ConstrainedMNIST(BaseMNISTExperiment):
 
         weight = np.max([0, self.beta])
 
-        (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (r1, r2, r3), (lp1, lp2, lp3), logpy = output
+        (tgt1, tgt2, tgt3, tgt4), (lbl1, lbl2, lbl3, lbl4) = target
+        (r1, r2, r3, r4), (lp1, lp2, lp3, lp4), logpy = output
 
         # reconstruction accuracies
-        ll1 = torch.stack([calc_ll(r, tgt1) for r in r1], dim=1)
-        ll2 = torch.stack([calc_ll(r, tgt2) for r in r2], dim=1)
-        ll3 = torch.stack([calc_ll(r, tgt3) for r in r3], dim=1)
+        ll1 = torch.stack([calc_ll(r, tgt1, self.kl_weight) for r in r1], dim=1)
+        ll2 = torch.stack([calc_ll(r, tgt2, self.kl_weight) for r in r2], dim=1)
+        ll3 = torch.stack([calc_ll(r, tgt3, self.kl_weight) for r in r3], dim=1)
+        ll4 = torch.stack([calc_ll(r, tgt4, self.kl_weight) for r in r3], dim=1)
 
-        llik, ll = self.model.logic_decoder((ll1, ll2, ll3, lp1, lp2, lp3), logpy)
-        recon_losses, labels = llik.min(dim=1)
+        llik, ll = self.model.logic_decoder((ll1, ll2, ll3, ll4, lp1, lp2, lp3, lp4), logpy)
 
-        loss = (logpy.exp() * (llik + logpy)).sum(dim=-1).mean()
-        loss += weight * recon_losses.mean()
-        loss += weight * F.nll_loss(logpy, labels)
+        lp3 = lp3.log_softmax(dim=1)
+        lp4 = lp4.log_softmax(dim=1)
+
+        lp = []
+        ll = []
+        for k, val in knowledge.items():
+            ll += [(ll3[:, 1 * (k >= 10)] + ll4[:, (k % 10)])/2]
+            lp += [(lp3[:, 1 * (k >= 10)] + lp4[:, (k % 10)])]
+
+        lp = torch.stack(lp, dim=1).log_softmax(dim=1)
+        lp_ = []
+        for l1, l2, k in flat_knowledge:
+            lp_.append(lp[:, k])
+
+        # ll = torch.stack(ll, dim=1)
+        lp_ = torch.stack(lp_, dim=1)
+
+        recon, labels = llik.min(dim=1)
+        loss = (logpy.exp() * (llik + logpy - lp_)).sum(dim=1).mean()
+        # loss += (lp.exp() * (ll + lp)).sum(dim=1).mean()
 
         return loss
 
-    def iter_start_hook(self, iteration_count, model, data):
-        if iteration_count % 2 == 0:
-            model.encoder.eval()
-            model.label_predict.eval()
-            # model.label_encoder.eval()
-            model.mu.eval()
-            model.lv.eval()
+    def iter_start_hook(self, iteration_count, epoch, model, data):
+
+        self.beta = np.max([0, .95-epoch*0.05])
+        self.kl_weight = np.max([1, 20-epoch])
+
+        if len(data[0][0]) <= 1:
+            return False
+        return True
 
     def init_meters(self):
         loss = AverageMeter()
+        mae = AverageMeter()
         acc = AccuracyMeter()
         entropy = AverageMeter()
         self.losses = {
             "loss": loss,
             "accuracy": acc,
             "entropy": entropy,
+            "mae": mae
         }
 
     def update_train_meters(self, loss, output, target):
-        (tgt1, tgt2, tgt3), (lbl1, lbl2, lbl3) = target
-        (recons1, recons2, recons3), (lp1, lp2, lp3), logpy = output
+        (tgt1, tgt2, tgt3, tgt4), (lbl1, lbl2, lbl3, lbl4) = target
+        (r1, r2, r3, r4), (lp1, lp2, lp3, lp4), logpy = output
 
-        vals = (
-            torch.tensor([k for k, vals in knowledge.items() for v in vals])[None, :]
-            .repeat(len(logpy), 1)
-            .to(self.device)
-        )
-        acc = (
-            (vals[np.arange(len(logpy)), logpy.argmax(dim=1)] == lbl3).float()
-        ).tolist()
+        vals = torch.tensor(flat_knowledge).to(self.device)
+        pred1 = vals[:, 0][logpy.argmax(dim=1)]
+        pred2 = vals[:, 1][logpy.argmax(dim=1)]
+        # pred3 = vals[:, 2][logpy.argmax(dim=1)]
+
+        acc1 = ((pred1 == lbl1).float()).tolist()
+        acc2 = ((pred2 == lbl2).float()).tolist()
+        # acc3 = ((pred3 == lbl3).float()).tolist()
 
         self.losses["loss"].update(loss.data.item(), tgt1.size(0))
-        self.losses["accuracy"].update(acc, tgt3.size(0))
+        self.losses["accuracy"].update(acc1, tgt3.size(0))
+        self.losses["accuracy"].update(acc2, tgt3.size(0))
+        # self.losses["accuracy"].update(acc3, tgt3.size(0))
         self.losses["entropy"].update(
             (-(logpy.exp() * logpy).sum(dim=1)).mean().data.item(),
             tgt3.size(0),
+        )
+        self.losses["mae"].update(
+            (
+                (pred1 - lbl1).float().pow(2).sqrt() +
+                (pred2 - lbl2).float().pow(2).sqrt()
+                # (pred3 - lbl3).float().pow(2).sqrt()
+            ).mean().data.item(),
+            lbl3.size(0)
         )
 
     def epoch_finished_hook(self, epoch, model, val_loader):
         if self.device == "cpu":
             self.plot_model_samples(epoch, model)
-        self.beta -= 0.05
 
     def update_test_meters(self, loss, output, target):
         self.update_train_meters(loss, output, target)
@@ -414,6 +473,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
             f"Time {round(batch_time.val, 3)} ({round(batch_time.avg, 3)})\t"
             f'Loss {round(self.losses["loss"].val, 3)} ({self.losses["loss"].avg})\t'
             f'Acc {round(self.losses["accuracy"].val, 3)} ({round(self.losses["accuracy"].avg, 3)})\t'
+            f'MAE {round(self.losses["mae"].val, 3)} ({round(self.losses["mae"].avg, 3)})\t'
             f'Ent {round(self.losses["entropy"].val, 3)} ({round(self.losses["entropy"].avg, 3)})\n'
         )
 
@@ -421,6 +481,7 @@ class ConstrainedMNIST(BaseMNISTExperiment):
         text = (
             f'{type} [{epoch+1}/{self.epochs}]: Loss {round(self.losses["loss"].avg, 3)}\t '
             f'Acc {round(self.losses["accuracy"].avg, 3)} \t'
+            f'MAE {round(self.losses["mae"].avg, 3)} \t'
             f'Ent {round(self.losses["entropy"].avg, 3)} \n'
         )
 
