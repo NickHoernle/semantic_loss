@@ -14,7 +14,9 @@ class ConstrainedModel(nn.Module):
         self.encoder = WideResNet(depth, classes, widen_factor, dropRate=dropRate)
 
         self.logic_pred = nn.Sequential(
-            nn.ReLU(), nn.BatchNorm1d(self.classes), nn.Linear(self.nterms)
+            nn.ReLU(),
+            nn.BatchNorm1d(self.nclasses),
+            nn.Linear(self.nclasses, self.nterms)
         )
 
         self.decoder = OrList(terms=layers)
