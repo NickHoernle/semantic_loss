@@ -309,15 +309,20 @@ def main(experiment):
 
     experiment.log(f"Best loss: {experiment.best_loss}")
 
+    experiment.log("======== TESTING ON UNSEEN DATA =========", True)
+
     final_model_val_acc = validate(test_loader, model, 0, experiment)
+
+    experiment.log("======== USE FINAL MODEL =========", True)
+    experiment.iter_done(epoch=epoch, type="Test ")
+    experiment.log(f"Final Model accuracy ====> {final_model_val_acc}", True)
+
+    experiment.log("======== USE BEST MODEL =========", True)
     checkpoint = torch.load(experiment.best_checkpoint)
     model.load_state_dict(checkpoint["state_dict"])
     best_model_val_acc = validate(test_loader, model, 0, experiment)
-
-    experiment.log("======== TESTING ON UNSEEN DATA =========", True)
-    experiment.log("======== USE FINAL MODEL =========", True)
-    experiment.log(f"Final Model accuracy ====> {final_model_val_acc}", True)
-    experiment.log("======== USE BEST MODEL =========", True)
+    
+    experiment.iter_done(epoch=epoch, type="Test ")
     experiment.log(f"Final Model accuracy ====> {best_model_val_acc}", True)
 
     all_results_file.write(f"{experiment.params}: {best_model_val_acc}")
