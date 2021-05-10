@@ -264,6 +264,8 @@ def main(experiment):
     # no current support for parallel GPU execution
     model = model.to(device)
 
+    print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in model.parameters()])))
+
     # optionally resume from a checkpoint
     if experiment.resume:
         if os.path.isfile(experiment.checkpoint):
