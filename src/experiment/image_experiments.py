@@ -75,7 +75,7 @@ class BaseImageExperiment(train.Experiment):
         return self.class_idxs_
 
     def get_loaders(self):
-        train_loader, val_loader, classes = get_train_valid_loader(
+        train_loader, val_loader, classes, _ = get_train_valid_loader(
             data_dir=self.dataset_path,
             batch_size=self.batch_size,
             augment=self.augment,
