@@ -7,6 +7,7 @@ from experiment.datasets import *
 from experiment.constrainedwideresnet import ConstrainedModel
 from experiment.wideresnet import WideResNet
 from experiment.class_mapping import *
+import torch.nn as nn
 
 
 class BaseImageExperiment(train.Experiment):
@@ -51,6 +52,8 @@ class BaseImageExperiment(train.Experiment):
         self.class_idxs_ = []
 
         super().__init__(**kwargs)
+
+        self.loss_criterion = nn.CrossEntropyLoss().to(self.device)
 
     @property
     def class_mapping(self):
@@ -174,11 +177,11 @@ class BaseImageExperiment(train.Experiment):
                     torch.stack([target == k for k in ixs], dim=1).any(dim=1)
                 ).long()
             target = new_tgts
-            loss = F.cross_entropy(class_pred, target)
+            loss = self.loss_criterion(class_pred, target)
 
         else:
             class_preds = output
-            loss = F.cross_entropy(class_preds, target)
+            loss = self.loss_criterion (class_preds, target)
 
         return loss
 
@@ -222,6 +225,7 @@ class BaseImageExperiment(train.Experiment):
 
     def update_test_meters(self, loss, output, target):
         self.losses["loss"].update(loss.data.item(), target.size(0))
+
         self.losses["accuracy"].update(
             (output.data.argmax(dim=1) == target).tolist(), target.size(0)
         )
