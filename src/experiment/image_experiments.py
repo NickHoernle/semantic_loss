@@ -150,7 +150,8 @@ class BaseImageExperiment(train.Experiment):
         for j, ixs in enumerate(self.class_idxs[1:]):
             new_tgts += (j + 1) * (
                 torch.stack([targets == k for k in ixs], dim=1).any(dim=1)
-            ).long()
+            ).long().to(self.device)
+
         return (targets, new_tgts)
 
     def criterion(self, output, targets, train=True):
@@ -229,23 +230,33 @@ class BaseImageExperiment(train.Experiment):
             cp, logic_preds = output
             ixs = np.arange(target.size(0))
             class_preds = cp[ixs, logic_preds.argmax(dim=1)]
-        else:
-            class_preds = output
 
-        if self.superclass:
             self.losses["accuracy"].update(
-                (class_preds.argmax(dim=1) == sc_target).tolist(), target.size(0)
+                (class_preds.argmax(dim=1) == target).tolist(), target.size(0)
+            )
+            self.losses["superclass_accuracy"].update(
+                (logic_preds.argmax(dim=1) == sc_target).tolist(),
+                target.data.shape[0],
             )
 
+        elif self.superclass:
+            self.losses["accuracy"].update(
+                (output.argmax(dim=1) == sc_target).tolist(), target.size(0)
+            )
+        else:
             forward_mapping = [int(c) for ixs in self.class_idxs for c in ixs]
 
-            split = class_preds.softmax(dim=1)[:, forward_mapping].split(
+            split = output.softmax(dim=1)[:, forward_mapping].split(
                 [len(i) for i in self.class_idxs], dim=1
             )
             new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
 
+            self.losses["accuracy"].update(
+                (output.argmax(dim=1) == target).tolist(), target.size(0)
+            )
+
             self.losses["superclass_accuracy"].update(
-                (new_pred.data.argmax(dim=1) == sc_target).tolist(), class_preds.data.shape[0]
+                (new_pred.data.argmax(dim=1) == sc_target).tolist(), output.data.shape[0]
             )
 
     def log_iter(self, epoch, batch_time):
