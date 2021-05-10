@@ -292,7 +292,6 @@ def main(experiment):
     experiment.warmup_hook(model, train_loader)
 
     for epoch in range(experiment.start_epoch, experiment.epochs):
-
         # train for one epoch
         train(train_loader, model, optimizer, scheduler, epoch, experiment)
 
@@ -336,8 +335,7 @@ def main(experiment):
     experiment.iter_done(epoch=epoch, type="Test ")
     experiment.log(f"Final Model accuracy ====> {best_model_val_acc}", True)
 
-
-    all_results_file.write(f"{experiment.params}: {best_model_val_loss}")
+    all_results_file.write(f"{experiment.params}: {best_model_val_acc}")
     all_results_file.close()
     experiment.logfile.close()
     return 0
@@ -376,6 +374,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
         if experiment.clip_grad_norm > 0:
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(), experiment.clip_grad_norm)
+
         optimizer.step()
         scheduler.step()
 

@@ -151,9 +151,10 @@ class BaseImageExperiment(train.Experiment):
             new_tgts += (j + 1) * (
                 torch.stack([targets == k for k in ixs], dim=1).any(dim=1)
             ).long()
-        return new_tgts
+        return (targets, new_tgts)
 
-    def criterion(self, output, target, train=True):
+    def criterion(self, output, targets, train=True):
+        (target, sc_target) = targets
         if self.sloss and train:
             class_preds, logic_preds = output
             ll = []
@@ -174,11 +175,15 @@ class BaseImageExperiment(train.Experiment):
             loss += recon_losses.mean()
             loss += F.nll_loss(logic_preds, labels)
 
+        elif self.superclass:
+            loss = self.loss_criterion(output, sc_target)
         else:
             loss = self.loss_criterion(output, target)
         return loss
 
-    def update_train_meters(self, loss, output, target):
+    def update_train_meters(self, loss, output, targets):
+        (target, sc_target) = targets
+
         self.losses["loss"].update(loss.data.item(), target.size(0))
 
         if self.sloss:
@@ -188,20 +193,19 @@ class BaseImageExperiment(train.Experiment):
         else:
             class_preds = output
 
-        self.losses["accuracy"].update(
-            (class_preds.argmax(dim=1) == target).tolist(), target.size(0)
-        )
+        if self.superclass:
+            self.losses["accuracy"].update(
+                (class_preds.argmax(dim=1) == sc_target).tolist(), target.size(0)
+            )
 
-        if not self.superclass:
-            new_tgts = torch.zeros_like(target)
-            for i, ixs in enumerate(self.class_idxs[1:]):
-                new_tgts += (i + 1) * (
-                    torch.stack([target == i for i in ixs], dim=1).any(dim=1)
-                )
+        else:
+            self.losses["accuracy"].update(
+                (class_preds.argmax(dim=1) == target).tolist(), target.size(0)
+            )
 
             if self.sloss:
                 self.losses["superclass_accuracy"].update(
-                    (logic_preds.argmax(dim=1) == new_tgts).tolist(),
+                    (logic_preds.argmax(dim=1) == sc_target).tolist(),
                     target.data.shape[0],
                 )
             else:
@@ -212,11 +216,13 @@ class BaseImageExperiment(train.Experiment):
                 )
                 new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
                 self.losses["superclass_accuracy"].update(
-                    (new_pred.data.argmax(dim=1) == new_tgts).tolist(),
+                    (new_pred.data.argmax(dim=1) == sc_target).tolist(),
                     output.data.shape[0],
                 )
 
-    def update_test_meters(self, loss, output, target):
+    def update_test_meters(self, loss, output, targets):
+        (target, sc_target) = targets
+
         self.losses["loss"].update(loss.data.item(), target.size(0))
 
         if self.sloss:
@@ -226,16 +232,11 @@ class BaseImageExperiment(train.Experiment):
         else:
             class_preds = output
 
-        self.losses["accuracy"].update(
-            (class_preds.data.argmax(dim=1) == target).tolist(), target.size(0)
-        )
+        if self.superclass:
+            self.losses["accuracy"].update(
+                (class_preds.argmax(dim=1) == sc_target).tolist(), target.size(0)
+            )
 
-        if not self.superclass:
-            new_tgts = torch.zeros_like(target)
-            for i, ixs in enumerate(self.class_idxs[1:]):
-                new_tgts += (i + 1) * (
-                    torch.stack([target == i for i in ixs], dim=1).any(dim=1)
-                )
             forward_mapping = [int(c) for ixs in self.class_idxs for c in ixs]
 
             split = class_preds.softmax(dim=1)[:, forward_mapping].split(
@@ -244,7 +245,7 @@ class BaseImageExperiment(train.Experiment):
             new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
 
             self.losses["superclass_accuracy"].update(
-                (new_pred.data.argmax(dim=1) == new_tgts).tolist(), class_preds.data.shape[0]
+                (new_pred.data.argmax(dim=1) == sc_target).tolist(), class_preds.data.shape[0]
             )
 
     def log_iter(self, epoch, batch_time):
