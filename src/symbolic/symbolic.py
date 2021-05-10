@@ -16,19 +16,14 @@ class ConstantEqualityGenerative(nn.Module):
         self.ixs_inactive = ixs_inactive
 
     def forward(self, x):
-        ll1, ll2, ll3, lp1, lp2, lp3 = x
+        ll1, ll2, ll3, ll4, lp1, lp2, lp3, lp4 = x
 
-        lr = 0
-        for i, (ll, lp) in enumerate([[ll1, lp1], [ll2, lp2], [ll3, lp3]]):
-            sll1 = ll[:, self.ixs_active[i]]
-            slp1 = lp.softmax(dim=1)[:, self.ixs_active[i]]
-
-            s11 = (torch.ones_like(slp1) + slp1).detach() - slp1
-            # s12 = (torch.zeros_like(slp2) + slp2).detach() - slp2
-
-            lr += s11 * sll1
-
-        return lr
+        sll1 = ll1[:, self.ixs_active[0]]
+        sll2 = ll2[:, self.ixs_active[1]]
+        sll3 = ll3[:, 1 * (self.ixs_active[2] >= 10)]
+        sll4 = ll4[:, (self.ixs_active[2] % 10)]
+        
+        return (sll1 + sll2 + sll3 + sll4)/4
 
 
 class GEQConstant(nn.Module):
@@ -104,7 +99,8 @@ class GEQ_Interaction(nn.Module):
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_less_than]
 
-        split1 = F.softplus(split1 - self.threshold_lower) + self.threshold_lower
+        split1 = F.softplus(split1 - self.threshold_lower) + \
+            self.threshold_lower
         # find the perpendicular vector to the line defined by weights
         a = -torch.tensor(self.weights).float().to(self.device).unsqueeze(1)
         dot_prod = split1.mm(a)
@@ -155,14 +151,16 @@ class Between(nn.Module):
         split2 = x[:, self.ixs_less_than]
 
         greater_than = (
-            F.softplus(split1 - self.threshold_upper[0]) + self.threshold_upper[0]
+            F.softplus(
+                split1 - self.threshold_upper[0]) + self.threshold_upper[0]
         )
         less_than = (
             -F.softplus(-greater_than + self.threshold_upper[1])
             + self.threshold_upper[1]
         )
 
-        restricted2 = -F.softplus(-split2 + self.threshold_lower) + self.threshold_lower
+        restricted2 = - \
+            F.softplus(-split2 + self.threshold_lower) + self.threshold_lower
 
         return torch.cat((less_than, restricted2), dim=1)[:, self.reverse_transform]
 
@@ -200,7 +198,8 @@ class Box(nn.Module):
         offset = torch.log(
             torch.exp(self.lims[:, 1][None, :] - self.lims[:, 0][None, :]) - 1
         )
-        less_than = -F.softplus(-greater_than + offset) + self.lims[:, 1][None, :]
+        less_than = -F.softplus(-greater_than + offset) + \
+            self.lims[:, 1][None, :]
 
         return torch.cat((less_than, split2), dim=1)[:, self.reverse_transform]
 
@@ -214,7 +213,8 @@ class RotatedBox(Box):
         theta=0.0,
         **kwargs
     ):
-        super(RotatedBox, self).__init__(constrained_ixs, not_constrained_ixs, lims)
+        super(RotatedBox, self).__init__(
+            constrained_ixs, not_constrained_ixs, lims)
         self.theta = theta
         self.inverse_rotation_matrix = torch.tensor(
             [
@@ -252,7 +252,8 @@ class RotatedBox(Box):
         offset = torch.log(
             torch.exp(self.lims[:, 1][None, :] - self.lims[:, 0][None, :]) - 1
         )
-        less_than = -F.softplus(-greater_than + offset) + self.lims[:, 1][None, :]
+        less_than = -F.softplus(-greater_than + offset) + \
+            self.lims[:, 1][None, :]
 
         return torch.cat((self.rotate(less_than), split2), dim=1)[
             :, self.reverse_transform
