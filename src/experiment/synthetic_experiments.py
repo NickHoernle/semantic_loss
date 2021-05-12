@@ -3,8 +3,7 @@ from experiment.datasets import (get_synthetic_loaders)
 from symbolic.utils import (AccuracyMeter, AverageMeter, save_figure)
 from symbolic import train
 from symbolic import symbolic
-from training.supervised.oracles import DL2_Oracle
-import dl2lib.query as q
+
 import dl2lib as dl2
 import pdb
 import math
@@ -59,9 +58,8 @@ class BaseSyntheticExperiment(train.Experiment):
         train_loader.dataset.sampler.plot(ax=ax, with_term_labels=False)
         fig_file = os.path.join(self.figures_directory, f"generated_data.png")
 
-        ax.legend(loc="best")
         # draw the constraints here
-        for term in self.logic_terms:
+        for k, term in enumerate(self.logic_terms):
 
             p1 = term.rotate(term.lims[[0, 1], [0, 1]][None, :]).squeeze()
             p2 = term.rotate(term.lims[[0, 1], [0, 0]][None, :]).squeeze()
@@ -71,11 +69,15 @@ class BaseSyntheticExperiment(train.Experiment):
             # import pdb
             # pdb.set_trace()
 
-            ax.plot([p1[0], p2[0]], [p1[1], p2[1]], c="C3")
+            if k == 0:
+                ax.plot([p1[0], p2[0]], [p1[1], p2[1]], c="C3", label="Constraint Boundary")
+            else:
+                ax.plot([p1[0], p2[0]], [p1[1], p2[1]], c="C3")
             ax.plot([p3[0], p4[0]], [p3[1], p4[1]], c="C3")
             ax.plot([p2[0], p4[0]], [p2[1], p4[1]], c="C3")
             ax.plot([p1[0], p3[0]], [p1[1], p3[1]], c="C3")
 
+        ax.legend(loc="best")
         save_figure(fig, fig_file, self)
 
     def plot_validation_reconstructions(self, epoch, model, loader):
@@ -183,10 +185,10 @@ class BaseSyntheticExperiment(train.Experiment):
             recon_losses, labels = pred_loss.min(dim=1)
 
             kld = -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1).mean()
-            loss = (log_py.exp() * (pred_loss + log_py - log_prior)
-                    ).sum(dim=1).mean()
-            loss += recon_losses.mean()
-            loss += F.nll_loss(log_py, labels)
+            loss = (log_py.exp() * (pred_loss + log_py)).sum(dim=1).mean()
+            # print()
+            # loss += recon_losses.mean()
+            # loss += F.nll_loss(log_py, labels)
             loss += kld
 
             return loss
@@ -256,53 +258,54 @@ class FullyKnownConstraintsSyntheticExperiment(BaseSyntheticExperiment):
     @property
     def logic_terms(self):
         ll = 0.5
+        ul = 6
         return [
             symbolic.RotatedBox(
                 constrained_ixs=[0, 1],
                 not_constrained_ixs=[],
-                lims=((-ll, ll), (-5.5, -2.5)),
+                lims=((-ll, ll), (-ul, -2.5)),
                 theta=np.pi,
             ),
             symbolic.RotatedBox(
                 constrained_ixs=[0, 1],
                 not_constrained_ixs=[],
-                lims=((-ll, ll), (-5.5, -2.5)),
+                lims=((-ll, ll), (-ul, -2.5)),
                 theta=np.pi / 4,
             ),
             symbolic.RotatedBox(
                 constrained_ixs=[0, 1],
                 not_constrained_ixs=[],
-                lims=((-ll, ll), (-5.5, -2.5)),
+                lims=((-ll, ll), (-ul, -2.5)),
                 theta=2 * np.pi / 4,
             ),
             symbolic.RotatedBox(
                 constrained_ixs=[0, 1],
                 not_constrained_ixs=[],
-                lims=((-ll, ll), (-5.5, -2.5)),
+                lims=((-ll, ll), (-ul, -2.5)),
                 theta=3 * np.pi / 4,
             ),
             symbolic.RotatedBox(
                 constrained_ixs=[0, 1],
                 not_constrained_ixs=[],
-                lims=((-ll, ll), (-5.5, -2.5)),
+                lims=((-ll, ll), (-ul, -2.5)),
                 theta=0,
             ),
             symbolic.RotatedBox(
                 constrained_ixs=[0, 1],
                 not_constrained_ixs=[],
-                lims=((-ll, ll), (-5.5, -2.5)),
+                lims=((-ll, ll), (-ul, -2.5)),
                 theta=5 * np.pi / 4,
             ),
             symbolic.RotatedBox(
                 constrained_ixs=[0, 1],
                 not_constrained_ixs=[],
-                lims=((-ll, ll), (-5.5, -2.5)),
+                lims=((-ll, ll), (-ul, -2.5)),
                 theta=6 * np.pi / 4,
             ),
             symbolic.RotatedBox(
                 constrained_ixs=[0, 1],
                 not_constrained_ixs=[],
-                lims=((-ll, ll), (-5.5, -2.5)),
+                lims=((-ll, ll), (-ul, -2.5)),
                 theta=7 * np.pi / 4,
             ),
         ]
@@ -356,16 +359,16 @@ class DL2SyntheticExperiment(PartiallyKnownConstraintsSyntheticExperiment):
         # self.oracle = DL2_Oracle(learning_rate=0.01, net=self.model, constraint=constraint, use_cuda=use_cuda)
         parser = argparse.ArgumentParser(description='desc')
         # parser.add("--eps-const", type=float, default=1e-5, required=False, help="the epsilon for boolean constants")
-        parser.add("--eps-check", type=float, default=0, required=False,
+        parser.add_argument("--eps-check", type=float, default=0, required=False,
                    help="the epsilon for checking comparisons of floating point values; note that a nonzero value slightly changes the semantics of DL2")
-        parser.add_argument('--or', default='mul', type=str,
+        parser.add_argument('--or', default='min', type=str,
                             help='help this is a hack')
         try:
             self._args = parser.parse_args()
             self._args = parser.parse_known_args()[0]
         except:
             self._args = parser.parse_known_args()[0]
-        self.dl2_multiplier = 1e-4
+        self.dl2_multiplier = 1
         print("done")
 
     def __rotate_around_origin(self, xy, radians):
@@ -417,17 +420,19 @@ class DL2SyntheticExperiment(PartiallyKnownConstraintsSyntheticExperiment):
         recon, (mu, lv), _ = output
 
         thetas = [
-            np.pi,
+            # np.pi,
+            0,
             np.pi / 4,
             2 * np.pi / 4,
             3 * np.pi / 4,
-            0,
+            np.pi,
             5 * np.pi / 4,
             6 * np.pi / 4,
             7 * np.pi / 4
         ]
         ll = 0.5
-        box = [(-ll, -5.5), (ll, -5.5), (ll, -2.5), (-ll, -2.5)]
+        ul = 6
+        box = [(-ll, -ul), (ll, -ul), (ll, -2.5), (-ll, -2.5)]
         constraints = []
         for theta in thetas:
             rotation_matrix = torch.tensor(
@@ -447,11 +452,12 @@ class DL2SyntheticExperiment(PartiallyKnownConstraintsSyntheticExperiment):
         loss = self.weight * \
             F.mse_loss(recon, target, reduction="none").sum(dim=1)
 
+        loss += -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1)
+
         # dl2 constraint loss
         loss += self.dl2_multiplier * (constraint.loss(self._args))
 
         # KLD loss
-        loss += -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1).mean()
         return loss.mean()
 
 

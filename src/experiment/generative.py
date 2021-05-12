@@ -83,7 +83,7 @@ class ConstrainedVAE(LinearVAE):
             nn.Linear(self.nhidden, 2 * self.nlatent + self.nterms),
         )
 
-        self._logic_prior = nn.Parameter(torch.randn(len(terms)))
+        self._logic_prior = nn.Parameter(10*torch.ones(len(terms)), requires_grad=True)
 
     @property
     def logic_prior(self):
@@ -97,7 +97,8 @@ class ConstrainedVAE(LinearVAE):
 
         if type(labels) == type(None):
             labelz = torch.tensor(np.random.choice(np.arange(self.nterms), replace=True, size=len(
-                z), p=self.logic_prior.exp().detach().numpy())).long()
+                z)#, p=self.logic_prior.exp().detach().numpy()
+                                                   )).long()
             pred = self.logic.all_predictions(decoded)
             idxs = np.arange(len(pred))
             return pred[idxs, labelz]
