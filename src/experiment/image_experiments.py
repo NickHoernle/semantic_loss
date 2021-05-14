@@ -129,6 +129,7 @@ class BaseImageExperiment(train.Experiment):
         input_imgs, targets = data
         targets = targets.to(self.device)
         new_tgts = torch.zeros_like(targets)
+
         for j, ixs in enumerate(self.class_idxs[1:]):
             new_tgts += (j + 1) * (
                 torch.stack([targets == k for k in ixs], dim=1).any(dim=1)
@@ -140,7 +141,8 @@ class BaseImageExperiment(train.Experiment):
         pass
 
     def update_train_meters(self, loss, output, targets):
-        pass
+        (target, sc_target) = targets
+        self.losses["loss"].update(loss.data.item(), target.size(0))
 
     def update_test_meters(self, loss, output, targets):
         self.update_train_meters(loss, output, targets)
@@ -323,17 +325,17 @@ class VanillaBaseline(Cifar100Base):
             (output.argmax(dim=1) == target).tolist(), target.size(0)
         )
 
-        forward_mapping = [int(c) for ixs in self.class_idxs for c in ixs]
-
-        split = output.softmax(dim=1)[:, forward_mapping].split(
-            [len(i) for i in self.class_idxs], dim=1
-        )
-        new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
-        self.losses["superclass_accuracy"].update(
-            (new_pred.data.argmax(dim=1) == sc_target).tolist(),
-            output.data.shape[0],
-        )
-        super(VanillaBaseline, self).update_train_meters(loss, output, targets)
+        # forward_mapping = [int(c) for ixs in self.class_idxs for c in ixs]
+        #
+        # split = output.softmax(dim=1)[:, forward_mapping].split(
+        #     [len(i) for i in self.class_idxs], dim=1
+        # )
+        # new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
+        # self.losses["superclass_accuracy"].update(
+        #     (new_pred.data.argmax(dim=1) == sc_target).tolist(),
+        #     output.data.shape[0],
+        # )
+        # super(VanillaBaseline, self).update_train_meters(loss, output, targets)
 
 
 class SuperclassOnly(Cifar100Base):
