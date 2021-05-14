@@ -85,6 +85,7 @@ class BaseImageExperiment(train.Experiment):
             dataset=self.dataset,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            do_normalize=True,
         )
 
         test_loader = get_test_loader(
@@ -94,6 +95,7 @@ class BaseImageExperiment(train.Experiment):
             shuffle=True,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            do_normalize=True
         )
 
         self.classes = classes
@@ -244,11 +246,7 @@ class Cifar100Base(BaseImageExperiment):
 
 class Cifar100Experiment(Cifar100Base):
     def __init__(self, **kwargs):
-        self.dataset = "cifar100"
         self.name = "Cifar100-MultiplexNet"
-        self.num_classes = 100
-        self.num_super_classes = 20
-
         super().__init__(**kwargs)
 
     def create_model(self):
@@ -316,7 +314,7 @@ class VanillaBaseline(Cifar100Base):
 
     def criterion(self, output, targets, train=True):
         (target, sc_target) = targets
-        return self.loss_criterion(output, sc_target)
+        return self.loss_criterion(output, target)
 
     def update_train_meters(self, loss, output, targets):
         (target, sc_target) = targets
@@ -325,17 +323,17 @@ class VanillaBaseline(Cifar100Base):
             (output.argmax(dim=1) == target).tolist(), target.size(0)
         )
 
-        # forward_mapping = [int(c) for ixs in self.class_idxs for c in ixs]
-        #
-        # split = output.softmax(dim=1)[:, forward_mapping].split(
-        #     [len(i) for i in self.class_idxs], dim=1
-        # )
-        # new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
-        # self.losses["superclass_accuracy"].update(
-        #     (new_pred.data.argmax(dim=1) == sc_target).tolist(),
-        #     output.data.shape[0],
-        # )
-        # super(VanillaBaseline, self).update_train_meters(loss, output, targets)
+        forward_mapping = [int(c) for ixs in self.class_idxs for c in ixs]
+
+        split = output.softmax(dim=1)[:, forward_mapping].split(
+            [len(i) for i in self.class_idxs], dim=1
+        )
+        new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
+        self.losses["superclass_accuracy"].update(
+            (new_pred.data.argmax(dim=1) == sc_target).tolist(),
+            output.data.shape[0],
+        )
+        super(VanillaBaseline, self).update_train_meters(loss, output, targets)
 
 
 class SuperclassOnly(Cifar100Base):
