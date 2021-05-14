@@ -305,10 +305,9 @@ class VanillaBaseline(Cifar100Base):
         super().__init__(**kwargs)
 
     def create_model(self):
-        return ConstrainedModel(
+        return WideResNet(
             self.layers,
             self.num_classes,
-            self.logic_terms,
             self.widen_factor,
             dropRate=self.droprate,
         )
@@ -359,6 +358,7 @@ class SuperclassOnly(Cifar100Base):
         self.losses["accuracy"].update(
             (output.argmax(dim=1) == sc_target).tolist(), target.size(0)
         )
+        super(SuperclassOnly, self).update_train_meters(loss, output, targets)
 
 
 class HierarchicalBaseline(Cifar100Base):
@@ -395,7 +395,7 @@ class DL2Baseline(Cifar100Base):
 
 image_experiment_options = {
     "cifar10_multiplexnet": Cifar100Experiment,
-    "cifar100_baseline_full": Cifar100Experiment,
+    "cifar100_baseline_full": VanillaBaseline,
     "cifar100_baseline_superclass_only": SuperclassOnly,
     "cifar100_hierarchical_baseline": HierarchicalBaseline,
     "cifar100_dl2_baseline": DL2Baseline,
