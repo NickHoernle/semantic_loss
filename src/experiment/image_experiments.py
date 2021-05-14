@@ -169,6 +169,11 @@ class BaseImageExperiment(train.Experiment):
             return True
         return False
 
+    def run_validation(self, epoch):
+        if epoch % 5 == 0:
+            return True
+        return False
+
 
 class Cifar10Experiment(BaseImageExperiment):
     def __init__(self, **kwargs):

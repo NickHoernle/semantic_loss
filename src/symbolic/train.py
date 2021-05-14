@@ -238,6 +238,9 @@ class Experiment(ABC):
             f"[{epoch+1}/{self.epochs}]: {type}: Loss {round(self.losses.avg, 3)}"
         )
 
+    def run_validation(self, epoch):
+        return True
+
 
 def main(experiment):
 
@@ -296,20 +299,21 @@ def main(experiment):
         # train for one epoch
         train(train_loader, model, optimizer, scheduler, epoch, experiment)
 
-        # evaluate on validation set
-        val1 = validate(val_loader, model, epoch, experiment)
+        if experiment.run_validation(epoch):
+            # evaluate on validation set
+            val1 = validate(val_loader, model, epoch, experiment)
 
-        # remember best prec@1 and save checkpoint
-        is_best = experiment.update_best(val1)
-        save_checkpoint(
-            {
-                "epoch": epoch + 1,
-                "state_dict": model.state_dict(),
-                "best_prec1": experiment.best_loss,
-            },
-            is_best,
-            experiment,
-        )
+            # remember best prec@1 and save checkpoint
+            is_best = experiment.update_best(val1)
+            save_checkpoint(
+                {
+                    "epoch": epoch + 1,
+                    "state_dict": model.state_dict(),
+                    "best_prec1": experiment.best_loss,
+                },
+                is_best,
+                experiment,
+            )
         experiment.epoch_finished_hook(epoch, model, val_loader)
         train_loader = experiment.train_loader_shuffler(train_loader)
 
