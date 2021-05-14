@@ -314,7 +314,7 @@ class VanillaBaseline(Cifar100Base):
 
     def criterion(self, output, targets, train=True):
         (target, sc_target) = targets
-        return self.loss_criterion(target, sc_target)
+        return self.loss_criterion(output, sc_target)
 
     def update_train_meters(self, loss, output, targets):
         (target, sc_target) = targets
