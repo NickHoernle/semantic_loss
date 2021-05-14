@@ -77,6 +77,7 @@ class Experiment(ABC):
         self.losses = AverageMeter()
         self.best_loss = np.infty
         self.logfile_ = None
+        self.state = "train"
 
     def run(self):
         main(self)
@@ -343,6 +344,7 @@ def main(experiment):
 
 def train(train_loader, model, optimizer, scheduler, epoch, experiment):
     """Train for one epoch on the training set"""
+    experiment.state = "train"
     batch_time = AverageMeter()
     experiment.init_meters()
 
@@ -396,6 +398,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, experiment):
 
 def validate(val_loader, model, epoch, experiment):
     """Perform validation on the validation set"""
+    experiment.state = "validate"
     batch_time = AverageMeter()
     experiment.init_meters()
 

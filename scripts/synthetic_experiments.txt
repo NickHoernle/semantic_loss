@@ -1,4 +1,46 @@
-run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=100 --epochs=75 --seed=2 run
-run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=250 --epochs=75 --seed=2 run
-run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=500 --epochs=75 --seed=2 run
-run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=1000 --epochs=75 --seed=2 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=100 --epochs=75 --seed=2 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=250 --epochs=75 --seed=2 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=500 --epochs=75 --seed=2 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=1000 --epochs=75 --seed=2 run
+
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=100 --epochs=75 --seed=3 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=250 --epochs=75 --seed=3 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=500 --epochs=75 --seed=3 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=1000 --epochs=75 --seed=3 run
+
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=100 --epochs=75 --seed=4 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=250 --epochs=75 --seed=4 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=500 --epochs=75 --seed=4 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=False --size_of_train_set=1000 --epochs=75 --seed=4 run
+
+
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=100 --epochs=75 --seed=2 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=250 --epochs=75 --seed=2 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=500 --epochs=75 --seed=2 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=1000 --epochs=75 --seed=2 run
+
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=100 --epochs=75 --seed=3 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=250 --epochs=75 --seed=3 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=500 --epochs=75 --seed=3 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=1000 --epochs=75 --seed=3 run
+
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=100 --epochs=75 --seed=4 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=250 --epochs=75 --seed=4 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=500 --epochs=75 --seed=4 run
+run_synthetic_data_experiments.py synthetic_partial --learning_rate=1e-2 --baseline=True --size_of_train_set=1000 --epochs=75 --seed=4 run
+
+
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=100 --epochs=75 --seed=2 --dl2_multiplier=50 run
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=250 --epochs=75 --seed=2 --dl2_multiplier=50 run
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=500 --epochs=75 --seed=2 --dl2_multiplier=50 run
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=1000 --epochs=75 --seed=2 --dl2_multiplier=50 run
+
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=100 --epochs=75 --seed=3 --dl2_multiplier=50 run
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=250 --epochs=75 --seed=3 --dl2_multiplier=50 run
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=500 --epochs=75 --seed=3 --dl2_multiplier=50 run
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=1000 --epochs=75 --seed=3 --dl2_multiplier=50 run
+
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=100 --epochs=75 --seed=4 --dl2_multiplier=50 run
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=250 --epochs=75 --seed=4 --dl2_multiplier=50 run
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=500 --epochs=75 --seed=4 --dl2_multiplier=50 run
+run_synthetic_data_experiments.py synthetic_dl2 --learning_rate=1e-2 --baseline=True --size_of_train_set=1000 --epochs=75 --seed=4 --dl2_multiplier=50 run

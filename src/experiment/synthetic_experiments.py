@@ -345,7 +345,7 @@ class DL2SyntheticExperiment(PartiallyKnownConstraintsSyntheticExperiment):
         BaseSyntheticExperiment ([type]): [description]
     """
 
-    def __init__(self, name: str = "SyntheticDL2", **kwargs):
+    def __init__(self, dl2_multiplier = 1, name: str = "SyntheticDL2", **kwargs):
         """[summary]
 
         Args:
@@ -368,25 +368,19 @@ class DL2SyntheticExperiment(PartiallyKnownConstraintsSyntheticExperiment):
             self._args = parser.parse_known_args()[0]
         except:
             self._args = parser.parse_known_args()[0]
-        self.dl2_multiplier = 1
+        self.dl2_multiplier = dl2_multiplier
         print("done")
 
-    def __rotate_around_origin(self, xy, radians):
-        """[summary]
+    @property
+    def params(self):
+        return f"{self.name}-{self.lr}_{self.seed}_{self.baseline}_{self.size_of_train_set}_{self.dl2_multiplier}"
 
-        Args:
-            xy ([type]): [description]
-            radians ([type]): [description]
-
-        Returns:
-            [type]: [description]
-        """
-        # Only rotate a point around the origin (0, 0).
-        x, y = xy
-        xx = x * math.cos(radians) + y * math.sin(radians)
-        yy = -x * math.sin(radians) + y * math.cos(radians)
-
-        return xx, yy
+    # def get_optimizer_and_scheduler(self, model, train_loader):
+    #     optimizer = torch.optim.SGD(model.parameters(), self.lr)
+    #     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+    #         optimizer, len(train_loader) * self.epochs
+    #     )
+    #     return optimizer, scheduler
 
     def __box_to_constraint(self, box, point):
         # x, y = point
@@ -405,6 +399,7 @@ class DL2SyntheticExperiment(PartiallyKnownConstraintsSyntheticExperiment):
             dl2.GEQ(point[:, 1], min_y),
             dl2.LEQ(point[:, 1], max_y)
         ])
+
         return conditions
 
     def criterion(self, output, target):
@@ -445,6 +440,9 @@ class DL2SyntheticExperiment(PartiallyKnownConstraintsSyntheticExperiment):
             constraints.append(self.__box_to_constraint(box, rotated_recon))
         constraint = dl2.Or(constraints)
 
+        # import pdb
+        # pdb.set_trace()
+
         # pdb.set_trace()
         # self._satisfied = constraint.satisfy(self._args)
 
@@ -455,10 +453,19 @@ class DL2SyntheticExperiment(PartiallyKnownConstraintsSyntheticExperiment):
         loss += -0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp(), dim=1)
 
         # dl2 constraint loss
-        loss += self.dl2_multiplier * (constraint.loss(self._args))
+        if self.state == "train":
+            loss += self.dl2_multiplier * (constraint.loss(self._args))
 
         # KLD loss
         return loss.mean()
+
+    def epoch_finished_hook(self, *args, **kwargs):
+        # epoch = args[0]
+        # if epoch < 10:
+        #     self.dl2_multiplier = 0
+        # else:
+        #     self.dl2_multiplier = .1
+        super(DL2SyntheticExperiment, self).epoch_finished_hook(*args, **kwargs)
 
 
 synthetic_experiment_options = {
