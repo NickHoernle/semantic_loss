@@ -214,25 +214,6 @@ class Cifar100Base(BaseImageExperiment):
         self.num_super_classes = 20
         super().__init__(**kwargs)
 
-
-class Cifar100Experiment(Cifar100Base):
-    def __init__(self, **kwargs):
-        self.dataset = "cifar100"
-        self.name = "Cifar100-MultiplexNet"
-        self.num_classes = 100
-        self.num_super_classes = 20
-
-        super().__init__(**kwargs)
-
-    def create_model(self):
-        return ConstrainedModel(
-            self.layers,
-            self.num_classes,
-            self.logic_terms,
-            self.widen_factor,
-            dropRate=self.droprate,
-        )
-
     @property
     def logic_terms(self):
         idxs = [
@@ -257,6 +238,25 @@ class Cifar100Experiment(Cifar100Base):
             ]
 
         return terms
+
+
+class Cifar100Experiment(Cifar100Base):
+    def __init__(self, **kwargs):
+        self.dataset = "cifar100"
+        self.name = "Cifar100-MultiplexNet"
+        self.num_classes = 100
+        self.num_super_classes = 20
+
+        super().__init__(**kwargs)
+
+    def create_model(self):
+        return ConstrainedModel(
+            self.layers,
+            self.num_classes,
+            self.logic_terms,
+            self.widen_factor,
+            dropRate=self.droprate,
+        )
 
     def criterion(self, output, targets, train=True):
         (target, sc_target) = targets
