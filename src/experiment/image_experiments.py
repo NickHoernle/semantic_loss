@@ -5,7 +5,7 @@ from symbolic import train
 from symbolic.utils import *
 from experiment.datasets import *
 from experiment.constrainedwideresnet import ConstrainedModel
-from experiment.wideresnet import WideResNet
+from experiment.wideresnet import WideResNet, HierarchicalModel
 from experiment.class_mapping import *
 import torch.nn as nn
 
@@ -358,7 +358,7 @@ class SuperclassOnly(Cifar100Base):
         self.losses["accuracy"].update(
             (output.argmax(dim=1) == sc_target).tolist(), target.size(0)
         )
-        super(SuperclassOnly, self).update_train_meters(loss, output, targets)
+        super().update_train_meters(loss, output, targets)
 
 
 class HierarchicalBaseline(Cifar100Base):
@@ -367,12 +367,51 @@ class HierarchicalBaseline(Cifar100Base):
         super().__init__(**kwargs)
 
     def create_model(self):
-        return WideResNet(
+        return HierarchicalModel(
             self.layers, self.num_classes, self.widen_factor, dropRate=self.droprate
         )
 
+    def get_target_data(self, data):
+        input_imgs, targets = data
+        targets = targets.to(self.device)
+
+        class_pred_targets = torch.ones_like(targets)
+        superclass_pred_targets = torch.ones_like(targets)
+
+        tgts = targets.tolist()
+
+        for i, t in enumerate(tgts):
+            sc_label, c_label = hierarchical_label_structure[self.classes[t]]
+            class_pred_targets[i] *= c_label
+            superclass_pred_targets[i] *= sc_label
+
+        return class_pred_targets, superclass_pred_targets
+
     def criterion(self, output, targets, train=True):
-        pass
+        (target, sc_target) = targets
+        class_pred, sc_pred = output
+
+        loss = F.nll_loss(sc_pred, sc_target)
+        loss += F.nll_loss(class_pred, target)
+
+        return loss
+
+    def update_train_meters(self, loss, output, targets):
+        (target, sc_target) = targets
+        class_pred, sc_pred = output
+
+        self.losses["accuracy"].update(
+            (
+                (class_pred.argmax(dim=1) == target) & (sc_pred.argmax(dim=1) == sc_target)
+             ).tolist(), target.size(0)
+        )
+
+        self.losses["superclass_accuracy"].update(
+            (sc_pred.argmax(dim=1) == sc_target).tolist(),
+            target.size(0),
+        )
+
+        super().update_train_meters(loss, output, targets)
 
 
 class DL2Baseline(Cifar100Base):

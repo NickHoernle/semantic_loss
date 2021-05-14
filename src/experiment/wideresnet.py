@@ -113,3 +113,16 @@ class WideResNet(nn.Module):
         out = F.avg_pool2d(out, 8)
         out = out.view(-1, self.nChannels)
         return self.fc(out)
+
+
+class HierarchicalModel(WideResNet):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sc_pred = nn.Sequential(nn.Linear(100, 20), nn.Softmax(dim=1))
+        self.class_pred = nn.Sequential(nn.Linear(100+20, 5), nn.Softmax(dim=1))
+
+    def forward(self, x, **kwargs):
+        predictions = super(HierarchicalModel, self).forward(x, **kwargs)
+        superclass_pred = self.sc_pred(predictions)
+        class_pred = self.class_pred(torch.cat((predictions, superclass_pred), dim=1))
+        return class_pred, superclass_pred

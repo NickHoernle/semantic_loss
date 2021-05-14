@@ -101,6 +101,7 @@ superclass_mapping = {
     "tractor": "vehicles 2",
 }
 
+
 super_class_label = {
     "aquatic mammals": 0,
     "fish": 1,
@@ -124,7 +125,16 @@ super_class_label = {
     "vehicles 2": 19,
 }
 
-# 0, 'airplane', 1 'automobile', 2 'bird', 3'cat', 4 'deer', 5 'dog', 6 'frog', 7 'horse', 8 'ship', 9 'truck'
+
+seen_sc_labels = {}
+hierarchical_label_structure = {}
+for i, (label, sc_label) in enumerate(superclass_mapping.items()):
+    if sc_label not in seen_sc_labels:
+        seen_sc_labels[sc_label] = 0
+    hierarchical_label_structure[label] = (super_class_label[sc_label], seen_sc_labels[sc_label])
+    seen_sc_labels[sc_label] += 1
+
+
 cifar_10_mapping = {
     "airplane": "inanimate",
     "automobile": "inanimate",
