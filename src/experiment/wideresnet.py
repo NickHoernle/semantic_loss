@@ -118,11 +118,11 @@ class WideResNet(nn.Module):
 class HierarchicalModel(WideResNet):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.sc_pred = nn.Sequential(nn.Linear(100, 20), nn.Softmax(dim=1))
-        self.class_pred = nn.Sequential(nn.Linear(100+20, 5), nn.Softmax(dim=1))
+        self.sc_pred = nn.Sequential(nn.Linear(100, 20), nn.LogSoftmax(dim=1))
+        self.class_pred = nn.Sequential(nn.Linear(100+20, 5), nn.LogSoftmax(dim=1))
 
     def forward(self, x, **kwargs):
         predictions = super(HierarchicalModel, self).forward(x, **kwargs)
         superclass_pred = self.sc_pred(predictions)
-        class_pred = self.class_pred(torch.cat((predictions, superclass_pred), dim=1))
+        class_pred = self.class_pred(torch.cat((predictions, superclass_pred.exp()), dim=1))
         return class_pred, superclass_pred
