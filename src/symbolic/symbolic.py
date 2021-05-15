@@ -60,7 +60,7 @@ class GEQConstant(nn.Module):
         split2 = x[:, self.ixs_neg]
         split3 = x[:, self.ixs_not]
 
-        restricted1 = F.softplus(split1) + self.threshold_upper
+        restricted1 = F.softplus(split1-self.threshold_upper)+self.threshold_upper
         restricted2 = torch.ones_like(split2) * self.threshold_lower
 
         return torch.cat((restricted1, restricted2, split3), dim=1)[
