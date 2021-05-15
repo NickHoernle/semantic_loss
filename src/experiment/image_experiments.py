@@ -277,8 +277,8 @@ class Cifar100Experiment(Cifar100Base):
         recon_losses, labels = pred_loss.min(dim=1)
 
         loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
-        loss += recon_losses.mean()
-        loss += F.nll_loss(logic_preds, labels)
+        # loss += recon_losses.mean()
+        # loss += F.nll_loss(logic_preds, labels)
 
         return loss
 
@@ -301,6 +301,7 @@ class Cifar100Experiment(Cifar100Base):
     def epoch_finished_hook(self, epoch, model, val_loader):
         if epoch % 5 == 4:
             model.threshold1p()
+
 
 class VanillaBaseline(Cifar100Base):
     def __init__(self, **kwargs):
