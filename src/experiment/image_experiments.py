@@ -28,8 +28,8 @@ class BaseImageExperiment(train.Experiment):
 
     def __init__(
         self,
-        lower_limit: float = -10.0,
-        upper_limit: float = -2.0,
+        lower_limit: float = -5.89,
+        upper_limit: float = 0,
         layers: int = 28,
         widen_factor: int = 10,
         augment: bool = True,
