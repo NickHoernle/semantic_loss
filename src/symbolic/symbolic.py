@@ -128,8 +128,8 @@ class Between(nn.Module):
         self,
         ixs1,
         ixs_less_than,
-        threshold_upper=[-1.0, 1.0],
-        threshold_lower=-10,
+        threshold_upper=(0, 3),
+        threshold_lower=-5.89,
         **kwargs
     ):
         super(Between, self).__init__()
@@ -146,21 +146,15 @@ class Between(nn.Module):
         pass
 
     def forward(self, x):
-
         split1 = x[:, self.ixs1]
         split2 = x[:, self.ixs_less_than]
 
-        greater_than = (
-            F.softplus(
-                split1 - self.threshold_upper[0]) + self.threshold_upper[0]
-        )
-        less_than = (
-            -F.softplus(-greater_than + self.threshold_upper[1])
-            + self.threshold_upper[1]
-        )
+        greater_than = F.softplus(split1 - self.threshold_upper[0])
+        offset = np.log(np.exp(self.threshold_upper[1] - self.threshold_upper[0]) - 1)
 
-        restricted2 = - \
-            F.softplus(-split2 + self.threshold_lower) + self.threshold_lower
+        less_than = -F.softplus(-greater_than + offset) + self.threshold_upper[1]
+
+        restricted2 = torch.ones_like(split2) * self.threshold_lower
 
         return torch.cat((less_than, restricted2), dim=1)[:, self.reverse_transform]
 

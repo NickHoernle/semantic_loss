@@ -230,13 +230,11 @@ class Cifar100Base(BaseImageExperiment):
             all_idsx = np.arange(len(self.classes))
             not_idxs = all_idsx[~np.isin(all_idsx, ixs)].tolist()
             terms += [
-                symbolic.GEQConstant(
+                symbolic.Between(
                     ixs1=ixs,
                     ixs_less_than=not_idxs,
-                    ixs_not=[],
-                    threshold_upper=self.upper_limit,
-                    threshold_lower=self.lower_limit,
-                    threshold_limit=self.lower_limit,
+                    threshold_upper=(0, 3),
+                    threshold_lower=-5.89,
                     device=self.device,
                 )
             ]
@@ -273,6 +271,7 @@ class Cifar100Experiment(Cifar100Base):
             #         p.squeeze(1), y_onehot, reduction="none"
             #     ).sum(dim=1)
             # ]
+
 
         pred_loss = torch.stack(ll, dim=1)
 
