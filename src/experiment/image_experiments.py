@@ -235,7 +235,7 @@ class Cifar100Base(BaseImageExperiment):
                     ixs_less_than=not_idxs,
                     ixs_not=[],
                     threshold_upper=self.upper_limit,
-                    threshold_lower=self.upper_limit - 1,
+                    threshold_lower=self.lower_limit,
                     threshold_limit=self.lower_limit,
                     device=self.device,
                 )
@@ -264,17 +264,19 @@ class Cifar100Experiment(Cifar100Base):
         class_preds, logic_preds = output
         ll = []
         for j, p in enumerate(class_preds.split(1, dim=1)):
-            y_onehot = torch.zeros_like(p.squeeze(1))
-            y_onehot.scatter_(1, target[:, None], 1)
-            y_onehot = y_onehot.mm(self.class_mapping)
-            ll += [
-                F.binary_cross_entropy_with_logits(
-                    p.squeeze(1), y_onehot, reduction="none"
-                ).sum(dim=1)
-            ]
+            ll += [F.cross_entropy(p.squeeze(1), target, reduction="none")]
+            # y_onehot = torch.zeros_like(p.squeeze(1))
+            # y_onehot.scatter_(1, target[:, None], 1)
+            # y_onehot = y_onehot.mm(self.class_mapping)
+            # ll += [
+            #     F.binary_cross_entropy_with_logits(
+            #         p.squeeze(1), y_onehot, reduction="none"
+            #     ).sum(dim=1)
+            # ]
 
         pred_loss = torch.stack(ll, dim=1)
-        recon_losses, labels = pred_loss.min(dim=1)
+
+        # recon_losses, labels = pred_loss.min(dim=1)
 
         loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
         # loss += recon_losses.mean()
@@ -299,8 +301,9 @@ class Cifar100Experiment(Cifar100Base):
         super(Cifar100Experiment, self).update_train_meters(loss, output, targets)
 
     def epoch_finished_hook(self, epoch, model, val_loader):
-        if epoch % 5 == 4:
-            model.threshold1p()
+        pass
+        # if epoch % 5 == 4:
+        #     model.threshold1p()
 
 
 class VanillaBaseline(Cifar100Base):
@@ -437,7 +440,7 @@ class DL2Baseline(Cifar100Base):
 
 
 image_experiment_options = {
-    "cifar10_multiplexnet": Cifar100Experiment,
+    "cifar100_multiplexnet": Cifar100Experiment,
     "cifar100_baseline_full": VanillaBaseline,
     "cifar100_baseline_superclass_only": SuperclassOnly,
     "cifar100_hierarchical_baseline": HierarchicalBaseline,
