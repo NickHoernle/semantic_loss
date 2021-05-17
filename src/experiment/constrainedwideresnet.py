@@ -13,6 +13,11 @@ class ConstrainedModel(nn.Module):
 
         self.encoder = WideResNet(depth, classes, widen_factor, dropRate=dropRate)
 
+        self.fc = nn.Sequential(
+            nn.ReLU(),
+            nn.Linear(self.nclasses, self.nclasses)
+        )
+
         self.logic_pred = nn.Sequential(
             nn.ReLU(),
             nn.Linear(self.nclasses, self.nterms)
@@ -25,6 +30,4 @@ class ConstrainedModel(nn.Module):
 
     def forward(self, x, test=False):
         ps = self.encoder(x)
-        preds = self.logic_pred(ps)
-
-        return self.decoder(ps, preds, test)
+        return self.decoder(self.fc(ps), self.logic_pred(ps), test)
