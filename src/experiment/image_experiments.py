@@ -230,11 +230,13 @@ class Cifar100Base(BaseImageExperiment):
             all_idsx = np.arange(len(self.classes))
             not_idxs = all_idsx[~np.isin(all_idsx, ixs)].tolist()
             terms += [
-                symbolic.Between(
+                symbolic.GEQConstant(
                     ixs1=ixs,
                     ixs_less_than=not_idxs,
-                    threshold_upper=(0, 3),
-                    threshold_lower=-5.89,
+                    ixs_not=[],
+                    # threshold_upper=0,
+                    more_likely_multiplier=10,
+                    # threshold_lower=-5.89,
                     device=self.device,
                 )
             ]

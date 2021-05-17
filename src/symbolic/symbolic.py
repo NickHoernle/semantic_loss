@@ -32,9 +32,7 @@ class GEQConstant(nn.Module):
             ixs1,
             ixs_not,
             ixs_less_than,
-            threshold_upper,
-            threshold_lower,
-            threshold_limit,
+            more_likely_multiplier,
             **kwargs
     ):
         super(GEQConstant, self).__init__()
@@ -43,9 +41,7 @@ class GEQConstant(nn.Module):
         self.ixs_neg = ixs_less_than
         self.ixs_not = ixs_not
 
-        self.threshold_upper = threshold_upper
-        self.threshold_lower = threshold_lower
-        self.threshold_limit = threshold_limit
+        self.more_likely_multiplier = more_likely_multiplier
 
         self.forward_transform = self.ixs1 + self.ixs_neg
         self.reverse_transform = np.argsort(self.forward_transform)
@@ -60,10 +56,10 @@ class GEQConstant(nn.Module):
         split2 = x[:, self.ixs_neg]
         split3 = x[:, self.ixs_not]
 
-        restricted1 = F.softplus(split1)+self.threshold_upper
-        restricted2 = -F.softplus(-split2)+self.threshold_lower
+        restricted1 = F.softplus(split1) + torch.max(split2, dim=1)[0][:,None] + np.log(self.more_likely_multiplier)
+        # restricted2 = -F.softplus(-split2)+self.threshold_lower
 
-        return torch.cat((restricted1, restricted2, split3), dim=1)[
+        return torch.cat((restricted1, split2, split3), dim=1)[
             :, self.reverse_transform
         ]
 
