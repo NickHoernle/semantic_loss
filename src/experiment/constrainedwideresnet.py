@@ -15,7 +15,6 @@ class ConstrainedModel(nn.Module):
 
         self.logic_pred = nn.Sequential(
             nn.ReLU(),
-            nn.BatchNorm1d(self.nclasses),
             nn.Linear(self.nclasses, self.nterms)
         )
 
