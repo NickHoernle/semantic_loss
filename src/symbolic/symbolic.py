@@ -56,7 +56,7 @@ class GEQConstant(nn.Module):
         split2 = x[:, self.ixs_neg]
         split3 = x[:, self.ixs_not]
 
-        restricted1 = F.softplus(split1) + torch.max(split2, dim=1)[0][:,None] + np.log(self.more_likely_multiplier)
+        restricted1 = split1.log_softmax(dim=1) + torch.logsumexp(split2, dim=1)[:, None] + np.log(self.more_likely_multiplier)
         # restricted2 = -F.softplus(-split2)+self.threshold_lower
 
         return torch.cat((restricted1, split2, split3), dim=1)[

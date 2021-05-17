@@ -263,8 +263,8 @@ class Cifar100Experiment(Cifar100Base):
 
         class_preds, logic_preds = output
         ll = []
-        for j, p in enumerate(class_preds.split(1, dim=1)):
-            ll += [F.cross_entropy(p.squeeze(1), target, reduction="none")]
+        for j, logic_branch in enumerate(class_preds.split(1, dim=1)):
+            ll += [F.cross_entropy(logic_branch.squeeze(1), target, reduction="none")]
             # y_onehot = torch.zeros_like(p.squeeze(1))
             # y_onehot.scatter_(1, target[:, None], 1)
             # y_onehot = y_onehot.mm(self.class_mapping)
@@ -273,7 +273,6 @@ class Cifar100Experiment(Cifar100Base):
             #         p.squeeze(1), y_onehot, reduction="none"
             #     ).sum(dim=1)
             # ]
-
 
         pred_loss = torch.stack(ll, dim=1)
 
