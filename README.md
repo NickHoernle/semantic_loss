@@ -22,6 +22,19 @@ To achieve this just extend the `PYTHONPATH` variable to also point to the DL2 d
 export PYTHONPATH="${PYTHONPATH}:{path_to_dl2}"
 ```
 
+Moreover, we had to change the requirements to allow for `pytorch > 1.0.0`: (in requirements.txt)
+```
+torch>=1.0.0
++torchvision>=0.2.1
+```
+
+We also had to change the definition of how the `OR` loss is calculated to not compute the mean across an entire input but rather element-wise: (in dl2lib/diffsat.py at this [line](https://github.com/eth-sri/dl2/blob/9842cdf2b145c24481eb81e13ed66b2600f196fc/dl2lib/diffsat.py#L137)):
+```
+elif getattr(args, 'or') == 'min':
+-    return torch.cat(losses).min()
++    return torch.stack(losses, dim=1).min(dim=1)[0]
+```
+
 # Execution:
 
 Run CIFAR10 experiment:

@@ -64,6 +64,8 @@ CONDA_ENV_NAME=sloss
 echo "Activating conda environment: ${CONDA_ENV_NAME}"
 conda activate ${CONDA_ENV_NAME}
 
+export PYTHONPATH="${PYTHONPATH}:{~/git/dl2}"
+
 
 # =================================
 # Move input data to scratch disk
