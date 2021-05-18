@@ -9,6 +9,16 @@ from experiment.wideresnet import WideResNet, HierarchicalModel
 from experiment.class_mapping import *
 import torch.nn as nn
 
+import dl2lib as dl2
+
+# This is to shoe horn the default DL2 args into this project for the baseline tests.
+import argparse
+parser = argparse.ArgumentParser(description='desc')
+parser.add("--use-eps", default=False, required=False, help="use the +epsilon translation for strict inequalities")
+parser.add_argument("--eps-check", type=float, default=0, required=False)
+parser.add_argument('--or', default='min', type=str)
+dl2_args = parser.parse_known_args()[0]
+
 
 class BaseImageExperiment(train.Experiment):
     """Experimental setup for training with domain knowledge specified by a DNF logic formula on the CIFAR10 and CIFAR100 datasets. Wraps: train.Experiment.
@@ -220,16 +230,22 @@ class Cifar100Base(BaseImageExperiment):
         self.num_classes = 100
         self.num_super_classes = 20
         super().__init__(**kwargs)
+        self.idxs_ = []
+
+    @property
+    def class_index_mapping(self):
+        if len(self.idxs_) == 0:
+            self.idxs_ = [
+                [i for i, c in enumerate(self.classes) if superclass_mapping[c] == label]
+                for label, ix in sorted(super_class_label.items(), key=lambda x: x[1])
+            ]
+        return self.idxs_
 
     @property
     def logic_terms(self):
-        idxs = [
-            [i for i, c in enumerate(self.classes) if superclass_mapping[c] == label]
-            for label, ix in sorted(super_class_label.items(), key=lambda x: x[1])
-        ]
 
         terms = []
-        for i, ixs in enumerate(idxs):
+        for i, ixs in enumerate(self.class_index_mapping):
             all_idsx = np.arange(len(self.classes))
             not_idxs = all_idsx[~np.isin(all_idsx, ixs)].tolist()
             terms += [
@@ -410,22 +426,33 @@ class HierarchicalBaseline(Cifar100Base):
         super().update_train_meters(loss, output, targets)
 
 
-class DL2Baseline(Cifar100Base):
+class DL2Baseline(VanillaBaseline):
     def __init__(self, **kwargs):
-        self.name = "Cifar100-DL2Baseline"
         super().__init__(**kwargs)
-
-    def create_model(self):
-        return WideResNet(
-            self.layers, self.num_classes, self.widen_factor, dropRate=self.droprate
-        )
+        self.name = "Cifar100-DL2Baseline"
+        self.ratio = 1.0
+        self.constraint_weight = 0.6
+        self.increase_constraint_weight = 1.0
 
     def criterion(self, output, targets, train=True):
-        pass
-
-    def update_train_meters(self, loss, output, targets):
         (target, sc_target) = targets
 
+        dl2_one_group = []
+
+        eps = .01
+        probs_u = output.softmax(dim=1)
+
+        for i, ixs in enumerate(self.class_index_mapping):
+            gsum = probs_u[:, ixs].sum(dim=1)
+            dl2_one_group.append(dl2.Or([dl2.GT(gsum, 1.0 - eps), dl2.LT(gsum, eps)]))
+
+        dl2_one_group = dl2.And(dl2_one_group)
+        dl2_loss = dl2_one_group.loss(dl2_args).mean()
+
+        return self.loss_criterion(output, target) + (self.constraint_weight * self.increase_constraint_weight) * dl2_loss
+
+    def epoch_finished_hook(self, epoch, model, val_loader):
+        self.increase_constraint_weight = self.ratio ** epoch # see https://github.com/eth-sri/dl2/blob/9842cdf2b145c24481eb81e13ed66b2600f196fc/training/semisupservised/main.py#L316
 
 
 image_experiment_options = {

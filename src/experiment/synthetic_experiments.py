@@ -17,6 +17,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('Agg')
 
+# This is to shoe horn the default DL2 args into this project for the baseline tests.
+import argparse
+parser = argparse.ArgumentParser(description='desc')
+parser.add_argument("--eps-check", type=float, default=0, required=False)
+parser.add_argument('--or', default='min', type=str)
+dl2_args = parser.parse_known_args()[0]
+
 
 class BaseSyntheticExperiment(train.Experiment):
     """Experimental setup for training with domain knowledge specified by a DNF logic formula on the synthetic dataset with continuous constraints. Wraps: train.Experiment.
@@ -359,18 +366,6 @@ class DL2SyntheticExperiment(PartiallyKnownConstraintsSyntheticExperiment):
         super().__init__(name=name, **kwargs)
         print('before')
         self.model = self.create_model()
-        # self.oracle = DL2_Oracle(learning_rate=0.01, net=self.model, constraint=constraint, use_cuda=use_cuda)
-        parser = argparse.ArgumentParser(description='desc')
-        # parser.add("--eps-const", type=float, default=1e-5, required=False, help="the epsilon for boolean constants")
-        parser.add_argument("--eps-check", type=float, default=0, required=False,
-                   help="the epsilon for checking comparisons of floating point values; note that a nonzero value slightly changes the semantics of DL2")
-        parser.add_argument('--or', default='min', type=str,
-                            help='help this is a hack')
-        try:
-            self._args = parser.parse_args()
-            self._args = parser.parse_known_args()[0]
-        except:
-            self._args = parser.parse_known_args()[0]
         self.dl2_multiplier = dl2_multiplier
         print("done")
 
@@ -457,7 +452,7 @@ class DL2SyntheticExperiment(PartiallyKnownConstraintsSyntheticExperiment):
 
         # dl2 constraint loss
         if self.state == "train":
-            loss += self.dl2_multiplier * (constraint.loss(self._args))
+            loss += self.dl2_multiplier * (constraint.loss(dl2_args))
 
         # KLD loss
         return loss.mean()
