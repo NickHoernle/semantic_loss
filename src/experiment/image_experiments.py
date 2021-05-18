@@ -268,22 +268,10 @@ class Cifar100Experiment(Cifar100Base):
         ll = []
         for j, logic_branch in enumerate(class_preds.split(1, dim=1)):
             ll += [F.cross_entropy(logic_branch.squeeze(1), target, reduction="none")]
-            # y_onehot = torch.zeros_like(p.squeeze(1))
-            # y_onehot.scatter_(1, target[:, None], 1)
-            # y_onehot = y_onehot.mm(self.class_mapping)
-            # ll += [
-            #     F.binary_cross_entropy_with_logits(
-            #         p.squeeze(1), y_onehot, reduction="none"
-            #     ).sum(dim=1)
-            # ]
 
         pred_loss = torch.stack(ll, dim=1)
 
-        # recon_losses, labels = pred_loss.min(dim=1)
-
         loss = (logic_preds.exp() * (pred_loss + logic_preds)).sum(dim=1).mean()
-        # loss += recon_losses.mean()
-        # loss += F.nll_loss(logic_preds, labels)
 
         return loss
 
@@ -305,8 +293,6 @@ class Cifar100Experiment(Cifar100Base):
 
     def epoch_finished_hook(self, epoch, model, val_loader):
         pass
-        # if epoch % 5 == 4:
-        #     model.threshold1p()
 
 
 class VanillaBaseline(Cifar100Base):
