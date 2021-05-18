@@ -1,3 +1,6 @@
+import sys
+sys.path.append('../../dl2')
+
 from experiment.generative import LinearVAE, ConstrainedVAE
 from experiment.datasets import (get_synthetic_loaders)
 from symbolic.utils import (AccuracyMeter, AverageMeter, save_figure)

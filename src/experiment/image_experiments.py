@@ -1,3 +1,6 @@
+import sys
+sys.path.append('../../dl2')
+
 import torch.nn.functional as F
 
 from symbolic import symbolic
