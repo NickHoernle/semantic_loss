@@ -126,10 +126,12 @@ class BaseImageExperiment(train.Experiment):
         loss = AverageMeter()
         accuracy = AccuracyMeter()
         superclass_accuracy = AccuracyMeter()
+        constraint = AccuracyMeter()
         self.losses = {
             "loss": loss,
             "accuracy": accuracy,
             "superclass_accuracy": superclass_accuracy,
+            "constraint": constraint
         }
 
     def get_val_loss(self):
@@ -181,7 +183,8 @@ class BaseImageExperiment(train.Experiment):
         text = (
             f'{type} [{epoch+1}/{self.epochs}]: Loss {round(self.losses["loss"].avg, 3)}\t '
             f'Acc {round(self.losses["accuracy"].avg, 3)}\t'
-            f'AccSC {round(self.losses["superclass_accuracy"].avg, 3)}\n'
+            f'AccSC {round(self.losses["superclass_accuracy"].avg, 3)}\t'
+            f'ConstraintAcc {round(self.losses["constraint"].avg, 3)}\n'
         )
         self.logfile.write(text)
         print(text, end="")
@@ -301,10 +304,16 @@ class Cifar100Experiment(Cifar100Base):
         self.losses["accuracy"].update(
             (class_preds.argmax(dim=1) == target).tolist(), target.size(0)
         )
+
         self.losses["superclass_accuracy"].update(
             (logic_preds.argmax(dim=1) == sc_target).tolist(),
             target.data.shape[0],
         )
+
+        valid_constraints = [t.valid(class_preds) for t in self.logic_terms]
+        v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
+        self.losses["constraint"].update(v_c.tolist(), v_c.size(0))
+
         super(Cifar100Experiment, self).update_train_meters(loss, output, targets)
 
     def epoch_finished_hook(self, epoch, model, val_loader):
@@ -345,6 +354,11 @@ class VanillaBaseline(Cifar100Base):
             (new_pred.data.argmax(dim=1) == sc_target).tolist(),
             output.data.shape[0],
         )
+
+        valid_constraints = [t.valid(output) for t in self.logic_terms]
+        v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
+        self.losses["constraint"].update(v_c.tolist(), v_c.size(0))
+
         super(VanillaBaseline, self).update_train_meters(loss, output, targets)
 
 

@@ -47,8 +47,11 @@ class GEQConstant(nn.Module):
         self.reverse_transform = np.argsort(self.forward_transform)
 
     def threshold1p(self):
-        if self.threshold_lower > self.threshold_limit:
-            self.threshold_lower -= 1
+        pass
+
+    def valid(self, x):
+        split1 = x.softmax(dim=1)[:, self.ixs1].sum(dim=1)
+        return split1 > .99
 
     def forward(self, x):
 
