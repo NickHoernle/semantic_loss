@@ -1,5 +1,7 @@
 import sys
-sys.path.append('../../dl2')
+import os
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(ROOT_DIR, '../../../dl2'))
 
 import torch.nn.functional as F
 
