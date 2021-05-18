@@ -161,6 +161,9 @@ class BaseSyntheticExperiment(train.Experiment):
             "constraint": constraint,
         }
 
+    def get_val_loss(self):
+        return self.losses["loss"].avg
+
     def get_input_data(self, data):
         samples = data[0].to(self.device)
         # labels = data[1].to(self.device)

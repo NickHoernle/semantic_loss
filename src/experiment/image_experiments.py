@@ -122,6 +122,9 @@ class BaseImageExperiment(train.Experiment):
             "superclass_accuracy": superclass_accuracy,
         }
 
+    def get_val_loss(self):
+        return self.losses["accuracy"].avg
+
     def get_input_data(self, data):
         input_imgs, targets = data
         input_imgs = input_imgs.to(self.device)

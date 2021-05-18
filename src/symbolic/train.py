@@ -241,6 +241,9 @@ class Experiment(ABC):
     def run_validation(self, epoch):
         return True
 
+    def get_val_loss(self):
+        return self.losses.avg
+
 
 def main(experiment):
 
@@ -301,10 +304,11 @@ def main(experiment):
 
         if experiment.run_validation(epoch):
             # evaluate on validation set
-            val1 = validate(val_loader, model, epoch, experiment)
+            validate(val_loader, model, epoch, experiment)
+            val_loss = experiment.get_val_loss()
 
             # remember best prec@1 and save checkpoint
-            is_best = experiment.update_best(val1)
+            is_best = experiment.update_best(val_loss)
             save_checkpoint(
                 {
                     "epoch": epoch + 1,

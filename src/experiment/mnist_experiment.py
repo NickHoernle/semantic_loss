@@ -205,6 +205,9 @@ class BaseMNISTExperiment(train.Experiment):
             "entropy": entropy,
         }
 
+    def get_val_loss(self):
+        return self.losses["loss"].avg
+
     def get_input_data(self, data):
         (in_data1, in_target1), (in_data2, in_target2), (in_data3, in_target3), (in_data4, in_target4) = data
 
