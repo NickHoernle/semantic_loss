@@ -125,6 +125,12 @@ class BaseImageExperiment(train.Experiment):
     def get_val_loss(self):
         return self.losses["accuracy"].avg
 
+    def update_best(self, val):
+        if val > self.best_loss:
+            self.best_loss = val
+            return True
+        return False
+
     def get_input_data(self, data):
         input_imgs, targets = data
         input_imgs = input_imgs.to(self.device)
@@ -169,12 +175,6 @@ class BaseImageExperiment(train.Experiment):
         )
         self.logfile.write(text)
         print(text, end="")
-
-    def update_best(self, val):
-        if val < self.best_loss:
-            self.best_loss = val
-            return True
-        return False
 
     def run_validation(self, epoch):
         if epoch % 5 == 0:
