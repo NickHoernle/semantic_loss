@@ -6,29 +6,23 @@ pip install -e .
 
 # Installing DL2:
 
-First clone DL2 in a separate directory and install it using the following commands:
+First clone DL2 into **the same directory that houses** this MultiPlexNet package:
 
+Then change the requirements to allow for `pytorch > 1.0.0`: (in requirements.txt)
+```
+torch>=1.0.0
++torchvision>=0.2.1
+```
+
+Next install the dl2 requirements
 ```
 git clone https://github.com/eth-sri/dl2
 cd dl2
 pip install -r requirements.txt
 ```
 
-If you are using a virtual environment then make sure to install DL2 in that environment.
-Now DL2 can be imported as a python libary.
-To achieve this just extend the `PYTHONPATH` variable to also point to the DL2 directory:
 
-```
-export PYTHONPATH="${PYTHONPATH}:{path_to_dl2}"
-```
-
-Moreover, we had to change the requirements to allow for `pytorch > 1.0.0`: (in requirements.txt)
-```
-torch>=1.0.0
-+torchvision>=0.2.1
-```
-
-We also had to change the definition of how the `OR` loss is calculated to not compute the mean across an entire input but rather element-wise: (in dl2lib/diffsat.py at this [line](https://github.com/eth-sri/dl2/blob/9842cdf2b145c24481eb81e13ed66b2600f196fc/dl2lib/diffsat.py#L137)):
+Finally, we also had to change the definition of how the `OR` loss is calculated to not compute the mean across an entire input but rather element-wise: (in dl2lib/diffsat.py at this [line](https://github.com/eth-sri/dl2/blob/9842cdf2b145c24481eb81e13ed66b2600f196fc/dl2lib/diffsat.py#L137)):
 ```
 elif getattr(args, 'or') == 'min':
 -    return torch.cat(losses).min()

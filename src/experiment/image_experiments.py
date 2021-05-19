@@ -68,6 +68,7 @@ class BaseImageExperiment(train.Experiment):
 
         super().__init__(**kwargs)
 
+        self.best_loss = -np.infty
         self.loss_criterion = nn.CrossEntropyLoss().to(self.device)
 
     @property
