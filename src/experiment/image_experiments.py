@@ -263,7 +263,7 @@ class Cifar100Base(BaseImageExperiment):
                     ixs_less_than=not_idxs,
                     ixs_not=[],
                     # threshold_upper=0,
-                    more_likely_multiplier=10,
+                    more_likely_multiplier=.95,
                     # threshold_lower=-5.89,
                     device=self.device,
                 )
