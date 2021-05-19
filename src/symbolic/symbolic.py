@@ -63,7 +63,7 @@ class GEQConstant(nn.Module):
         restricted11 = split1[:, 1:]
         z1 = restricted11.logsumexp(dim=1)[:, None]
 
-        restricted10 = split1[:, 0][:, :None] + torch.log((z2.exp() * 99./1. - z1.exp()))
+        restricted10 = split1[:, 0][:, None] + torch.log((z2.exp() * 99./1. - z1.exp()))
 
         return torch.cat((restricted10, restricted11, split2, split3), dim=1)[
             :, self.reverse_transform
