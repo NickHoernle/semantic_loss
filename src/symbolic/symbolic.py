@@ -43,14 +43,14 @@ class GEQConstant(nn.Module):
 
         self.more_likely_multiplier = more_likely_multiplier
 
-        self.forward_transform = self.ixs1 + self.ixs_neg
+        self.forward_transform = self.ixs1 + self.ixs_neg + self.ixs_not
         self.reverse_transform = np.argsort(self.forward_transform)
 
     def threshold1p(self):
         pass
 
     def valid(self, x):
-        split1 = x.softmax(dim=1)[:, self.ixs1].sum(dim=1)
+        split1 = x.softmax(dim=1)[:, self.ixs1 + self.ixs_not].sum(dim=1)
         return split1 >= .99
 
     def forward(self, x):
@@ -60,8 +60,8 @@ class GEQConstant(nn.Module):
         split3 = x[:, self.ixs_not]
 
         z2 = split2.logsumexp(dim=1)[:, None]
-        restricted1 = F.softplus(split1) + np.log(0.99/0.01) + z2
-
+        restricted1 = F.softplus(split1) + np.log(0.99) - np.log(0.01) + z2
+        
         return torch.cat((restricted1, split2, split3), dim=1)[
             :, self.reverse_transform
         ]

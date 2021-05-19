@@ -257,17 +257,18 @@ class Cifar100Base(BaseImageExperiment):
         for i, ixs in enumerate(self.class_index_mapping):
             all_idsx = np.arange(len(self.classes))
             not_idxs = all_idsx[~np.isin(all_idsx, ixs)].tolist()
-            terms += [
-                symbolic.GEQConstant(
-                    ixs1=ixs,
-                    ixs_less_than=not_idxs,
-                    ixs_not=[],
-                    # threshold_upper=0,
-                    more_likely_multiplier=10,
-                    # threshold_lower=-5.89,
-                    device=self.device,
-                )
-            ]
+            for ix in ixs:
+                terms += [
+                    symbolic.GEQConstant(
+                        ixs1=[ix],
+                        ixs_less_than=not_idxs,
+                        ixs_not=[i for i in ixs if i != ix],
+                        # threshold_upper=0,
+                        more_likely_multiplier=10,
+                        # threshold_lower=-5.89,
+                        device=self.device,
+                    )
+                ]
 
         return terms
 
@@ -307,13 +308,28 @@ class Cifar100Experiment(Cifar100Base):
         ixs = np.arange(target.size(0))
         class_preds = cp[ixs, logic_preds.argmax(dim=1)]
 
+        # self.losses["accuracy"].update(
+        #     (class_preds.argmax(dim=1) == target).tolist(), target.size(0)
+        # )
+        #
+        # self.losses["superclass_accuracy"].update(
+        #     (logic_preds.argmax(dim=1) == sc_target).tolist(),
+        #     target.data.shape[0],
+        # )
+
         self.losses["accuracy"].update(
             (class_preds.argmax(dim=1) == target).tolist(), target.size(0)
         )
 
+        forward_mapping = [int(c) for ixs in self.class_idxs for c in ixs]
+
+        split = class_preds.softmax(dim=1)[:, forward_mapping].split(
+            [len(i) for i in self.class_idxs], dim=1
+        )
+        new_pred = torch.stack([s.sum(dim=1) for s in split], dim=1)
         self.losses["superclass_accuracy"].update(
-            (logic_preds.argmax(dim=1) == sc_target).tolist(),
-            target.data.shape[0],
+            (new_pred.data.argmax(dim=1) == sc_target).tolist(),
+            target.size(0),
         )
 
         valid_constraints = [t.valid(class_preds) for t in self.logic_terms]
