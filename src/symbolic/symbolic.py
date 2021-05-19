@@ -51,7 +51,7 @@ class GEQConstant(nn.Module):
 
     def valid(self, x):
         split1 = x.softmax(dim=1)[:, self.ixs1].sum(dim=1)
-        return split1 > .99
+        return split1 >= .99
 
     def forward(self, x):
 
@@ -60,9 +60,12 @@ class GEQConstant(nn.Module):
         split3 = x[:, self.ixs_not]
 
         z2 = split2.logsumexp(dim=1)[:, None]
-        restricted1 = F.softplus(split1) + z2 - np.log(5) + np.log(99/1)
+        restricted11 = split1[:, 1:]
+        z1 = restricted11.logsumexp(dim=1)[:, None]
 
-        return torch.cat((restricted1, split2, split3), dim=1)[
+        restricted10 = split1[:, 0][:, :None] + torch.log((z2.exp() * 99./1. - z1.exp()))
+
+        return torch.cat((restricted10, restricted11, split2, split3), dim=1)[
             :, self.reverse_transform
         ]
 

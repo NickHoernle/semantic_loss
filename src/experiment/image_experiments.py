@@ -273,8 +273,8 @@ class Cifar100Base(BaseImageExperiment):
 
 class Cifar100Experiment(Cifar100Base):
     def __init__(self, **kwargs):
-        self.name = "Cifar100-MultiplexNet"
         super().__init__(**kwargs)
+        self.name = "Cifar100-MultiplexNet"
 
     def create_model(self):
         return ConstrainedModel(
@@ -369,8 +369,8 @@ class VanillaBaseline(Cifar100Base):
 
 class SuperclassOnly(Cifar100Base):
     def __init__(self, **kwargs):
-        self.name = "Cifar100-SuperclassOnly"
         super().__init__(**kwargs)
+        self.name = "Cifar100-SuperclassOnly"
 
     def create_model(self):
         return WideResNet(
@@ -394,8 +394,8 @@ class SuperclassOnly(Cifar100Base):
 
 class HierarchicalBaseline(Cifar100Base):
     def __init__(self, **kwargs):
-        self.name = "Cifar100-HierarchicalBaseline"
         super().__init__(**kwargs)
+        self.name = "Cifar100-HierarchicalBaseline"
 
     def create_model(self):
         return HierarchicalModel(
