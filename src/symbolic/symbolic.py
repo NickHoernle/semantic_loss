@@ -60,9 +60,9 @@ class GEQConstant(nn.Module):
         split3 = x[:, self.ixs_not]
 
         restricted11 = split1[:, 1:]
-        z2 = torch.cat((split2, -0.01/0.99*restricted11), dim=1).logsumexp(dim=1)[:, None]
+        z2 = torch.cat((split2, -(restricted11+np.log(0.01/0.99))), dim=1).logsumexp(dim=1)[:, None]
 
-        restricted10 = F.softplus(split1[:, 0][:, None]) + torch.log(0.99/0.01) + z2
+        restricted10 = F.softplus(split1[:, 0][:, None]) + np.log(0.99/0.01) + z2
 
         return torch.cat((restricted10, restricted11, split2, split3), dim=1)[
             :, self.reverse_transform
