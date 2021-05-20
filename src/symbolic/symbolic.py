@@ -47,8 +47,6 @@ class GEQConstant(nn.Module):
         self.more_likely_multiplier = more_likely_multiplier
 
         self.multiplier = more_likely_multiplier/(1-more_likely_multiplier)
-        self.upperlim = 0
-        self.lowerlim = -np.log(((self.multiplier*(100-5))/5))
 
     def threshold1p(self):
         pass
@@ -63,10 +61,10 @@ class GEQConstant(nn.Module):
         split2 = x[:, self.ixs_neg]
         split3 = x[:, self.ixs_not]
 
-        restricted1 = F.softplus(split1) + self.upperlim
-        restricted2 = -F.softplus(-split2) + self.lowerlim
+        z2 = split2.logsumexp(dim=1)[:, None]
+        restricted1 = F.softplus(split1) + np.log(self.multiplier) + z2
 
-        return torch.cat((restricted1, restricted2, split3), dim=1)[
+        return torch.cat((restricted1, split2, split3), dim=1)[
             :, self.reverse_transform
         ]
 
