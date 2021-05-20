@@ -459,7 +459,7 @@ class DL2Baseline(VanillaBaseline):
 
         dl2_one_group = []
 
-        eps = .01
+        eps = .05
         probs_u = output.softmax(dim=1)
 
         for i, ixs in enumerate(self.class_index_mapping):
