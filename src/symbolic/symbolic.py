@@ -32,7 +32,7 @@ class GEQConstant(nn.Module):
             ixs1,
             ixs_not,
             ixs_less_than,
-            more_likely_multiplier=.95,
+            more_likely_multiplier=.99,
             **kwargs
     ):
         super(GEQConstant, self).__init__()
@@ -62,7 +62,7 @@ class GEQConstant(nn.Module):
         split3 = x[:, self.ixs_not]
 
         z2 = split2.logsumexp(dim=1)[:, None]
-        restricted1 = F.softplus(split1) + z2
+        restricted1 = F.softplus(split1) + np.log(self.multiplier) + z2
 
         return torch.cat((restricted1, split2, split3), dim=1)[
             :, self.reverse_transform
