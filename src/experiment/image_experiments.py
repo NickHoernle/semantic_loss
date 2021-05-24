@@ -51,6 +51,7 @@ class BaseImageExperiment(train.Experiment):
         sloss: bool = False,
         superclass: bool = False,
         name: str = "WideResNet",
+        train_size: float = 0.8,
         **kwargs,
     ):
         self.lower_limit = lower_limit
@@ -96,7 +97,7 @@ class BaseImageExperiment(train.Experiment):
             batch_size=self.batch_size,
             augment=self.augment,
             random_seed=self.seed,
-            valid_size=0.75,
+            valid_size=1-self.train_size,
             shuffle=True,
             dataset=self.dataset,
             num_workers=self.num_workers,
