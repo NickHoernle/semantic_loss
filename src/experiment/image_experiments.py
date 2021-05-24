@@ -62,6 +62,7 @@ class BaseImageExperiment(train.Experiment):
         self.sloss = sloss
         self.superclass = superclass
         self.name = name
+        self.train_size = train_size
 
         self.classes = []
         self.class_mapping_ = None
