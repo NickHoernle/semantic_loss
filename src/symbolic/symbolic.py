@@ -32,7 +32,7 @@ class GEQConstant(nn.Module):
             ixs1,
             ixs_not,
             ixs_less_than,
-            more_likely_multiplier=.99,
+            more_likely_multiplier=.95,
             **kwargs
     ):
         super(GEQConstant, self).__init__()

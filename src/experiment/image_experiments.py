@@ -96,7 +96,7 @@ class BaseImageExperiment(train.Experiment):
             batch_size=self.batch_size,
             augment=self.augment,
             random_seed=self.seed,
-            valid_size=0.1,
+            valid_size=0.75,
             shuffle=True,
             dataset=self.dataset,
             num_workers=self.num_workers,

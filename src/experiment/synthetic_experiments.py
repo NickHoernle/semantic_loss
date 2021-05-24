@@ -89,12 +89,14 @@ class BaseSyntheticExperiment(train.Experiment):
             ax.plot([p2[0], p4[0]], [p2[1], p4[1]], c="C3")
             ax.plot([p1[0], p3[0]], [p1[1], p3[1]], c="C3")
 
-        ax.legend(loc="best")
+        ax.legend(loc="best", fontsize=18)
         save_figure(fig, fig_file, self)
 
-    def plot_validation_reconstructions(self, epoch, model, loader):
-        fig = plt.figure(figsize=(4, 4))
-        ax = fig.gca()
+    def plot_validation_reconstructions(self, epoch, model, loader, ax=None, fig=None):
+        if type(ax) == type(None):
+            fig = plt.figure(figsize=(4, 4))
+            ax = fig.gca()
+
         recons = []
         for i, data in enumerate(loader):
             model_input = self.get_input_data(data)
@@ -106,28 +108,34 @@ class BaseSyntheticExperiment(train.Experiment):
         recons = torch.cat(recons, dim=0)
         valid_constraints = [t.valid(recons) for t in self.logic_terms]
         v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
-        ax.scatter(*recons[v_c].numpy().T, s=0.5, label="valid", c="C2")
-        ax.scatter(*recons[~v_c].numpy().T, s=0.5, label="invalid", c="C3")
-        ax.legend(loc="best")
-        fig_file = os.path.join(self.figures_directory,
-                                f"{epoch}_reconstruction.png")
-        save_figure(fig, fig_file, self)
+        ax.scatter(*recons[v_c].numpy().T, s=10, alpha=.5, label="SAT", c="C2")
+        ax.scatter(*recons[~v_c].numpy().T, s=10, alpha=.5, label="unSAT", c="C3")
+        ax.legend(loc="best", fontsize=18)
 
-    def plot_prior_samples(self, epoch, model, loader):
-        fig = plt.figure(figsize=(4, 4))
-        ax = fig.gca()
+        if type(ax) == type(None):
+            fig_file = os.path.join(self.figures_directory, f"{epoch}_reconstruction.png")
+            save_figure(fig, fig_file, self)
+
+        return ax
+
+    def plot_prior_samples(self, epoch, model, loader, ax=None, fig=None):
+        if type(ax) == type(None):
+            fig = plt.figure(figsize=(4, 4))
+            ax = fig.gca()
 
         z = torch.randn(10000, self.nlatent)
         recons = model.decode(z).detach()
 
         valid_constraints = [t.valid(recons) for t in self.logic_terms]
         v_c = torch.stack(valid_constraints, dim=1).any(dim=1)
-        ax.scatter(*recons[v_c].numpy().T, s=0.5, label="valid", c="C2")
-        ax.scatter(*recons[~v_c].numpy().T, s=0.5, label="invalid", c="C3")
-        ax.legend(loc="best")
-        fig_file = os.path.join(self.figures_directory,
-                                f"{epoch}_prior_samples.png")
-        save_figure(fig, fig_file, self)
+        ax.scatter(*recons[v_c].numpy().T, s=1, alpha=.5, label="valid", c="C2")
+        ax.scatter(*recons[~v_c].numpy().T, s=1, alpha=.5, label="invalid", c="C3")
+        ax.legend(loc="best", fontsize=18)
+        if type(ax) == type(None):
+            fig_file = os.path.join(self.figures_directory,
+                                    f"{epoch}_prior_samples.png")
+            save_figure(fig, fig_file, self)
+        return ax
 
     def epoch_finished_hook(self, *args, **kwargs):
         if not args[0] % 10 == 0:
