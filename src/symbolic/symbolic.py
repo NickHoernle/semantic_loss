@@ -61,10 +61,10 @@ class GEQConstant(nn.Module):
         split2 = x[:, self.ixs_neg]
         split3 = x[:, self.ixs_not]
 
-        z2 = split2.logsumexp(dim=1)[:, None]
-        restricted1 = split1 + np.log(self.multiplier) + z2
+        restricted2 = split2.logsoftmax(dim=1)
+        restricted1 = F.softplus(split1) + np.log(self.multiplier)
 
-        return torch.cat((restricted1, split2, split3), dim=1)[
+        return torch.cat((restricted1, restricted2, split3), dim=1)[
             :, self.reverse_transform
         ]
 
