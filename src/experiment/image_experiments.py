@@ -52,6 +52,7 @@ class BaseImageExperiment(train.Experiment):
         superclass: bool = False,
         name: str = "WideResNet",
         train_size: float = 0.8,
+        alpha: float = 0.95,
         **kwargs,
     ):
         self.lower_limit = lower_limit
@@ -63,6 +64,7 @@ class BaseImageExperiment(train.Experiment):
         self.superclass = superclass
         self.name = name
         self.train_size = train_size
+        self.alpha = alpha
 
         self.classes = []
         self.class_mapping_ = None
@@ -265,7 +267,7 @@ class Cifar100Base(BaseImageExperiment):
                     ixs_less_than=not_idxs,
                     ixs_not=[],
                     # threshold_upper=0,
-                    more_likely_multiplier=.95,
+                    more_likely_multiplier=self.alpha,
                     # threshold_lower=-5.89,
                     device=self.device,
                 )
@@ -461,7 +463,7 @@ class DL2Baseline(VanillaBaseline):
 
         dl2_one_group = []
 
-        eps = .05
+        eps = (1-self.alpha)
         probs_u = output.softmax(dim=1)
 
         for i, ixs in enumerate(self.class_index_mapping):
